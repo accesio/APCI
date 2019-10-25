@@ -23,6 +23,7 @@ For more information please contact the ACCES software department at
 
 #include <sys/ioctl.h>
 #include <linux/errno.h>
+#include <stddef.h>
 
 #include "apcilib.h"
 #include "apci.h"
