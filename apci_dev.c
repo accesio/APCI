@@ -68,6 +68,8 @@ static struct pci_device_id ids[] = {
         { PCI_DEVICE(A_VENDOR_ID, PCI_IIRO_8      ), },
         { PCI_DEVICE(A_VENDOR_ID, PCIe_IIRO_8     ), },
         { PCI_DEVICE(A_VENDOR_ID, MPCIE_DIO_24S   ), },
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_IDIO_12   ), },
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_IDIO_24   ), },
         {0,}
 };
 MODULE_DEVICE_TABLE(pci, ids);
@@ -166,8 +168,10 @@ static struct apci_lookup_table_entry apci_driver_table[] = \
                          APCI_MAKE_ENTRY( PCI_IDIO_16 ),
                          APCI_MAKE_ENTRY( PCI_WDG_2S ),
                          APCI_MAKE_ENTRY( PCI_WDG_CSM ),
-                         APCI_MAKE_ENTRY( PCI_WDG_IMPAC ), 
-                         APCI_MAKE_ENTRY( MPCIE_DIO_24S ), 
+                         APCI_MAKE_ENTRY( PCI_WDG_IMPAC ),
+                         APCI_MAKE_ENTRY( MPCIE_DIO_24S ),
+                         APCI_MAKE_ENTRY( PCIe_IDIO_12 ),
+                         APCI_MAKE_ENTRY( PCIe_IDIO_24 ),
                           );
 
 #define APCI_TABLE_SIZE  sizeof(apci_driver_table)/sizeof(struct apci_lookup_table_entry)
@@ -357,6 +361,8 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
          case PCI_IIRO_16:
          case PCI_IDI_48:
          case PCI_IDIO_16:
+         case PCIe_IDIO_12:
+         case PCIe_IDIO_24:
               ddata->regions[2].start   = pci_resource_start(pdev, 2);
               ddata->regions[2].end     = pci_resource_end(pdev, 2);
               ddata->regions[2].flags   = pci_resource_flags(pdev, 2);
@@ -529,6 +535,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
 {
     struct apci_my_info  *ddata;
     __u8  byte;
+    __u32 dword; 
 
     ddata = (struct apci_my_info *) dev_id;
 
@@ -635,6 +642,12 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
 
         case P104_DIO_96:  /* unknown at this time 6-FEB-2007 */
         case P104_DIO_48S: /* unknown at this time 6-FEB-2007 */
+          break;
+        case PCIe_IDIO_12:
+        case PCIe_IDIO_24:
+          /* read 32 bits from +8 to determine which specific bits have generated a CoS IRQ then write the same value back to +8 to clear those CoS latches */
+          dword = inl(ddata->regions[2].start + 0x8);
+          outl(dword, ddata->regions[2].start + 0x8);
           break;
     };
 

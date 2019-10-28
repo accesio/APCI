@@ -78,6 +78,8 @@
 #define PCI_WDG_CSM	0x22C0
 #define PCI_WDG_IMPAC	0x12D0
 #define MPCIE_DIO_24S   0x0100
+#define PCIe_IDIO_12 0x0FC0
+#define PCIe_IDIO_24 0x0FD0
 
 /* names for the drivers we create */
 #define NAME_PCIe_DIO_24                "pcie_dio_24"
@@ -132,6 +134,9 @@
 #define NAME_PCI_WDG_CSM                "pci_wdg_csm"
 #define NAME_PCI_WDG_IMPAC              "pci_wdg_impac"
 #define NAME_MPCIE_DIO_24S               "mpcie_dio_24s"
+#define NAME_PCIe_IDIO_12				"pcie_idio_12"
+#define NAME_PCIe_IDIO_24				"pcie_idio_24"
+
 
 enum ADDRESS_TYPE {INVALID = 0, IO, MEM};
 typedef enum ADDRESS_TYPE address_type;
