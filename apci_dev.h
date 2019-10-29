@@ -78,6 +78,16 @@
 #define PCI_WDG_CSM	0x22C0
 #define PCI_WDG_IMPAC	0x12D0
 #define MPCIE_DIO_24S   0x0100
+#define MPCIE_IDIO_8  0x0101
+#define MPCIE_IIRO_8  0x0102
+#define MPCIE_IDIO_4  0x0103
+#define MPCIE_IIRO_4  0x0104
+#define MPCIE_IDO_8   0x0105
+#define MPCIE_RO_8    0x0106
+#define MPCIE_II_16   0x0107
+#define MPCIE_II_8    0x0108
+#define MPCIE_II_4    0x0109
+#define MPCIE_DIO_24  0x0C57
 
 /* names for the drivers we create */
 #define NAME_PCIe_DIO_24                "pcie_dio_24"
@@ -131,7 +141,17 @@
 #define NAME_PCI_WDG_2S                 "pci_wdg_2s"
 #define NAME_PCI_WDG_CSM                "pci_wdg_csm"
 #define NAME_PCI_WDG_IMPAC              "pci_wdg_impac"
-#define NAME_MPCIE_DIO_24S               "mpcie_dio_24s"
+#define NAME_MPCIE_DIO_24S              "mpcie_dio_24s"
+#define NAME_MPCIE_IDIO_8               "mpcie_idio_8"
+#define NAME_MPCIE_IIRO_8               "mpcie_iiro_8"
+#define NAME_MPCIE_IDIO_4               "mpcie_idio_4"
+#define NAME_MPCIE_IIRO_4               "mpcie_iiro_4"
+#define NAME_MPCIE_IDO_8                "mpcie_ido_4"
+#define NAME_MPCIE_RO_8                 "mpcie_ro_8"
+#define NAME_MPCIE_II_16                "mpcie_ii_16"
+#define NAME_MPCIE_II_8                 "mpcie_ii_8"
+#define NAME_MPCIE_II_4                 "mpcie_ii_4"
+#define NAME_MPCIE_DIO_24               "mpcie_dio_24"
 
 enum ADDRESS_TYPE {INVALID = 0, IO, MEM};
 typedef enum ADDRESS_TYPE address_type;
