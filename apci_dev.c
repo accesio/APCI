@@ -601,6 +601,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
         case PCI_DIO_48:
         case PCI_DIO_48S:
         case MPCIE_DIO_24:
+        case MPCIE_DIO_24S:
           outb(0, ddata->regions[2].start + 0x0f);
           break;
 
