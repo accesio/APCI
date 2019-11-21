@@ -90,8 +90,12 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 
         case apci_get_device_info_ioctl:
           apci_debug("entering get_device_info \n");
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
+          status = access_ok( arg, sizeof(info_struct));
+#else
           status = access_ok(VERIFY_WRITE, arg,
                              sizeof(info_struct));
+#endif
 
           if (status == 0) return -EACCES;
 
@@ -108,7 +112,11 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
           break;
 
         case apci_write_ioctl:
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
+          status = access_ok (arg, sizeof(iopack));
+#else
           status = access_ok (VERIFY_WRITE, arg, sizeof(iopack));
+#endif
 
           if (status == 0) {
                apci_error("access_ok failed\n");
@@ -172,7 +180,11 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
           break;
 
         case apci_read_ioctl:
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
+             status = access_ok(arg, sizeof(iopack));
+#else
              status = access_ok(VERIFY_WRITE, arg, sizeof(iopack));
+#endif
 
              if (status == 0) return -EACCES; /* TODO: Find a better return code */
 
