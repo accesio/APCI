@@ -1,10 +1,6 @@
 default: all
 
-all: tester mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq
-
-tester: tester.c apci.h apcilib.c apcilib.h
-	cc -o tester tester.c apcilib.c
-
+all: mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq
 
 mpcie-ii-16-irq: mpcie-ii-16-irq.c apcilib.h apcilib.c
 	cc -o mpcie-ii-16-irq mpcie-ii-16-irq.c apcilib.c
