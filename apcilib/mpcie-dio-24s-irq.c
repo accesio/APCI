@@ -4,6 +4,7 @@
 #include <linux/types.h>
 #include <unistd.h>
 #include <signal.h>
+#include <time.h>
 
 #include "apcilib.h"
 
@@ -16,6 +17,7 @@ int main (int argc, char **argv)
 {
   __u8 inputs = 0;
   int status = 0;
+  time_t the_time;
 
   fd = open("/dev/apci/mpcie_dio_24s_0", O_RDWR);
 
@@ -56,8 +58,9 @@ int main (int argc, char **argv)
 
   do
   {
+    time(&the_time);
     //wait for IRQ
-    printf("Waiting for irq\n");
+    printf(" Waiting for irq @ %s", ctime(&the_time));
     status = apci_wait_for_irq(fd, 0);
 
     if (0 == status)
