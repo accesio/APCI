@@ -32,6 +32,7 @@ int open_apci( pInode inode, pFile filp )
      Blocking  / nonblocking */
 
   filp->private_data = ddata;
+  ddata->waiting_for_irq = 0;
   return 0;
 }
 
