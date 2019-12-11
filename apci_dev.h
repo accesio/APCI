@@ -77,6 +77,7 @@
 #define PCI_WDG_2S	0x1250 //TODO: Find out if the Watch Dog Cards should really be here
 #define PCI_WDG_CSM	0x22C0
 #define PCI_WDG_IMPAC	0x12D0
+#define MPCIE_DIO_24S_R1   0x0e57
 #define MPCIE_DIO_24S   0x0100
 #define MPCIE_IDIO_8  0x0101
 #define MPCIE_IIRO_8  0x0102
@@ -87,9 +88,12 @@
 #define MPCIE_II_16   0x0107
 #define MPCIE_II_8    0x0108
 #define MPCIE_II_4    0x0109
+#define MPCIE_QUAD_8 0x010A
+#define MPCIE_QUAD_4 0x010B
 #define MPCIE_DIO_24  0x0C57
 #define PCIe_IDIO_12 0x0FC0
 #define PCIe_IDIO_24 0x0FD0
+
 
 /* names for the drivers we create */
 #define NAME_PCIe_DIO_24                "pcie_dio_24"
@@ -153,10 +157,14 @@
 #define NAME_MPCIE_II_16                "mpcie_ii_16"
 #define NAME_MPCIE_II_8                 "mpcie_ii_8"
 #define NAME_MPCIE_II_4                 "mpcie_ii_4"
+#define NAME_MPCIE_QUAD_8                "mpcie_quad_8"
+#define NAME_MPCIE_QUAD_4                "mpcie_quad_4"
 #define NAME_MPCIE_DIO_24               "mpcie_dio_24"
 #define NAME_MPCIE_DIO_24S               "mpcie_dio_24s"
+#define NAME_MPCIE_DIO_24S_R1           "mpcie_dio_24s"
 #define NAME_PCIe_IDIO_12				"pcie_idio_12"
 #define NAME_PCIe_IDIO_24				"pcie_idio_24"
+
 
 
 enum ADDRESS_TYPE {INVALID = 0, IO, MEM};

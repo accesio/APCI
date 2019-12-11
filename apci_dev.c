@@ -68,6 +68,7 @@ static struct pci_device_id ids[] = {
         { PCI_DEVICE(A_VENDOR_ID, PCI_IIRO_8      ), },
         { PCI_DEVICE(A_VENDOR_ID, PCIe_IIRO_8     ), },
         { PCI_DEVICE(A_VENDOR_ID, MPCIE_DIO_24S   ), },
+        { PCI_DEVICE(A_VENDOR_ID, MPCIE_DIO_24S_R1   ), },
         { PCI_DEVICE(A_VENDOR_ID, MPCIE_IDIO_8), },
         { PCI_DEVICE(A_VENDOR_ID, MPCIE_IIRO_8), },
         { PCI_DEVICE(A_VENDOR_ID, MPCIE_IDIO_4), },
@@ -77,6 +78,8 @@ static struct pci_device_id ids[] = {
         { PCI_DEVICE(A_VENDOR_ID, MPCIE_II_16 ), },
         { PCI_DEVICE(A_VENDOR_ID, MPCIE_II_8  ), },
         { PCI_DEVICE(A_VENDOR_ID, MPCIE_II_4  ), },
+        { PCI_DEVICE(A_VENDOR_ID, MPCIE_QUAD_4  ), },
+        { PCI_DEVICE(A_VENDOR_ID, MPCIE_QUAD_8  ), },
         { PCI_DEVICE(A_VENDOR_ID, MPCIE_DIO_24  ), },
         { PCI_DEVICE(A_VENDOR_ID, PCIe_IDIO_12   ), },
         { PCI_DEVICE(A_VENDOR_ID, PCIe_IDIO_24   ), },
@@ -180,6 +183,7 @@ static struct apci_lookup_table_entry apci_driver_table[] = \
                          APCI_MAKE_ENTRY( PCI_WDG_CSM ),
                          APCI_MAKE_ENTRY( PCI_WDG_IMPAC ), 
                          APCI_MAKE_ENTRY( MPCIE_DIO_24S ),
+                         APCI_MAKE_ENTRY( MPCIE_DIO_24S_R1 ),
                          APCI_MAKE_ENTRY( MPCIE_IDIO_8 ),
                          APCI_MAKE_ENTRY( MPCIE_IIRO_8 ),
                          APCI_MAKE_ENTRY( MPCIE_IDIO_4 ),
@@ -189,6 +193,8 @@ static struct apci_lookup_table_entry apci_driver_table[] = \
                          APCI_MAKE_ENTRY( MPCIE_II_16 ),
                          APCI_MAKE_ENTRY( MPCIE_II_8 ),
                          APCI_MAKE_ENTRY( MPCIE_II_4 ),
+                         APCI_MAKE_ENTRY( MPCIE_QUAD_4 ),
+                         APCI_MAKE_ENTRY( MPCIE_QUAD_8 ),
                          APCI_MAKE_ENTRY( MPCIE_DIO_24 ),
                          APCI_MAKE_ENTRY( PCI_WDG_IMPAC ),
                          APCI_MAKE_ENTRY( MPCIE_DIO_24S ),
@@ -356,6 +362,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
          case PCIe_DIO_24D:
          case PCIe_DIO_24S:
          case MPCIE_DIO_24S:
+         case MPCIE_DIO_24S_R1:
          case MPCIE_IDIO_8:
          case MPCIE_IIRO_8:
          case MPCIE_IDIO_4:
@@ -365,6 +372,8 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
          case MPCIE_II_16:
          case MPCIE_II_8:
          case MPCIE_II_4:
+         case MPCIE_QUAD_4:
+         case MPCIE_QUAD_8:
          case MPCIE_DIO_24:
          case PCIe_DIO_24DS:
          case PCIe_DIO_24DC:
@@ -611,6 +620,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
         case PCI_DIO_48S:
         case MPCIE_DIO_24:
         case MPCIE_DIO_24S:
+        case MPCIE_DIO_24S_R1:
           outb(0, ddata->regions[2].start + 0x0f);
           break;
 
@@ -686,6 +696,8 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
         case MPCIE_II_16:
         case MPCIE_II_8:
         case MPCIE_II_4:
+        case MPCIE_QUAD_4:
+        case MPCIE_QUAD_8:
           outb(0xff, ddata->regions[2].start + 41);
           break;
 
