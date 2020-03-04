@@ -88,13 +88,13 @@ Below is a snipet of the output from the compiled mpcie-dio-24s-irq.c sample cod
 	 Waiting for irq @ Tue Dec 17 08:38:22 2019
 	IRQ occurred
 
-3.	The automated way to load (install) the driver module is to copy it to the /lib/modules/(uname -r)/ directory so that the
+3.	The automated way to load (install) the driver module is to copy it to the /lib/modules/$(uname -r)/ directory so that the
 	Linux kernel can find it at boot time.
 
-	In the /lib/modules/(uname -r) directory, create a sub-directory named "extra" (for external modules). Then copy the driver
+	In the /lib/modules/$(uname -r) directory, create a sub-directory named "extra" (for external modules). Then copy the driver
 	module (apci.ko) from the APCI directory to the "extra" directory.
 ~~~
-	cd /lib/modules/(uname -r)
+	cd /lib/modules/$(uname -r)
 	sudo mkdir extra
 
 	cd extra
