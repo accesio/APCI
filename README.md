@@ -1,14 +1,10 @@
 # How to Compile and Install the ACCES PCI Linux Driver
 
 
-Unfortunately, in Linux, there is no automated way to install a driver. Users have to use the command line to
-compile and install drivers before they can used.
-
-
-With that said, we will have to:
+Steps to install the driver
 
 	1. Download the current Linux kernel headers.
-	2. Download, compile, and load the M.2-DIO-24S Linux driver.
+	2. Download, compile, and load the ACCES PCI Linux driver.
 	3. Inform the Linux kernel of our new driver so it can load it at boot time.
 
 
@@ -48,11 +44,7 @@ Now we can load the driver module and use it.
 ~~~
 sudo insmod apci.ko
 ~~~
-There should now be a device node in directory /dev/apci/ named: mpcie-dio-24s_0 that can be
-
-used to access the M.2-DIO-24S functions and registers programmatically as shown in the sample
-
-source files in the apcilib/ subdirectory.
+There should now be a device node in directory /dev/apci/ for each ACCES PCI device in the system. For example /dev/apci/mpcie-dio-24s_0 can be used to access the M.2-DIO-24S functions and registers programmatically as shown in the sample source files in the apcilib/ subdirectory.
 
 Use the commands below to compile the provided samples from the APCI/apcilib/ directory.
 ~~~
@@ -88,26 +80,10 @@ Below is a snipet of the output from the compiled mpcie-dio-24s-irq.c sample cod
 	 Waiting for irq @ Tue Dec 17 08:38:22 2019
 	IRQ occurred
 
-3.	The automated way to load (install) the driver module is to copy it to the /lib/modules/(uname -r)/ directory so that the
-	Linux kernel can find it at boot time.
-
-	In the /lib/modules/(uname -r) directory, create a sub-directory named "extra" (for external modules). Then copy the driver
-	module (apci.ko) from the APCI directory to the "extra" directory.
+3.	The install the driver module is to run the install target of the makefile as root. Note that only the install should be done as root. The build should be done as a regular user.
 ~~~
-	cd /lib/modules/(uname -r)
-	sudo mkdir extra
-
-	cd extra
-	sudo cp ~/APCI/apci.ko .
+	sudo make install
 ~~~
 
-Now we need to specify that we want the apci.ko driver module to be loaded at boot time. For that we need to odify the modules.conf file
-in the /etc/modules-load.d/ directory.
-
-~~~
-cd /etc/modules-load.d
-sudo vi modules.conf (add the driver module name "apci" to the end of the comments section)
-~~~
-
-The kernel should now be able to load the apci.ko driver module at boot time.
+The kernel should now load the apci.ko driver module at boot time if there is a supported ACCES PCI device present in the system.
 
