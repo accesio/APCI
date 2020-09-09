@@ -94,7 +94,28 @@
 #define PCIe_IDIO_12 0x0FC0
 #define PCIe_IDIO_24 0x0FD0
 #define mPCIe_AIO16_16F 0xC0E8
-
+#define mPCIe_AIO16_16A 0xC0E9
+#define mPCIe_AIO16_16E 0xC0EA
+#define mPCIe_AI16_16F 0x80E8
+#define mPCIe_AI16_16A 0x80E9
+#define mPCIe_AI16_16E 0x80EA
+#define mPCIe_AIO12_16A 0xC058
+#define mPCIe_AIO12_16 0xC059
+#define mPCIe_AIO12_16E 0xC05A
+#define mPCIe_AI12_16A 0x8058
+#define mPCIe_AI12_16 0x8059
+#define mPCIe_AI12_16E 0x805A
+#define mPCIe_AIO16_16A_proto 0xC2E9
+#define mPCIe_AIO16_16E_proto 0xC2EA
+#define mPCIe_AI16_16F_proto 0x82E8
+#define mPCIe_AI16_16A_proto 0x82E9
+#define mPCIe_AI16_16E_proto 0x82EA
+#define mPCIe_AIO12_16A_proto 0xC258
+#define mPCIe_AIO12_16_proto 0xC259
+#define mPCIe_AIO12_16E_proto 0xC25A
+#define mPCIe_AI12_16A_proto 0x8258
+#define mPCIe_AI12_16_proto 0x8259
+#define mPCIe_AI12_16E_proto 0x825A
 
 /* names for the drivers we create */
 #define NAME_PCIe_DIO_24                "pcie_dio_24"
@@ -166,7 +187,28 @@
 #define NAME_PCIe_IDIO_12				"pcie_idio_12"
 #define NAME_PCIe_IDIO_24				"pcie_idio_24"
 #define NAME_mPCIe_AIO16_16F                 "mpcie_aio16_16f"
-
+#define NAME_mPCIe_AIO16_16A            "mpcie_aio16_16a"
+#define NAME_mPCIe_AIO16_16E            "mpcie_aio16_16e"
+#define NAME_mPCIe_AI16_16F             "mpcie_ai16_16f"
+#define NAME_mPCIe_AI16_16A             "mpcie_ai16_16a"
+#define NAME_mPCIe_AI16_16E             "mpcie_ai16_16e"
+#define NAME_mPCIe_AIO12_16A            "mpcie_aio12_16a"
+#define NAME_mPCIe_AIO12_16             "mpcie_aio12_16"
+#define NAME_mPCIe_AIO12_16E            "mpcie_aio12_16e"
+#define NAME_mPCIe_AI12_16A             "mpcie_ai12_16a"
+#define NAME_mPCIe_AI12_16              "mpcie_ai12_16"
+#define NAME_mPCIe_AI12_16E             "mpcie_ai12_16e"
+#define NAME_mPCIe_AIO16_16A_proto      "mPCIe_AIO16_16A_proto"
+#define NAME_mPCIe_AIO16_16E_proto      "mPCIe_AIO16_16E_proto"
+#define NAME_mPCIe_AI16_16F_proto       "mPCIe_AI16_16F_proto"
+#define NAME_mPCIe_AI16_16A_proto       "mPCIe_AI16_16A_proto"
+#define NAME_mPCIe_AI16_16E_proto       "mPCIe_AI16_16E_proto"
+#define NAME_mPCIe_AIO12_16A_proto      "mPCIe_AIO12_16A_proto"
+#define NAME_mPCIe_AIO12_16_proto       "mPCIe_AIO12_16_proto"
+#define NAME_mPCIe_AIO12_16E_proto      "mPCIe_AIO12_16E_proto"
+#define NAME_mPCIe_AI12_16A_proto       "mPCIe_AI12_16A_proto"
+#define NAME_mPCIe_AI12_16_proto        "mPCIe_AI12_16_proto"
+#define NAME_mPCIe_AI12_16E_proto       "mPCIe_AI12_16E_proto"
 
 enum ADDRESS_TYPE {INVALID = 0, IO, MEM};
 typedef enum ADDRESS_TYPE address_type;

@@ -83,7 +83,29 @@ static struct pci_device_id ids[] = {
         { PCI_DEVICE(A_VENDOR_ID, MPCIE_DIO_24  ), },
         { PCI_DEVICE(A_VENDOR_ID, PCIe_IDIO_12   ), },
         { PCI_DEVICE(A_VENDOR_ID, PCIe_IDIO_24   ), },
-        { PCI_DEVICE(mPCIe_AIO16_16F, mPCIe_AIO16_16F ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16F ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16A ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16E ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI16_16F ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI16_16A ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI16_16E ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO12_16A ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO12_16 ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO12_16E ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI12_16A ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI12_16 ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI12_16E ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16A_proto ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16E_proto ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI16_16F_proto ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI16_16A_proto ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI16_16E_proto ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO12_16A_proto ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO12_16_proto ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO12_16E_proto ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI12_16A_proto ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI12_16_proto ), },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI12_16E_proto ), },
         {0,}
 };
 MODULE_DEVICE_TABLE(pci, ids);
@@ -202,6 +224,28 @@ static struct apci_lookup_table_entry apci_driver_table[] = \
                          APCI_MAKE_ENTRY( PCIe_IDIO_12 ),
                          APCI_MAKE_ENTRY( PCIe_IDIO_24 ),
                          APCI_MAKE_ENTRY( mPCIe_AIO16_16F ),
+                         APCI_MAKE_ENTRY( mPCIe_AIO16_16A ),
+                         APCI_MAKE_ENTRY( mPCIe_AIO16_16E ),
+                         APCI_MAKE_ENTRY( mPCIe_AI16_16F ),
+                         APCI_MAKE_ENTRY( mPCIe_AI16_16A ),
+                         APCI_MAKE_ENTRY( mPCIe_AI16_16E ),
+                         APCI_MAKE_ENTRY( mPCIe_AIO12_16A ),
+                         APCI_MAKE_ENTRY( mPCIe_AIO12_16 ),
+                         APCI_MAKE_ENTRY( mPCIe_AIO12_16E ),
+                         APCI_MAKE_ENTRY( mPCIe_AI12_16A ),
+                         APCI_MAKE_ENTRY( mPCIe_AI12_16 ),
+                         APCI_MAKE_ENTRY( mPCIe_AI12_16E ),
+                         APCI_MAKE_ENTRY( mPCIe_AIO16_16A_proto ),
+                         APCI_MAKE_ENTRY( mPCIe_AIO16_16E_proto ),
+                         APCI_MAKE_ENTRY( mPCIe_AI16_16F_proto ),
+                         APCI_MAKE_ENTRY( mPCIe_AI16_16A_proto ),
+                         APCI_MAKE_ENTRY( mPCIe_AI16_16E_proto ),
+                         APCI_MAKE_ENTRY( mPCIe_AIO12_16A_proto ),
+                         APCI_MAKE_ENTRY( mPCIe_AIO12_16_proto ),
+                         APCI_MAKE_ENTRY( mPCIe_AIO12_16E_proto ),
+                         APCI_MAKE_ENTRY( mPCIe_AI12_16A_proto ),
+                         APCI_MAKE_ENTRY( mPCIe_AI12_16_proto ),
+                         APCI_MAKE_ENTRY( mPCIe_AI12_16E_proto ),
                           );
 
 #define APCI_TABLE_SIZE  sizeof(apci_driver_table)/sizeof(struct apci_lookup_table_entry)
@@ -339,6 +383,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
       apci_error("Invalid bar %d on end", plx_bar );
       goto out_alloc_driver;
     }
+    ddata->plx_region.flags = pci_resource_flags(pdev, plx_bar);
 
 
     ddata->plx_region.length = ddata->plx_region.end - ddata->plx_region.start + 1;
@@ -347,14 +392,22 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
     apci_debug("plx_region.end   = %08x\n", ddata->plx_region.end );
     apci_debug("plx_region.length= %08x\n", ddata->plx_region.length );
 
-    presource = request_region(ddata->plx_region.start, ddata->plx_region.length, "apci");
-
-    if (presource == NULL) {
-        /* We couldn't get the region.  We have only allocated
-         * ddata so release it and return an error.
-         */
-        apci_error("Unable to request region.\n");
-        goto out_alloc_driver;
+    if (ddata->plx_region.flags & IORESOURCE_IO)
+    {
+      presource = request_region(ddata->plx_region.start, ddata->plx_region.length, "apci");
+      if (presource == NULL) {
+      /* We couldn't get the region.  We have only allocated
+        * ddata so release it and return an error.
+        */
+      apci_error("Unable to request region.\n");
+      goto out_alloc_driver;
+    }
+    }
+    else
+    {
+      //TODO: Make this a noop for now. The driver is going to try to ioremap()
+      //the region later in this function. Can make this work when HW is available
+      //for test
     }
 
     /* TODO: request and remap the region for plx */
@@ -811,7 +864,8 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	   ret = -ENOMEM;
 	   goto exit_free;
 	 }
-   if (ddata->is_pcie)
+   //TODO: Fix this when HW is available to test MEM version
+   if (ddata->is_pcie && ddata->plx_region.flags & IORESOURCE_IO)
    {
       outb(0x9, ddata->plx_region.start + 0x69);
    }
