@@ -83,6 +83,7 @@ static struct pci_device_id ids[] = {
         { PCI_DEVICE(A_VENDOR_ID, MPCIE_DIO_24  ), },
         { PCI_DEVICE(A_VENDOR_ID, PCIe_IDIO_12   ), },
         { PCI_DEVICE(A_VENDOR_ID, PCIe_IDIO_24   ), },
+        { PCI_DEVICE(mPCIe_AIO16_16F, mPCIe_AIO16_16F ), },
         {0,}
 };
 MODULE_DEVICE_TABLE(pci, ids);
@@ -200,6 +201,7 @@ static struct apci_lookup_table_entry apci_driver_table[] = \
                          APCI_MAKE_ENTRY( MPCIE_DIO_24S ),
                          APCI_MAKE_ENTRY( PCIe_IDIO_12 ),
                          APCI_MAKE_ENTRY( PCIe_IDIO_24 ),
+                         APCI_MAKE_ENTRY( mPCIe_AIO16_16F ),
                           );
 
 #define APCI_TABLE_SIZE  sizeof(apci_driver_table)/sizeof(struct apci_lookup_table_entry)
@@ -427,6 +429,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
          case LPCI_A16_16A:
          case PCI_DA12_16: /* group3 */
          case PCI_DA12_8:
+         case mPCIe_AIO16_16F:
               ddata->regions[2].start   = pci_resource_start(pdev, 2);
               ddata->regions[2].end     = pci_resource_end(pdev, 2);
               ddata->regions[2].flags   = pci_resource_flags(pdev, 2);
@@ -706,6 +709,9 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
           /* read 32 bits from +8 to determine which specific bits have generated a CoS IRQ then write the same value back to +8 to clear those CoS latches */
           dword = inl(ddata->regions[2].start + 0x8);
           outl(dword, ddata->regions[2].start + 0x8);
+          break;
+        case mPCIe_AIO16_16F:
+          outb(0, ddata->regions[2].start + 2);
           break;
     };
 

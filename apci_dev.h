@@ -93,6 +93,7 @@
 #define MPCIE_DIO_24  0x0C57
 #define PCIe_IDIO_12 0x0FC0
 #define PCIe_IDIO_24 0x0FD0
+#define mPCIe_AIO16_16F 0xC0E8
 
 
 /* names for the drivers we create */
@@ -164,7 +165,7 @@
 #define NAME_MPCIE_DIO_24S_R1           "mpcie_dio_24s"
 #define NAME_PCIe_IDIO_12				"pcie_idio_12"
 #define NAME_PCIe_IDIO_24				"pcie_idio_24"
-
+#define NAME_mPCIe_AIO16_16F                 "mpcie_aio16_16f"
 
 
 enum ADDRESS_TYPE {INVALID = 0, IO, MEM};
