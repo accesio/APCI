@@ -569,8 +569,11 @@ apci_free_driver( struct pci_dev *pdev )
 
      apci_devel("Entering free driver.\n");
 
-     apci_debug("releasing memory of %08x , length=%d\n", ddata->plx_region.start, ddata->plx_region.length );
-     release_region( ddata->plx_region.start, ddata->plx_region.length );
+     if (ddata->plx_region.flags & IORESOURCE_IO)
+     {
+        apci_debug("releasing memory of %08x , length=%d\n", ddata->plx_region.start, ddata->plx_region.length );
+        release_region( ddata->plx_region.start, ddata->plx_region.length );
+     }
 
      for (count = 0; count < 6; count ++) {
           if (ddata->regions[count].start == 0) {
