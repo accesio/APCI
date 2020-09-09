@@ -1,9 +1,3 @@
-	// The card has 3 BARs, and thus 3 base addresses; only the 3rd is used for this, so that's BaseAddr in this code. (The first 2 are for performant IRQ/DMA streaming which isn't up and running yet.)
-	// In Linux, you can get the base addresses with lspci in verbose mode, giving it the VendorID 494F to only list our devices.
-	// The card uses 2 ADCs("sequencers"), each of which handles 8 channels. In immediate mode, you can only use one ADC at a time, so this code acquires them in turn.
-	// This code assumes TUInt8, TUInt16, TUInt32, TSInt8, etc. are all typedeffed.
-	// This code wraps memory register accesses as In8, In16, In32, Out8, etc. These ultimately compile to simple assignments, but that's not very readable.
-
 
 #include <stdint.h>
 #include <math.h>
@@ -22,39 +16,83 @@ const uint16_t BaseADCCommand_Diff = 0x844E;
 const unsigned int ADCDataRegisterOffset[2] = { 0x30, 0x34 };
 const unsigned int ADCImmediateOffset[2] = { 0x3A, 0x3E };
 
-//[J4D] This assumes that there is only one card in the system so we pass around
-//the file descriptor and hard code device index 1
+const unsigned int LTC2664Cmd_Data      = 0x3; //Write code to N, update N, power up.
+const unsigned int LTC2664Cmd_Range     = 0x6; //Write span to N.
+const unsigned int LTC2664Cmd_Data_All  = 0xA; //Write code to all, update all, power up.
+const unsigned int LTC2664Cmd_Range_All = 0xE; //Write span to all.
 
+const unsigned int DACOffset = 0x04;
+
+uint32_t LastDACRanges[4] = {3, 3, 3, 3};
+
+// [J4D] This assumes that there is only one card in the system so we pass around
+// the file descriptor and hard code device index 1
+
+int LTC2664_WriteDAC(int fd, uint32_t Command, uint32_t Address, uint32_t Data)
+{
+	Data = (Data & 0xFFFF) | ((Address & 0xF) << 16) | ((Command & 0xF) << 20);
+	return apci_write32(fd, 1, 2, DACOffset, Data);
+}
+
+int DAC_SetRange1(int fd, uint32_t Ch, uint32_t Range)
+/*
+	Range 0 = 0-5V
+	Range 1 = 0-10V
+	Range 2 = �5V
+	Range 3 = �10V
+	Range 4 = �2.5V
+*/
+{
+	uint32_t Result = LTC2664_WriteDAC(fd, LTC2664Cmd_Range, Ch, Range);
+	LastDACRanges[Ch] = Range;
+	return Result;
+}
+
+int DAC_OutputV(int fd, uint32_t Ch, double V)
+{
+	int bRangeBipolar[5] = { 0, 0, 1 , 1 , 1  };
+	double RangeSpan[5] = {   5  ,  10  ,  10  ,  20  ,   5   };
+
+	uint32_t Range = LastDACRanges[Ch];
+	signed int Data = (V / RangeSpan[Range] * 0x10000);
+	if ( bRangeBipolar[Range] ) Data = Data - 0x8000;
+	if ( (Data < 0x0000) || (Data > 0xFFFF) ) return -65536;
+
+	return LTC2664_WriteDAC(fd, LTC2664Cmd_Data, Ch, Data);
+}
+
+// The card uses 2 ADCs("sequencers"), each of which handles 8 channels. 
+// In immediate mode, you can only use one ADC at a time, so this code acquires them in turn.
 void GetADCDataRaw(int fd, unsigned int iSequencer, uint16_t RangeCode, uint32_t ADCData[])
 {
 	unsigned int iChannel;
 	uint16_t ImmediateCmd;
-  unsigned int Toss;
+	unsigned int Toss;
 
 	// Clear the FIFO and reset the internal pipeline.
-  apci_write32(fd, 1, 2, ADCDataRegisterOffset[iSequencer], 0);
+	apci_write32(fd, 1, 2, ADCDataRegisterOffset[iSequencer], 0);
 
 	for ( iChannel = 0; iChannel <= 7; ++iChannel )
 	{
 		// Command an immediate conversion on each channel.
 		// You can use a different range for each channel if you want, rather than a single variable.
 		ImmediateCmd = BaseADCCommand_SE | (iChannel << 12) | (RangeCode << 7);
-    apci_write16(fd, 1, 2, ADCImmediateOffset[iSequencer], ImmediateCmd);
+  		apci_write16(fd, 1, 2, ADCImmediateOffset[iSequencer], ImmediateCmd);
 	}
 	for ( iChannel = 8; iChannel <= 14; ++iChannel )
 	{
-		// Command extra immediate conversions, to push the real data from the pipeline to the FIFO.
-		// In our code these repeat the last command to avoid analog disruptions, from changing ranges or the like.
-    apci_write16(fd, 1, 2, ADCImmediateOffset[iSequencer], ImmediateCmd);
+		  // Command extra immediate conversions, to push the real data from the pipeline to the FIFO.
+		  // In our code these repeat the last command to avoid analog disruptions, from changing ranges or the like.
+		  apci_write16(fd, 1, 2, ADCImmediateOffset[iSequencer], ImmediateCmd);
 	}
 
 	// Consume the stream preamble.
-  apci_read32(fd, 1, 2, ADCDataRegisterOffset[iSequencer], &Toss);
+	apci_read32(fd, 1, 2, ADCDataRegisterOffset[iSequencer], &Toss);
 
 	for ( iChannel = 0; iChannel <= 7; ++iChannel )
 	{
 		// Read out the data for each channel.
-    apci_read32(fd, 1, 2, ADCDataRegisterOffset[iSequencer], &ADCData[iSequencer*8 + iChannel]);
+		apci_read32(fd, 1, 2, ADCDataRegisterOffset[iSequencer], &ADCData[iSequencer*8 + iChannel]);
 	}
 
 	// Will need to clear the FIFO and reset the internal pipeline before the next ADC operation.
@@ -66,13 +104,13 @@ double VFromRaw(uint32_t RawSample)
 	// These numbers include the extra 2.4% margin for calibration.
 	const double RangeScale[8] =
 	{
-		24.576/0x8000, // code 0
-		10.24/0x8000, // code 1
-		5.12/0x8000, // code 2
-		2.56/0x8000, // code 3
-		1.28/0x8000, // code 4
-		0.64/0x8000, // code 5
-		20.48/0x8000, // code 6
+		24.576 / 0x8000, // code 0
+		10.24 / 0x8000, // code 1
+		5.12 / 0x8000, // code 2
+		2.56 / 0x8000, // code 3
+		1.28 / 0x8000, // code 4
+		0.64 / 0x8000, // code 5
+		20.48 / 0x8000, // code 6
 		NAN // code 7
 	};
 	uint16_t Counts = RawSample & 0xFFFF;
@@ -100,9 +138,9 @@ void GetADCDataV(int fd, uint16_t RangeCode, double ADCDataV[])
 
 int main (int argc, char **argv)
 {
-  int fd;
+	int fd;
   
-  fd = open("/dev/apci/mpcie_aio16_16f", O_RDONLY);
+	fd = open("/dev/apci/mpcie_aio16_16f", O_RDONLY);
 
 	if (fd < 0)
 	{
@@ -110,15 +148,19 @@ int main (int argc, char **argv)
 		exit(0);
 	}
 
-  double ADCDataV[16];
+	double ADCDataV[16];
 
-  GetADCDataV(fd, 0, ADCDataV);
+	GetADCDataV(fd, 0, ADCDataV);
 
-  for (int i = 0; i < 16; i++)
-  {
-    printf("%d = %f\n", i, ADCDataV[i]);
-  }
-
+	for (int i = 0; i < 16; i++)
+	{
+		printf("%d = %f\n", i, ADCDataV[i]);
+	}
+	
+	DAC_OutputV(fd, 0, 0.0);
+	DAC_OutputV(fd, 1, 0.0);
+	DAC_OutputV(fd, 2, 0.0);
+	DAC_OutputV(fd, 3, 0.0);
 }
 
 
