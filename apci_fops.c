@@ -28,7 +28,7 @@ int open_apci( pInode inode, pFile filp )
   struct apci_my_info *ddata;
   apci_debug("Opening device\n");
   ddata = container_of( inode->i_cdev, struct apci_my_info, cdev );
-  /* need to check to see if the device is 
+  /* need to check to see if the device is
      Blocking  / nonblocking */
 
   filp->private_data = ddata;
@@ -43,14 +43,14 @@ ssize_t read_apci(struct file *filp, char __user *buf,
     struct apci_my_info  *ddata = filp->private_data ;
     int status;
     unsigned int value = inb( ddata->regions[2].start + 0x1 );
-    status = copy_to_user(buf, &value, 1);      
+    status = copy_to_user(buf, &value, 1);
     return ( status ? -EFAULT : 1 );
 }
 
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39 )
 int ioctl_apci(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg)
-#else 
+#else
 long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 #endif
 {
@@ -163,11 +163,11 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
                 case BYTE:
                   iowrite8(io_pack.data, ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
                   break;
-                
+
                 case WORD:
                   iowrite16(io_pack.data, ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
                   break;
-                
+
                 case DWORD:
                   iowrite32(io_pack.data, ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
                   break;
@@ -231,7 +231,7 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
                   return -EFAULT;
                   break;
              };
-      
+
              apci_info("performed read from %X\n",
                        ddata->regions[io_pack.bar].start + io_pack.offset);
 
@@ -292,9 +292,29 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
           /* status = copy_from_user(&info, (info_struct *) arg, sizeof(info_struct)); */
          info.dev_id = ddata->dev_id;
 
-         status = copy_to_user((info_struct *) arg, &ddata->plx_region.start, sizeof( io_region ));      
          break;
+     case apci_force_dma:
+          apci_debug("triggering DMA for test\n");
+         iowrite32(ddata->dma_addr & 0xffffffff, ddata->regions[0].mapped_address);
+         iowrite32(ddata->dma_addr >> 32, ddata->regions[0].mapped_address + 4);
+         iowrite32(4096, ddata->regions[0].mapped_address + 8);
+         iowrite32(4, ddata->regions[0].mapped_address + 12);
     };
 
     return 0;
+}
+
+
+int mmap_apci (struct file *filp, struct vm_area_struct *vma)
+{
+     struct apci_my_info *ddata = filp->private_data;
+     int status;
+
+     status = remap_pfn_range(vma,
+                         vma->vm_start,
+                         ddata->dma_addr >> PAGE_SHIFT,
+                         vma->vm_end - vma->vm_start,
+                         vma->vm_page_prot);
+
+     return 0;
 }

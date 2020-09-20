@@ -35,7 +35,7 @@
 #define PCIe_DIO_24DCS	0x0E56
 #define PCIe_DIO_48	0x0C61
 #define PCIe_DIO_48S	0x0E61
-#define PCIe_DIO_72     0x0C6A 
+#define PCIe_DIO_72     0x0C6A
 #define PCIe_DIO_96     0x0C71
 #define PCIe_DIO_120    0x0C79
 #define PCIe_IIRO_8	0x0F02
@@ -105,6 +105,7 @@
 #define mPCIe_AI12_16A 0x8058
 #define mPCIe_AI12_16 0x8059
 #define mPCIe_AI12_16E 0x805A
+#define mPCIe_AIO16_16F_proto 0xC2E8
 #define mPCIe_AIO16_16A_proto 0xC2E9
 #define mPCIe_AIO16_16E_proto 0xC2EA
 #define mPCIe_AI16_16F_proto 0x82E8
@@ -127,8 +128,8 @@
 #define NAME_PCIe_DIO_48                "pcie_dio_48"
 #define NAME_PCIe_DIO_48S               "pcie_dio_48s"
 #define NAME_PCIe_DIO_72                "pcie_dio_72"
-#define NAME_PCIe_DIO_96                "pcie_dio_96"  
-#define NAME_PCIe_DIO_120               "pcie_dio_120"  
+#define NAME_PCIe_DIO_96                "pcie_dio_96"
+#define NAME_PCIe_DIO_120               "pcie_dio_120"
 
 #define NAME_PCIe_IIRO_8                "pcie_iiro_8"
 #define NAME_PCIe_IIRO_16               "pcie_iiro_16"
@@ -198,6 +199,7 @@
 #define NAME_mPCIe_AI12_16A             "mpcie_ai12_16a"
 #define NAME_mPCIe_AI12_16              "mpcie_ai12_16"
 #define NAME_mPCIe_AI12_16E             "mpcie_ai12_16e"
+#define NAME_mPCIe_AIO16_16F_proto      "mPCIe_AIO16_16F_proto"
 #define NAME_mPCIe_AIO16_16A_proto      "mPCIe_AIO16_16A_proto"
 #define NAME_mPCIe_AIO16_16E_proto      "mPCIe_AIO16_16E_proto"
 #define NAME_mPCIe_AI16_16F_proto       "mPCIe_AI16_16F_proto"
@@ -245,16 +247,19 @@ struct apci_my_info {
      wait_queue_head_t wait_queue;
      spinlock_t irq_lock;
 
-  
+
      struct cdev cdev;
 
      struct pci_dev *pci_dev;
 
      int nchannels;
-     
+
      struct apci_board boards[APCI_NCHANNELS];
 
      struct device *dev;
+
+     dma_addr_t dma_addr;
+     void *dma_virt_addr;
 };
 
 int probe(struct pci_dev *dev, const struct pci_device_id *id);

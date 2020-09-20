@@ -17,7 +17,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 In addition ACCES provides other licenses with its software at customer request.
-For more information please contact the ACCES software department at 
+For more information please contact the ACCES software department at
 (800)-326-1649 or visit www.accesio.com
 */
 
@@ -37,3 +37,5 @@ int apci_read32(int fd, unsigned long device_index, int bar, int offset, __u32 *
 
 int apci_wait_for_irq(int fd, unsigned long device_index);
 int apci_cancel_irq(int fd, unsigned long device_index);
+
+int apci_dma(int fd, unsigned long device_index);
