@@ -297,7 +297,7 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
           apci_debug("triggering DMA for test\n");
          iowrite32(ddata->dma_addr & 0xffffffff, ddata->regions[0].mapped_address);
          iowrite32(ddata->dma_addr >> 32, ddata->regions[0].mapped_address + 4);
-         iowrite32(4096, ddata->regions[0].mapped_address + 8);
+         iowrite32(MPCIE_AI_DMA_BUFF_SIZE/2, ddata->regions[0].mapped_address + 8);
          iowrite32(4, ddata->regions[0].mapped_address + 12);
     };
 

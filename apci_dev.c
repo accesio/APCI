@@ -556,14 +556,16 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
       case mPCIe_AI12_16_proto:
       case mPCIe_AI12_16E_proto:
         ddata->dma_virt_addr = dma_alloc_coherent(&(pdev->dev),
-                                                  4096 * 2 * 2, //4k samples * 2
+                                                  MPCIE_AI_DMA_BUFF_SIZE,
                                                   &(ddata->dma_addr),
                                                   GFP_KERNEL);
         if (ddata->dma_virt_addr == NULL)
         {
           apci_error("Unable to allocate dma buffer\n");
         }
-        memset(ddata->dma_virt_addr, 0x55, 4096 * 2 * 2);
+        ddata->dma_last_buffer = -1;
+        //TODO: Remove memset once things are confirmed working with DMA
+        memset(ddata->dma_virt_addr, 0x55, MPCIE_AI_DMA_BUFF_SIZE);
         ddata->regions[0].start   = pci_resource_start(pdev, 0);
         ddata->regions[0].end     = pci_resource_end(pdev, 0);
         ddata->regions[0].flags   = pci_resource_flags(pdev, 0);
@@ -695,6 +697,8 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
     struct apci_my_info  *ddata;
     __u8  byte;
     __u32 dword;
+    bool notify_user = true;
+
 
     ddata = (struct apci_my_info *) dev_id;
 
@@ -716,6 +720,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
         return IRQ_NONE; /* not me */
       }
     }
+
 
     apci_devel("ISR called.\n");
 
@@ -837,6 +842,8 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
         case mPCIe_AI12_16A:
         case mPCIe_AI12_16:
         case mPCIe_AI12_16E:
+          outb(0, ddata->regions[2].start + 2);
+          break;
         case mPCIe_AIO16_16F_proto:
         case mPCIe_AIO16_16A_proto:
         case mPCIe_AIO16_16E_proto:
@@ -848,9 +855,33 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
         case mPCIe_AIO12_16E_proto:
         case mPCIe_AI12_16A_proto:
         case mPCIe_AI12_16_proto:
-        case mPCIe_AI12_16E_proto:
-          outb(0, ddata->regions[2].start + 2);
-          break;
+        case mPCIe_AI12_16E_proto: //DMA capable cards
+        {
+          //If this is a FIFO near full IRQ then tell the card
+          //to write to the next buffer (and don't notify the user?)
+          //else if it is a write done IRQ set lat_valid_buffer and notify user
+          uint8_t irq_event = inb(ddata->regions[2].start + 0x2);
+          if (irq_event & 0x1) //FIFO almost full
+          {
+            dma_addr_t base = ddata->dma_addr;
+            notify_user = false;
+            //This assumes dma_last_buffer is always zero or one
+            if (ddata->dma_last_buffer == 0)
+            {
+              base += MPCIE_AI_DMA_BUFF_SIZE / 2;
+            }
+            iowrite32(base & 0xffffffff, ddata->regions[0].mapped_address);
+            iowrite32(base >> 32, ddata->regions[0].mapped_address + 4);
+            iowrite32(MPCIE_AI_DMA_BUFF_SIZE/2, ddata->regions[0].mapped_address + 8);
+            iowrite32(4, ddata->regions[0].mapped_address + 12);
+          }
+          else
+          {
+            ddata->dma_last_buffer = ddata->dma_last_buffer ? 0 : 1;
+          }
+          outb(irq_event, ddata->regions[2].start + 0x2);
+
+        }
     };
 
     /* Check to see if we were actually waiting for an IRQ. If we were
@@ -858,14 +889,17 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
      * Right now it is not possible for any other code sections that access
      * the critical data to interrupt us so we won't disable other IRQs.
      */
-    spin_lock(&(ddata->irq_lock));
+    if (notify_user)
+    {
+      spin_lock(&(ddata->irq_lock));
 
-    if (ddata->waiting_for_irq) {
-      ddata->waiting_for_irq = 0;
-      spin_unlock(&(ddata->irq_lock));
-      wake_up_interruptible(&(ddata->wait_queue));
-    } else {
-      spin_unlock(&(ddata->irq_lock));
+      if (ddata->waiting_for_irq) {
+        ddata->waiting_for_irq = 0;
+        spin_unlock(&(ddata->irq_lock));
+        wake_up_interruptible(&(ddata->wait_queue));
+      } else {
+        spin_unlock(&(ddata->irq_lock));
+      }
     }
 
     return IRQ_HANDLED;
@@ -889,7 +923,7 @@ void remove(struct pci_dev *pdev)
 
      if (ddata->dma_virt_addr != NULL)
      {
-       dma_free_coherent(&(ddata->pci_dev->dev), 4096 * 2 *2, ddata->dma_virt_addr, ddata->dma_addr);
+       dma_free_coherent(&(ddata->pci_dev->dev), MPCIE_AI_DMA_BUFF_SIZE, ddata->dma_virt_addr, ddata->dma_addr);
      }
 
      apci_class_dev_unregister( ddata );
