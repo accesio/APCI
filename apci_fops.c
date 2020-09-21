@@ -267,6 +267,24 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
          wait_event_interruptible(ddata->wait_queue, ddata->waiting_for_irq == 0);
 
          if (ddata->irq_cancelled == 1) return -ECANCELED;
+
+          //for DMA capable boards return the last filled buffer half
+          switch(ddata->dev_id)
+          {
+            case mPCIe_AIO16_16F_proto:
+            case mPCIe_AIO16_16A_proto:
+            case mPCIe_AIO16_16E_proto:
+            case mPCIe_AI16_16F_proto:
+            case mPCIe_AI16_16A_proto:
+            case mPCIe_AI16_16E_proto:
+            case mPCIe_AIO12_16A_proto:
+            case mPCIe_AIO12_16_proto:
+            case mPCIe_AIO12_16E_proto:
+            case mPCIe_AI12_16A_proto:
+            case mPCIe_AI12_16_proto:
+            case mPCIe_AI12_16E_proto:
+               return ddata->dma_last_buffer;
+          };
          break;
 
     case apci_cancel_wait_ioctl:

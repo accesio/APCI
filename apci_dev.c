@@ -410,9 +410,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
     }
     else
     {
-      //TODO: Make this a noop for now. The driver is going to try to ioremap()
-      //the region later in this function. Can make this work when HW is available
-      //for test
+      ddata->plx_region.mapped_address = ioremap(ddata->plx_region.start, ddata->plx_region.length);
     }
 
     /* TODO: request and remap the region for plx */
@@ -635,6 +633,11 @@ apci_free_driver( struct pci_dev *pdev )
         apci_debug("releasing memory of %08x , length=%d\n", ddata->plx_region.start, ddata->plx_region.length );
         release_region( ddata->plx_region.start, ddata->plx_region.length );
      }
+     else
+     {
+        iounmap(ddata->plx_region.mapped_address);
+        release_mem_region(ddata->plx_region.start, ddata->plx_region.length);
+     }
 
      for (count = 0; count < 6; count ++) {
           if (ddata->regions[count].start == 0) {
@@ -720,7 +723,6 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
         return IRQ_NONE; /* not me */
       }
     }
-
 
     apci_devel("ISR called.\n");
 
@@ -992,6 +994,11 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
    if (ddata->is_pcie && ddata->plx_region.flags & IORESOURCE_IO)
    {
       outb(0x9, ddata->plx_region.start + 0x69);
+   }
+   else
+   {
+     apci_debug("Enabling IRQ MEM/IO plx region\n");
+     iowrite8(0x9, ddata->plx_region.mapped_address + 0x69);
    }
 
          /* switch( id->device ) {  */
