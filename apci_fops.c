@@ -66,8 +66,6 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
          return 0;
 
     }
-    apci_devel("apci_wait_for_irq_ioctl value is %u\n", (int)apci_wait_for_irq_ioctl );
-    apci_devel("apci_get_base_address value is %x\n", (int)apci_get_base_address );
     apci_devel("inside ioctl.\n");
 
     switch (cmd) {
@@ -317,6 +315,15 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
          iowrite32(ddata->dma_addr >> 32, ddata->regions[0].mapped_address + 4);
          iowrite32(MPCIE_AI_DMA_BUFF_SIZE/2, ddata->regions[0].mapped_address + 8);
          iowrite32(4, ddata->regions[0].mapped_address + 12);
+         break;
+
+     case apci_set_dma_transfer_size:
+          //TODO: remove memset before release
+          memset(ddata->dma_virt_addr, 0, MPCIE_AI_DMA_BUFF_SIZE);
+          ddata->dma_transfer_size = (uint32_t)arg;
+          apci_debug("dma_transfer_size = 0x%x\n", ddata->dma_transfer_size);
+          break;
+
     };
 
     return 0;

@@ -553,6 +553,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
       case mPCIe_AI12_16A_proto:
       case mPCIe_AI12_16_proto:
       case mPCIe_AI12_16E_proto:
+        apci_devel("setting up DMA in alloc\n");
         ddata->dma_virt_addr = dma_alloc_coherent(&(pdev->dev),
                                                   MPCIE_AI_DMA_BUFF_SIZE,
                                                   &(ddata->dma_addr),
@@ -562,12 +563,15 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
           apci_error("Unable to allocate dma buffer\n");
         }
         ddata->dma_last_buffer = -1;
+        ddata->dma_transfer_size = MPCIE_AI_DMA_BUFF_SIZE/2;
         //TODO: Remove memset once things are confirmed working with DMA
         memset(ddata->dma_virt_addr, 0x55, MPCIE_AI_DMA_BUFF_SIZE);
         ddata->regions[0].start   = pci_resource_start(pdev, 0);
         ddata->regions[0].end     = pci_resource_end(pdev, 0);
         ddata->regions[0].flags   = pci_resource_flags(pdev, 0);
         ddata->regions[0].length  = ddata->regions[0].end - ddata->regions[0].start + 1;
+
+        iounmap(ddata->plx_region.mapped_address);
     }
 
 
@@ -609,6 +613,24 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
       }
     }
 
+        // cards where we support DMA. So far just the mPCIe_AI*_proto cards
+    switch (ddata->dev_id)
+    {
+      case mPCIe_AIO16_16F_proto:
+      case mPCIe_AIO16_16A_proto:
+      case mPCIe_AIO16_16E_proto:
+      case mPCIe_AI16_16F_proto:
+      case mPCIe_AI16_16A_proto:
+      case mPCIe_AI16_16E_proto:
+      case mPCIe_AIO12_16A_proto:
+      case mPCIe_AIO12_16_proto:
+      case mPCIe_AIO12_16E_proto:
+      case mPCIe_AI12_16A_proto:
+      case mPCIe_AI12_16_proto:
+      case mPCIe_AI12_16E_proto:
+        ddata->plx_region = ddata->regions[0];
+    }
+
     return ddata;
 
 out_alloc_driver:
@@ -635,8 +657,8 @@ apci_free_driver( struct pci_dev *pdev )
      }
      else
      {
-        iounmap(ddata->plx_region.mapped_address);
-        release_mem_region(ddata->plx_region.start, ddata->plx_region.length);
+        //iounmap(ddata->plx_region.mapped_address);
+        //release_mem_region(ddata->plx_region.start, ddata->plx_region.length);
      }
 
      for (count = 0; count < 6; count ++) {
@@ -716,8 +738,18 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
       if ((byte & 4) == 0) {
         return IRQ_NONE; /* not me */
       }
-    } else {                    /* PCIe */
-      byte = inb(ddata->plx_region.start + 0x69);
+    }
+    else
+    {                    /* PCIe */
+      if (ddata->plx_region.flags & IORESOURCE_IO)
+      {
+        byte = inb(ddata->plx_region.start + 0x69);
+      }
+      else
+      {
+        byte = ioread8(ddata->plx_region.mapped_address + 0x69);
+        apci_devel("byte = 0x%x\n", byte);
+      }
 
       if ((byte & 0x80 ) == 0) {
         return IRQ_NONE; /* not me */
@@ -862,7 +894,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
           //If this is a FIFO near full IRQ then tell the card
           //to write to the next buffer (and don't notify the user?)
           //else if it is a write done IRQ set lat_valid_buffer and notify user
-          uint8_t irq_event = inb(ddata->regions[2].start + 0x2);
+          uint8_t irq_event = ioread8(ddata->regions[2].mapped_address + 0x2);
           if (irq_event & 0x1) //FIFO almost full
           {
             dma_addr_t base = ddata->dma_addr;
@@ -870,18 +902,20 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
             //This assumes dma_last_buffer is always zero or one
             if (ddata->dma_last_buffer == 0)
             {
-              base += MPCIE_AI_DMA_BUFF_SIZE / 2;
+              //base += MPCIE_AI_DMA_BUFF_SIZE / 2;
             }
             iowrite32(base & 0xffffffff, ddata->regions[0].mapped_address);
             iowrite32(base >> 32, ddata->regions[0].mapped_address + 4);
-            iowrite32(MPCIE_AI_DMA_BUFF_SIZE/2, ddata->regions[0].mapped_address + 8);
+            iowrite32(ddata->dma_transfer_size, ddata->regions[0].mapped_address + 8);
             iowrite32(4, ddata->regions[0].mapped_address + 12);
           }
           else
           {
             ddata->dma_last_buffer = ddata->dma_last_buffer ? 0 : 1;
           }
-          outb(irq_event, ddata->regions[2].start + 0x2);
+          iowrite8(irq_event, ddata->regions[2].mapped_address + 0x2);
+          apci_devel("irq_event = 0x%x\n", irq_event);
+          apci_devel("depth = 0x%x\n", ioread32(ddata->regions[2].mapped_address + 0x28));
 
         }
     };

@@ -34,6 +34,7 @@ typedef struct {
 #define apci_cancel_wait_ioctl      _IOW(ACCES_MAGIC_NUM, 6, unsigned long)
 #define apci_get_base_address       _IOW(ACCES_MAGIC_NUM, 7, unsigned long)
 #define apci_force_dma              _IO(ACCES_MAGIC_NUM, 8)
+#define apci_set_dma_transfer_size  _IOW(ACCES_MAGIC_NUM, 9, uint32_t)
 
 
 

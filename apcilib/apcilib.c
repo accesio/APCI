@@ -159,3 +159,8 @@ int apci_dma(int fd, unsigned long device_index)
 {
 	return ioctl(fd, apci_force_dma);
 }
+
+int apci_dma_transfer_size(int fd, unsigned long device_index, __u32 size)
+{
+	return ioctl(fd, apci_set_dma_transfer_size, size);
+}

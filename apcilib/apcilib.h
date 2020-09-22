@@ -39,3 +39,4 @@ int apci_wait_for_irq(int fd, unsigned long device_index);
 int apci_cancel_irq(int fd, unsigned long device_index);
 
 int apci_dma(int fd, unsigned long device_index);
+int apci_dma_transfer_size(int fd, unsigned long device_index, __u32 size);

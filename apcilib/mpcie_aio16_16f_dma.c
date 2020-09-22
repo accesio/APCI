@@ -14,7 +14,7 @@
 
 #include "apcilib.h"
 
-#define DMA_BUFF_SIZE 4096 * 2 * 2
+#define DMA_BUFF_SIZE 4096 * 8 * 2
 
 #define RESETOFFSET         0x00
 #define IRQENABLEOFFSET     0x01
@@ -30,8 +30,9 @@
 #define ADCIMMEDIATEOFFSET  0x3A
 
 
-#define SAMPLE_RATE 10000.0
-#define HIGH_CHANNEL 4
+#define SAMPLE_RATE 200.0
+#define HIGH_CHANNEL 7
+#define SAMPLES_FOR_IRQ 0x800
 
 int set_rate (int fd, double *Hz)
 {
@@ -85,10 +86,6 @@ int main (int argc, char **argv)
 		return -1;
 	}
 
-  //reset everything
-  apci_write8(fd, 1, 2, RESETOFFSET, 0xf);
-
-	sleep(1);
 
 	mmap_addr = mmap(NULL, DMA_BUFF_SIZE, PROT_READ, MAP_SHARED, fd, 0);
 
@@ -98,42 +95,74 @@ int main (int argc, char **argv)
 		return -1;
 	}
 
+  //reset everything
+  apci_write8(fd, 1, 2, RESETOFFSET, 0xf);
+	sleep(1);
+
+  //set depth of FIFO to generate IRQ
+  apci_write16(fd, 1, 2, AFLEVELOFFSET, SAMPLES_FOR_IRQ);
+	apci_read32(fd, 1, 2, AFLEVELOFFSET, &depth_readback);
+	printf("depth_readback = 0x%x\n", depth_readback);
+
+  apci_dma_transfer_size(fd, 1, SAMPLES_FOR_IRQ * 8);
+
   set_rate(fd, &rate);
 
   //set ranges
   apci_write32(fd, 1, 2, ADCRANGEOFFSET, 0);
   apci_write32(fd, 1, 2, ADCRANGEOFFSET + 8, 0);
 
-
-
-  //set depth of FIFO to generate IRQ
-  apci_write32(fd, 1, 2, AFLEVELOFFSET, 0xf00);
-	apci_read32(fd, 1, 2, AFLEVELOFFSET, &depth_readback);
-
-	printf("depth_readback = 0x%x\n", depth_readback);
-
   //enable IRQ
-  apci_write8(fd, 1, 2, IRQENABLEOFFSET, 1);
+  apci_write8(fd, 1, 2, IRQENABLEOFFSET, 0xff);
+
+  //clear IRQs (tried with and without this)
+  apci_write8(fd, 1, 2, 0x2, 0xff);
+
 
   //Start command?
 	start_command = 0xfcee;
 	start_command &= ~(7 << 12);
 	start_command |= HIGH_CHANNEL << 12;
+  start_command |= 1;
   apci_write16(fd, 1, 2, ADCSTARTSTOPOFFSET, start_command);
 
 	printf("start_command = 0x%x\n", start_command);
 
-  status = apci_wait_for_irq(fd, 1);
-
-  printf("status after irq = %d\n", status);
-
-  if (status >= 0)
+  for (int i = 0 ; i < 30 ; i++)
   {
-    dump_buffer_half(mmap_addr, status);
+    uint8_t irq_register;
+    uint32_t current_depth;
+    uint8_t irq_enable;
+    apci_read8(fd, 1, 2, 2, &irq_register);
+    apci_read32(fd, 1, 2,ADCDEPTHOFFSET, &current_depth);
+    apci_read8(fd, 1, 2, 1, &irq_enable);
+    printf("irq_register = %d, current_depth = 0x%x, irq_enable=0x%x\n", irq_register, current_depth, irq_enable);
+    sleep(1);
   }
+
+  //dump_buffer_half(mmap_addr, 0);
+
+  //   for (int i = 0 ; i < 10 ; i++)
+  // {
+  //   status = apci_wait_for_irq(fd, 1);
+  //   printf("status after irq = %d\n", status);
+  //   sleep(1);
+  // }
+
+//  status = apci_wait_for_irq(fd, 1);
+
+
+  //printf("status after irq = %d\n", status);
+
+  // if (status >= 0)
+  // {
+  //   dump_buffer_half(mmap_addr, status);
+  // }
 
   //disable IRQ
   apci_write8(fd, 1, 2, IRQENABLEOFFSET, 0);
+  //clear IRQs (tried with and without this)
+  //apci_write8(fd, 1, 2, 0x2, 0xff);
 
 
 }
