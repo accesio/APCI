@@ -748,7 +748,6 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
       else
       {
         byte = ioread8(ddata->plx_region.mapped_address + 0x69);
-        apci_devel("byte = 0x%x\n", byte);
       }
 
       if ((byte & 0x80 ) == 0) {
@@ -898,7 +897,6 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
           if (irq_event & 0x1) //FIFO almost full
           {
             dma_addr_t base = ddata->dma_addr;
-            notify_user = false;
             //This assumes dma_last_buffer is always zero or one
             if (ddata->dma_last_buffer == 0)
             {
@@ -908,9 +906,6 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
             iowrite32(base >> 32, ddata->regions[0].mapped_address + 4);
             iowrite32(ddata->dma_transfer_size, ddata->regions[0].mapped_address + 8);
             iowrite32(4, ddata->regions[0].mapped_address + 12);
-          }
-          else
-          {
             ddata->dma_last_buffer = ddata->dma_last_buffer ? 0 : 1;
           }
           iowrite8(irq_event, ddata->regions[2].mapped_address + 0x2);
