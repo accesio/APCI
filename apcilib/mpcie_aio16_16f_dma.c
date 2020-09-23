@@ -14,7 +14,7 @@
 #include "apcilib.h"
 
 #define DEVICEPATH "/dev/apci/mPCIe_AIO16_16F_proto_0"
-#define SAMPLE_RATE 200000.0 /* Hz */
+#define SAMPLE_RATE 40000.0 /* Hz */
 
 #define LOG_FILE_NAME "samples.csv"
 #define AMOUNT_OF_DATA_TO_LOG 1000000 /* conversions */
@@ -68,7 +68,7 @@ void * log_main(void *arg)
       channel = (ring_buffer[ring_read_index][i * 4 + 1] >> 4) & 0x7; // read the conversion result's channel # out of the status word
 
       // print the data accumulated into counts[channel] only after the current sample ("i") indicates the channel has wrapped
-      if (channel == 0) 
+      if (channel == 0)
       {
         fprintf(out, "%d", row);
         for (int j = 0 ; j < NUM_CHANNELS ; j++)
@@ -84,7 +84,7 @@ void * log_main(void *arg)
       last_channel = channel;
     }
     ring_read_index++;
-    ring_read_index %= RING_BUFFER_SLOTS;  
+    ring_read_index %= RING_BUFFER_SLOTS;
    };
    fclose(out);
 }
@@ -189,8 +189,14 @@ int main (void)
   {
     status = apci_wait_for_irq(fd, 1); /* status indicates which half of the DMA buffer was just filled (0 or 1) */
 
+    if (last_status == -1)
+    {
+      last_status = status;
+      continue;
+    }
+
     memcpy(ring_buffer[ring_write_index],
-            mmap_addr + (status * DMA_BUFF_SIZE/2),
+            mmap_addr + (last_status * DMA_BUFF_SIZE/2),
             BYTES_PER_TRANSFER);
     sem_post(&ring_sem);
 
