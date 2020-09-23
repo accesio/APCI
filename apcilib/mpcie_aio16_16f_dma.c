@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <string.h>
+#include <time.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -11,6 +13,9 @@
 #include <unistd.h>
 
 #include <math.h>
+
+#include <semaphore.h>
+#include <pthread.h>
 
 #include "apcilib.h"
 
@@ -30,9 +35,59 @@
 #define ADCIMMEDIATEOFFSET  0x3A
 
 
-#define SAMPLE_RATE 200.0
+#define SAMPLE_RATE 60000.0
 #define HIGH_CHANNEL 7
-#define SAMPLES_FOR_IRQ 0x800
+#define SAMPLES_PER_TRANSFER 0xf00
+#define BYTES_PER_TRANSFER SAMPLES_PER_TRANSFER * 8
+#define NUM_CHANNELS 16
+
+
+
+
+#define RING_BUFFER_SLOTS 5
+static uint16_t ring_buffer[RING_BUFFER_SLOTS][SAMPLES_PER_TRANSFER * 4];
+static sem_t ring_sem;
+static int terminate;
+
+
+
+void * log_main(void *arg)
+{
+  int ring_index = 0;
+  int status;
+  int row = 0;
+  int last_channel = -1;
+  uint16_t counts[NUM_CHANNELS];
+  int channel;
+  FILE *out = fopen("samples.csv", "w");
+  while (!terminate)
+  {
+    status = sem_wait(&ring_sem);
+    printf("status after sem_wait = %d, ring_index = %d\n", status, ring_index);
+
+    for (int i = 0; i < SAMPLES_PER_TRANSFER ; i++)
+    {
+      channel = (ring_buffer[ring_index][i * 4 + 1] >> 4) & 0x7;
+      if (channel == 0)
+      {
+        fprintf(out, "%d", row);
+        for (int j = 0 ; j < NUM_CHANNELS ; j++)
+        {
+          fprintf(out, ",0x%x", counts[j]);
+        }
+        fprintf(out, "\n");
+        row++;
+        memset(counts, 0, sizeof(counts));
+      }
+      counts[channel] = ring_buffer[ring_index][i * 4];
+      counts[channel + 8] = ring_buffer[ring_index][i * 4 + 2];
+      last_channel = channel;
+    }
+    ring_index++;
+    ring_index = ring_index == RING_BUFFER_SLOTS ? 0 : ring_index;
+   };
+
+}
 
 int set_rate (int fd, double *Hz)
 {
@@ -76,6 +131,12 @@ int main (int argc, char **argv)
   double rate = SAMPLE_RATE;
 	uint32_t depth_readback;
 	uint16_t start_command;
+  pthread_t logger_thread;
+  int ring_index = 0;
+  int last_status = -1;
+  struct timespec dma_delay = {0};
+
+  dma_delay.tv_nsec = 10;
 
 
 	fd = open("/dev/apci/mPCIe_AIO16_16F_proto_0", O_RDONLY);
@@ -95,16 +156,26 @@ int main (int argc, char **argv)
 		return -1;
 	}
 
+  status = sem_init(&ring_sem, 0, 0);
+
+  if (status)
+  {
+    printf("Unable to init semaphore\n");
+    return -1;
+  }
+  pthread_create(&logger_thread, NULL, &log_main, NULL);
+
+
   //reset everything
   apci_write8(fd, 1, 2, RESETOFFSET, 0xf);
 	sleep(1);
 
   //set depth of FIFO to generate IRQ
-  apci_write32(fd, 1, 2, AFLEVELOFFSET, SAMPLES_FOR_IRQ);
+  apci_write32(fd, 1, 2, AFLEVELOFFSET, SAMPLES_PER_TRANSFER);
 	apci_read32(fd, 1, 2, AFLEVELOFFSET, &depth_readback);
 	printf("depth_readback = 0x%x\n", depth_readback);
 
-  apci_dma_transfer_size(fd, 1, SAMPLES_FOR_IRQ * 8);
+  apci_dma_transfer_size(fd, 1, BYTES_PER_TRANSFER);
 
   set_rate(fd, &rate);
 
@@ -128,42 +199,36 @@ int main (int argc, char **argv)
 
 	printf("start_command = 0x%x\n", start_command);
 
-  for (int i = 0 ; i < 30 ; i++)
-  {
-    uint8_t irq_register;
-    uint32_t current_depth;
-    uint8_t irq_enable;
-    apci_read8(fd, 1, 2, 2, &irq_register);
-    apci_read32(fd, 1, 2,ADCDEPTHOFFSET, &current_depth);
-    apci_read8(fd, 1, 2, 1, &irq_enable);
-    printf("irq_register = %d, current_depth = 0x%x, irq_enable=0x%x\n", irq_register, current_depth, irq_enable);
-    sleep(1);
-  }
-
-
   //dump_buffer_half(mmap_addr, 0);
 
-    for (int i = 0 ; i < 10 ; i++)
+  for (int i = 0 ; i < 10 ; i++)
   {
     status = apci_wait_for_irq(fd, 1);
-    printf("status after irq = %d\n", status);
+    //nanosleep(&dma_delay, NULL);
+    memcpy(ring_buffer[ring_index],
+            mmap_addr + (status * DMA_BUFF_SIZE/2),
+            BYTES_PER_TRANSFER);
+    sem_post(&ring_sem);
+
+    if (status == last_status)
+    {
+      printf("Status repeat. Probably missed an IRQ\n");
+    }
+    last_status = status;
+    //printf("status after irq = %d, ring_index = %d\n", status, ring_index);
+    ring_index++;
+    ring_index = ring_index == RING_BUFFER_SLOTS ? 0 : ring_index;
   }
 
-//  status = apci_wait_for_irq(fd, 1);
-
-
-  //printf("status after irq = %d\n", status);
-
-  // if (status >= 0)
-  // {
-  //   dump_buffer_half(mmap_addr, status);
-  // }
+  terminate = 1;
 
   //disable IRQ
   apci_write8(fd, 1, 2, IRQENABLEOFFSET, 0);
   //clear IRQs (tried with and without this)
   //apci_write8(fd, 1, 2, 0x2, 0xff);
   apci_write8(fd, 1, 2, RESETOFFSET, 0xf);
+
+  pthread_join(logger_thread, NULL);
 
 
 }

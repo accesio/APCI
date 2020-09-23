@@ -900,7 +900,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
             //This assumes dma_last_buffer is always zero or one
             if (ddata->dma_last_buffer == 0)
             {
-              //base += MPCIE_AI_DMA_BUFF_SIZE / 2;
+              base += MPCIE_AI_DMA_BUFF_SIZE / 2;
             }
             iowrite32(base & 0xffffffff, ddata->regions[0].mapped_address);
             iowrite32(base >> 32, ddata->regions[0].mapped_address + 4);

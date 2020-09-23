@@ -230,7 +230,7 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
                   break;
              };
 
-             apci_info("performed read from %X\n",
+             apci_devel("performed read from %X\n",
                        ddata->regions[io_pack.bar].start + io_pack.offset);
 
              status = copy_to_user((iopack *)arg, &io_pack,
@@ -238,11 +238,11 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
              break;
 
     case apci_wait_for_irq_ioctl:
-         apci_info("enter wait_for_IRQ.\n");
+         apci_devel("enter wait_for_IRQ.\n");
 
          device_index = arg;
 
-         apci_info("Acquiring spin lock\n");
+         apci_devel("Acquiring spin lock\n");
 
          spin_lock_irqsave(&(ddata->irq_lock), flags);
 
@@ -260,7 +260,7 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
          spin_unlock_irqrestore (&(ddata->irq_lock),
                                  flags);
 
-         apci_info("Released spin lock\n");
+         apci_devel("Released spin lock\n");
 
          wait_event_interruptible(ddata->wait_queue, ddata->waiting_for_irq == 0);
 
