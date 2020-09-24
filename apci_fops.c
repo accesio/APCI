@@ -28,7 +28,7 @@ int open_apci( pInode inode, pFile filp )
   struct apci_my_info *ddata;
   apci_debug("Opening device\n");
   ddata = container_of( inode->i_cdev, struct apci_my_info, cdev );
-  /* need to check to see if the device is 
+  /* need to check to see if the device is
      Blocking  / nonblocking */
 
   filp->private_data = ddata;
@@ -43,14 +43,14 @@ ssize_t read_apci(struct file *filp, char __user *buf,
     struct apci_my_info  *ddata = filp->private_data ;
     int status;
     unsigned int value = inb( ddata->regions[2].start + 0x1 );
-    status = copy_to_user(buf, &value, 1);      
+    status = copy_to_user(buf, &value, 1);
     return ( status ? -EFAULT : 1 );
 }
 
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39 )
 int ioctl_apci(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg)
-#else 
+#else
 long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 #endif
 {
@@ -66,8 +66,6 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
          return 0;
 
     }
-    apci_devel("apci_wait_for_irq_ioctl value is %u\n", (int)apci_wait_for_irq_ioctl );
-    apci_devel("apci_get_base_address value is %x\n", (int)apci_get_base_address );
     apci_devel("inside ioctl.\n");
 
     switch (cmd) {
@@ -163,11 +161,11 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
                 case BYTE:
                   iowrite8(io_pack.data, ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
                   break;
-                
+
                 case WORD:
                   iowrite16(io_pack.data, ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
                   break;
-                
+
                 case DWORD:
                   iowrite32(io_pack.data, ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
                   break;
@@ -231,8 +229,8 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
                   return -EFAULT;
                   break;
              };
-      
-             apci_info("performed read from %X\n",
+
+             apci_devel("performed read from %X\n",
                        ddata->regions[io_pack.bar].start + io_pack.offset);
 
              status = copy_to_user((iopack *)arg, &io_pack,
@@ -240,11 +238,11 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
              break;
 
     case apci_wait_for_irq_ioctl:
-         apci_info("enter wait_for_IRQ.\n");
+         apci_devel("enter wait_for_IRQ.\n");
 
          device_index = arg;
 
-         apci_info("Acquiring spin lock\n");
+         apci_devel("Acquiring spin lock\n");
 
          spin_lock_irqsave(&(ddata->irq_lock), flags);
 
@@ -262,11 +260,29 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
          spin_unlock_irqrestore (&(ddata->irq_lock),
                                  flags);
 
-         apci_info("Released spin lock\n");
+         apci_devel("Released spin lock\n");
 
          wait_event_interruptible(ddata->wait_queue, ddata->waiting_for_irq == 0);
 
          if (ddata->irq_cancelled == 1) return -ECANCELED;
+
+          //for DMA capable boards return the last filled buffer half
+          switch(ddata->dev_id)
+          {
+            case mPCIe_AIO16_16F_proto:
+            case mPCIe_AIO16_16A_proto:
+            case mPCIe_AIO16_16E_proto:
+            case mPCIe_AI16_16F_proto:
+            case mPCIe_AI16_16A_proto:
+            case mPCIe_AI16_16E_proto:
+            case mPCIe_AIO12_16A_proto:
+            case mPCIe_AIO12_16_proto:
+            case mPCIe_AIO12_16E_proto:
+            case mPCIe_AI12_16A_proto:
+            case mPCIe_AI12_16_proto:
+            case mPCIe_AI12_16E_proto:
+               return ddata->dma_last_buffer;
+          };
          break;
 
     case apci_cancel_wait_ioctl:
@@ -292,9 +308,38 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
           /* status = copy_from_user(&info, (info_struct *) arg, sizeof(info_struct)); */
          info.dev_id = ddata->dev_id;
 
-         status = copy_to_user((info_struct *) arg, &ddata->plx_region.start, sizeof( io_region ));      
          break;
+     case apci_force_dma:
+          apci_debug("triggering DMA for test\n");
+         iowrite32(ddata->dma_addr & 0xffffffff, ddata->regions[0].mapped_address);
+         iowrite32(ddata->dma_addr >> 32, ddata->regions[0].mapped_address + 4);
+         iowrite32(MPCIE_AI_DMA_BUFF_SIZE/2, ddata->regions[0].mapped_address + 8);
+         iowrite32(4, ddata->regions[0].mapped_address + 12);
+         break;
+
+     case apci_set_dma_transfer_size:
+          //TODO: remove memset before release
+          memset(ddata->dma_virt_addr, 0, MPCIE_AI_DMA_BUFF_SIZE);
+          ddata->dma_transfer_size = (uint32_t)arg;
+          apci_debug("dma_transfer_size = 0x%x\n", ddata->dma_transfer_size);
+          break;
+
     };
 
     return 0;
+}
+
+
+int mmap_apci (struct file *filp, struct vm_area_struct *vma)
+{
+     struct apci_my_info *ddata = filp->private_data;
+     int status;
+
+     status = remap_pfn_range(vma,
+                         vma->vm_start,
+                         ddata->dma_addr >> PAGE_SHIFT,
+                         vma->vm_end - vma->vm_start,
+                         vma->vm_page_prot);
+
+     return 0;
 }

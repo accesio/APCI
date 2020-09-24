@@ -4,7 +4,7 @@
 #define ACCES_MAGIC_NUM 0xE0
 enum SIZE { BYTE = 0, WORD, DWORD};
 
-#ifndef __u32 
+#ifndef __u32
 #define __u32 unsigned int
 #endif
 
@@ -33,6 +33,8 @@ typedef struct {
 #define apci_wait_for_irq_ioctl     _IOR(ACCES_MAGIC_NUM, 5, unsigned long)
 #define apci_cancel_wait_ioctl      _IOW(ACCES_MAGIC_NUM, 6, unsigned long)
 #define apci_get_base_address       _IOW(ACCES_MAGIC_NUM, 7, unsigned long)
+#define apci_force_dma              _IO(ACCES_MAGIC_NUM, 8)
+#define apci_set_dma_transfer_size  _IOW(ACCES_MAGIC_NUM, 9, uint32_t)
 
 
 

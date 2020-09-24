@@ -17,7 +17,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 In addition ACCES provides other licenses with its software at customer request.
-For more information please contact the ACCES software department at 
+For more information please contact the ACCES software department at
 (800)-326-1649 or visit www.accesio.com
 */
 
@@ -107,9 +107,9 @@ typedef struct
 	enum SIZE size;
 	__u32 data;
 }iopack;
-	
 
-	
+
+
 
 #define apci_get_devices_ioctl _IO(ACCES_MAGIC_NUM, 1)
 #define apci_get_device_info_ioctl _IOR(ACCES_MAGIC_NUM, 2, info_struct *)
@@ -117,6 +117,8 @@ typedef struct
 #define apci_read_ioctl _IOR(ACCES_MAGIC_NUM, 4, iopack *)
 #define apci_wait_for_irq_ioctl _IOR(ACCES_MAGIC_NUM, 5, unsigned long)
 #define apci_cancel_wait_ioctl _IOW(ACCES_MAGIC_NUM, 6, unsigned long)
+#define apci_force_dma              _IO(ACCES_MAGIC_NUM, 8)
+#define apci_set_dma_transfer_size  _IOW(ACCES_MAGIC_NUM, 9, __u32)
 
 
 
