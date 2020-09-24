@@ -24,9 +24,10 @@ For more information please contact the ACCES software department at
 #include <sys/ioctl.h>
 #include <linux/errno.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include "apcilib.h"
-#include "apci.h"
+#include "apci_ioctl.h"
 
 int apci_get_devices(int fd)
 {
