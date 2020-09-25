@@ -554,18 +554,6 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
       case mPCIe_AI12_16_proto:
       case mPCIe_AI12_16E_proto:
         apci_devel("setting up DMA in alloc\n");
-        ddata->dma_virt_addr = dma_alloc_coherent(&(pdev->dev),
-                                                  MPCIE_AI_DMA_BUFF_SIZE,
-                                                  &(ddata->dma_addr),
-                                                  GFP_KERNEL);
-        if (ddata->dma_virt_addr == NULL)
-        {
-          apci_error("Unable to allocate dma buffer\n");
-        }
-        ddata->dma_last_buffer = -1;
-        ddata->dma_transfer_size = MPCIE_AI_DMA_BUFF_SIZE/2;
-        //TODO: Remove memset once things are confirmed working with DMA
-        memset(ddata->dma_virt_addr, 0x55, MPCIE_AI_DMA_BUFF_SIZE);
         ddata->regions[0].start   = pci_resource_start(pdev, 0);
         ddata->regions[0].end     = pci_resource_end(pdev, 0);
         ddata->regions[0].flags   = pci_resource_flags(pdev, 0);
@@ -628,6 +616,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
       case mPCIe_AI12_16A_proto:
       case mPCIe_AI12_16_proto:
       case mPCIe_AI12_16E_proto:
+        spin_lock_init(&(ddata->dma_data_lock));
         ddata->plx_region = ddata->regions[0];
     }
 
@@ -897,16 +886,33 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
           if (irq_event & 0x1) //FIFO almost full
           {
             dma_addr_t base = ddata->dma_addr;
-            //This assumes dma_last_buffer is always zero or one
-            if (ddata->dma_last_buffer == 0)
+            spin_lock(&(ddata->dma_data_lock));
+            if (ddata->dma_last_buffer == -1 )
             {
-              base += MPCIE_AI_DMA_BUFF_SIZE / 2;
+              notify_user = false;
             }
+            else if (ddata->dma_first_valid == -1)
+            {
+              ddata->dma_first_valid = 0;
+            }
+
+            ddata->dma_last_buffer++;
+            ddata->dma_last_buffer %= ddata->dma_num_slots;
+
+            if (ddata->dma_last_buffer == ddata->dma_first_valid)
+            {
+              apci_error("data discarded");
+              ddata->dma_last_buffer--;
+              ddata->dma_data_discarded++;
+            }
+            spin_unlock(&(ddata->dma_data_lock));
+            base += ddata->dma_slot_size * ddata->dma_last_buffer;
+
+
             iowrite32(base & 0xffffffff, ddata->regions[0].mapped_address);
             iowrite32(base >> 32, ddata->regions[0].mapped_address + 4);
-            iowrite32(ddata->dma_transfer_size, ddata->regions[0].mapped_address + 8);
+            iowrite32(ddata->dma_slot_size, ddata->regions[0].mapped_address + 8);
             iowrite32(4, ddata->regions[0].mapped_address + 12);
-            ddata->dma_last_buffer = ddata->dma_last_buffer ? 0 : 1;
           }
           iowrite8(irq_event, ddata->regions[2].mapped_address + 0x2);
           apci_devel("irq_event = 0x%x\n", irq_event);
@@ -954,7 +960,10 @@ void remove(struct pci_dev *pdev)
 
      if (ddata->dma_virt_addr != NULL)
      {
-       dma_free_coherent(&(ddata->pci_dev->dev), MPCIE_AI_DMA_BUFF_SIZE, ddata->dma_virt_addr, ddata->dma_addr);
+        dma_free_coherent(&(ddata->pci_dev->dev),
+            ddata->dma_num_slots * ddata->dma_slot_size,
+            ddata->dma_virt_addr,
+            ddata->dma_addr);
      }
 
      apci_class_dev_unregister( ddata );

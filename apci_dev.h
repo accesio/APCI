@@ -229,9 +229,6 @@ struct apci_board {
     struct device *dev;
 };
 
-//4096 samples * 8 bytes * 2 buffers
-#define MPCIE_AI_DMA_BUFF_SIZE 4096 * 8 *2
-
 struct apci_my_info {
      __u32 dev_id;
      io_region regions[6], plx_region;
@@ -262,8 +259,13 @@ struct apci_my_info {
 
      dma_addr_t dma_addr;
      void *dma_virt_addr;
-     int dma_last_buffer; //last buffer filled by dma
-     __u32 dma_transfer_size;
+     int dma_last_buffer; //last dma started to fill
+     int dma_first_valid; //first buffer containing valid data
+     int dma_num_slots;
+     size_t dma_slot_size;
+     int dma_data_discarded;
+     spinlock_t dma_data_lock;
+
 };
 
 int probe(struct pci_dev *dev, const struct pci_device_id *id);

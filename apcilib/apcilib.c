@@ -156,12 +156,28 @@ int apci_cancel_irq(int fd, unsigned long device_index)
 	return ioctl(fd, apci_cancel_wait_ioctl, device_index);
 }
 
-int apci_dma(int fd, unsigned long device_index)
+int apci_dma_transfer_size(int fd, unsigned long device_index, __u8 num_slots, size_t slot_size)
 {
-	return ioctl(fd, apci_force_dma);
+	dma_buffer_settings_t settings;
+	settings.num_slots = num_slots;
+	settings.slot_size = slot_size;
+	return ioctl(fd, apci_set_dma_transfer_size, &settings);
 }
 
-int apci_dma_transfer_size(int fd, unsigned long device_index, __u32 size)
+int apci_dma_data_ready(int fd, unsigned long device_index, int *start_index, int *slots, int *data_discarded)
 {
-	return ioctl(fd, apci_set_dma_transfer_size, size);
+	int status;
+	data_ready_t ready = {0};
+	status = ioctl(fd, apci_data_ready, &ready);
+
+	*start_index = ready.start_index;
+	*slots = ready.slots;
+	*data_discarded = ready.data_discarded;
+
+	return status;
+}
+
+int apci_dma_data_done(int fd, unsigned long device_index, int num_slots)
+{
+	return ioctl(fd, apci_data_done, num_slots);
 }

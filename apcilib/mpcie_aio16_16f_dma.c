@@ -14,15 +14,15 @@
 #include "apcilib.h"
 
 #define DEVICEPATH "/dev/apci/mPCIe_AIO16_16F_proto_0"
-#define SAMPLE_RATE 40000.0 /* Hz */
+#define SAMPLE_RATE 100.0 /* Hz */
 
 #define LOG_FILE_NAME "samples.csv"
-#define AMOUNT_OF_DATA_TO_LOG 1000000 /* conversions */
+#define AMOUNT_OF_DATA_TO_LOG 1000 /* conversions */
 #define HIGH_CHANNEL 7 /* channels 0 through HIGH_CHANNEL are sampled, simultaneously, from both ADAS3022 chips */
 
 #define NUM_CHANNELS ((HIGH_CHANNEL+1)*2)
 
-#define SAMPLES_PER_TRANSFER 0x800  /* FIFO Almost Full IRQ Threshold value (0 < FAF <= 0xFFF */
+#define SAMPLES_PER_TRANSFER 0x100  /* FIFO Almost Full IRQ Threshold value (0 < FAF <= 0xFFF */
 #define BYTES_PER_SAMPLE 8
 #define BYTES_PER_TRANSFER SAMPLES_PER_TRANSFER * BYTES_PER_SAMPLE
 
@@ -38,15 +38,18 @@
 #define ADCSTARTSTOPOFFSET  0x38
 #define ADCIMMEDIATEOFFSET  0x3A
 
-#define ADC_SAMPLE_FIFO_DEPTH 4096
-#define DMA_BUFF_SIZE ADC_SAMPLE_FIFO_DEPTH * BYTES_PER_SAMPLE  * 2 /* the buffer halves are ping-ponged by the driver, filled by DMA one half per IRQ */
-#define NUMBER_OF_DMA_TRANSFERS (AMOUNT_OF_DATA_TO_LOG / SAMPLES_PER_TRANSFER)
-
 /* This simple sample uses a Ring-buffer to queue data for logging to disk via a background thread */
-#define RING_BUFFER_SLOTS 5
+/* It is possible for the driver and the user to have a different number of slots, but making them match is less complicated */
+#define RING_BUFFER_SLOTS 10
 static uint16_t ring_buffer[RING_BUFFER_SLOTS][SAMPLES_PER_TRANSFER * 4];
 static sem_t ring_sem;
 static int terminate;
+
+#define ADC_SAMPLE_FIFO_DEPTH 4096
+#define DMA_BUFF_SIZE BYTES_PER_TRANSFER * RING_BUFFER_SLOTS /* the buffer halves are ping-ponged by the driver, filled by DMA one half per IRQ */
+#define NUMBER_OF_DMA_TRANSFERS (AMOUNT_OF_DATA_TO_LOG / SAMPLES_PER_TRANSFER)
+
+
 
 /* background thread to save acquired data to disk.  Note this has to keep up or the current static-length ring buffer would overwrite data */
 void * log_main(void *arg)
@@ -141,7 +144,15 @@ int main (void)
 		return -1;
 	}
 
-  //allocate the ping-pong DMA destination buffer
+  //Setup dma ring buffer in driver
+  status = apci_dma_transfer_size(fd, 1, RING_BUFFER_SLOTS, BYTES_PER_TRANSFER);
+
+  if (status)  {
+    printf("Error setting transfer_size\n");
+    return -1;
+  }
+
+  //map the DMA destination buffer
 	mmap_addr = mmap(NULL, DMA_BUFF_SIZE, PROT_READ, MAP_SHARED, fd, 0);
 	if (mmap_addr == NULL) 	{
 		printf("mmap_addr is NULL\n");
@@ -153,7 +164,7 @@ int main (void)
     printf("Unable to init semaphore\n");
     return -1;
   }
-  pthread_create(&logger_thread, NULL, &log_main, NULL);
+//  pthread_create(&logger_thread, NULL, &log_main, NULL);
 
 
   //reset everything
@@ -163,8 +174,6 @@ int main (void)
   apci_write32(fd, 1, 2, AFLEVELOFFSET, SAMPLES_PER_TRANSFER);
 	apci_read32(fd, 1, 2, AFLEVELOFFSET, &depth_readback);
 	printf("depth_readback = 0x%x\n", depth_readback);
-
-  apci_dma_transfer_size(fd, 1, BYTES_PER_TRANSFER);
 
   set_acquisition_rate(fd, &rate);
 
@@ -185,37 +194,65 @@ int main (void)
 
   //diag_dump_buffer_half(mmap_addr, 0);
 
-  for (int i = 0 ; i < NUMBER_OF_DMA_TRANSFERS ; i++)
   {
-    status = apci_wait_for_irq(fd, 1); /* status indicates which half of the DMA buffer was just filled (0 or 1) */
-
-    if (last_status == -1)
-    {
-      last_status = status;
-      continue;
-    }
-
-    memcpy(ring_buffer[ring_write_index],
-            mmap_addr + (last_status * DMA_BUFF_SIZE/2),
-            BYTES_PER_TRANSFER);
-    sem_post(&ring_sem);
-
+    int transfer_count = 0;
+    int num_slots;
+    int first_slot;
+    int data_discarded;
     int buffers_queued;
-    sem_getvalue(&ring_sem, &buffers_queued);
-    if (buffers_queued >= RING_BUFFER_SLOTS) {
-      printf("overran the ring buffer.  Saving the log was too slow. Aborting.\n");
-      break;
-    }
+    do
+    {
+      status = apci_dma_data_ready(fd, 1, &first_slot, &num_slots, &data_discarded);
 
-    if (status == last_status) {
-      printf("DMA ping-pong repeat. Probably missed an IRQ: acquisition rate too fast. Continuing. Log is suspect.\n");
-    }
-    last_status = status;
-    //printf("status after irq = %d, ring_write_index = %d\n", status, ring_write_index);
-    ring_write_index++;
-    ring_write_index = ring_write_index == RING_BUFFER_SLOTS ? 0 : ring_write_index;
+      printf("first_slot = %d, num_slots = %d, data_discarded = %d\n", first_slot, num_slots, data_discarded);
+      if (num_slots == 0)
+      {
+        printf("Waiting for IRQ\n");
+        status = apci_wait_for_irq(fd, 1);
+        if (status)
+        {
+          printf("Error waiting for IRQ\n");
+          break;
+        }
+        continue;
+      }
+
+      fflush(stdout);
+
+      if (first_slot + num_slots <= RING_BUFFER_SLOTS)
+      {
+        memcpy(ring_buffer[first_slot],
+              mmap_addr + (BYTES_PER_TRANSFER * first_slot),
+              BYTES_PER_TRANSFER * num_slots);
+      }
+      else
+      {
+        memcpy(ring_buffer[first_slot],
+            mmap_addr + (BYTES_PER_TRANSFER * first_slot),
+            BYTES_PER_TRANSFER * (RING_BUFFER_SLOTS - first_slot));
+        memcpy(ring_buffer[0],
+            mmap_addr,
+            BYTES_PER_TRANSFER * (num_slots - (RING_BUFFER_SLOTS - first_slot)));
+      }
+
+      apci_dma_data_done(fd, 1, num_slots);
+
+      for (int i = 0; i < num_slots; i++)
+      {
+        sem_post(&ring_sem);
+      }
+
+      // sem_getvalue(&ring_sem, &buffers_queued);
+      // if (buffers_queued >= RING_BUFFER_SLOTS) {
+      //   printf("overran the ring buffer.  Saving the log was too slow. Aborting.\n");
+      //   break;
+      // }
+
+    }while (transfer_count < NUMBER_OF_DMA_TRANSFERS);
   }
 
+
+err_out: //Once a start has been issued to the card we need to tell it to stop before exiting
   terminate = 1;
   pthread_join(logger_thread, NULL);
 

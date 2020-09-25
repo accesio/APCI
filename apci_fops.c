@@ -266,23 +266,6 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 
          if (ddata->irq_cancelled == 1) return -ECANCELED;
 
-          //for DMA capable boards return the last filled buffer half
-          switch(ddata->dev_id)
-          {
-            case mPCIe_AIO16_16F_proto:
-            case mPCIe_AIO16_16A_proto:
-            case mPCIe_AIO16_16E_proto:
-            case mPCIe_AI16_16F_proto:
-            case mPCIe_AI16_16A_proto:
-            case mPCIe_AI16_16E_proto:
-            case mPCIe_AIO12_16A_proto:
-            case mPCIe_AIO12_16_proto:
-            case mPCIe_AIO12_16E_proto:
-            case mPCIe_AI12_16A_proto:
-            case mPCIe_AI12_16_proto:
-            case mPCIe_AI12_16E_proto:
-               return ddata->dma_last_buffer;
-          };
          break;
 
     case apci_cancel_wait_ioctl:
@@ -309,19 +292,98 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
          info.dev_id = ddata->dev_id;
 
          break;
-     case apci_force_dma:
-          apci_debug("triggering DMA for test\n");
-         iowrite32(ddata->dma_addr & 0xffffffff, ddata->regions[0].mapped_address);
-         iowrite32(ddata->dma_addr >> 32, ddata->regions[0].mapped_address + 4);
-         iowrite32(MPCIE_AI_DMA_BUFF_SIZE/2, ddata->regions[0].mapped_address + 8);
-         iowrite32(4, ddata->regions[0].mapped_address + 12);
-         break;
 
      case apci_set_dma_transfer_size:
-          //TODO: remove memset before release
-          memset(ddata->dma_virt_addr, 0, MPCIE_AI_DMA_BUFF_SIZE);
-          ddata->dma_transfer_size = (uint32_t)arg;
-          apci_debug("dma_transfer_size = 0x%x\n", ddata->dma_transfer_size);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
+          status = access_ok(arg, sizeof(dma_buffer_settings_t));
+#else
+          status = access_ok(VERIFY_WRITE, arg, sizeof(dma_buffer_settings_t));
+#endif
+          if (status == 0) return -EACCES;
+          {
+               dma_buffer_settings_t settings = {0};
+               status = copy_from_user(&settings,
+                         (dma_buffer_settings_t *) arg,
+                         sizeof(dma_buffer_settings_t));
+
+               if (ddata->dma_virt_addr != NULL)
+               {
+                    dma_free_coherent(&(ddata->pci_dev->dev),
+                         ddata->dma_num_slots * ddata->dma_slot_size,
+                         ddata->dma_virt_addr,
+                         ddata->dma_addr);
+
+                    ddata->dma_num_slots = 0;
+                    ddata->dma_virt_addr = NULL;
+                    ddata->dma_addr = 0;
+                    ddata->dma_slot_size = 0;
+               }
+
+               ddata->dma_num_slots = settings.num_slots;
+               ddata->dma_slot_size = settings.slot_size;
+
+               ddata->dma_virt_addr = dma_alloc_coherent(&(ddata->pci_dev->dev),
+                                        ddata->dma_num_slots * ddata->dma_slot_size,
+                                        &(ddata->dma_addr),
+                                        GFP_KERNEL);
+               if (ddata->dma_virt_addr == NULL) return -ENOMEM;
+               ddata->dma_last_buffer = -1;
+               ddata->dma_first_valid = -1;
+          }
+
+          break;
+     case apci_data_ready:
+         apci_error("Getting data ready\n");
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
+          status = access_ok(arg, sizeof(dma_buffer_settings_t));
+#else
+          status = access_ok(VERIFY_WRITE, arg, sizeof(dma_buffer_settings_t));
+#endif
+          if (status == 0) return -EACCES;
+          {
+               unsigned long flags;
+               int last_valid;
+               data_ready_t data_ready = {0};
+
+               spin_lock_irqsave(&(ddata->dma_data_lock), flags);
+
+               data_ready.start_index = ddata->dma_first_valid;
+               //last_valid = ddata->dma_last_buffer - 1;
+               last_valid = ddata->dma_last_buffer - 1;
+               if (last_valid == -1) last_valid = ddata->dma_num_slots - 1;
+
+               if (last_valid >= data_ready.start_index)
+               {
+                    data_ready.slots = last_valid - data_ready.start_index;
+               }
+               else
+               {
+                    data_ready.slots = ddata->dma_num_slots - (data_ready.start_index + last_valid + 1);
+               }
+               data_ready.data_discarded = ddata->dma_data_discarded;
+               ddata->dma_data_discarded = 0;
+               spin_unlock_irqrestore(&(ddata->dma_data_lock), flags);
+
+               if (data_ready.start_index == -1) data_ready.slots = 0;
+
+               apci_error("start_index = %d, num_slots = %d, discarded = %d\n", data_ready.start_index, data_ready.slots, data_ready.data_discarded);
+
+               status = copy_to_user((data_ready_t *)arg, &data_ready,
+                                   sizeof(data_ready_t));
+          }
+          break;
+     case apci_data_done:
+          {
+               unsigned long flags;
+               {
+                    spin_lock_irqsave(&(ddata->dma_data_lock), flags);
+                    apci_error("Adding %lu to first_valid", arg);
+                    ddata->dma_first_valid += arg;
+                    ddata->dma_first_valid %= ddata->dma_num_slots;
+                    spin_unlock_irqrestore(&(ddata->dma_data_lock), flags);
+               }
+          }
           break;
 
     };
