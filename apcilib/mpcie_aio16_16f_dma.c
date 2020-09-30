@@ -16,10 +16,11 @@
 #include "apcilib.h"
 
 #define DEVICEPATH "/dev/apci/mPCIe_AIO16_16F_proto_0"
-#define SAMPLE_RATE 100000.0 /* Hz */
+#define SAMPLE_RATE 1000000.0 /* Hz */
 
 #define LOG_FILE_NAME "samples.csv"
-#define AMOUNT_OF_DATA_TO_LOG 1000000 /* conversions */
+#define SECONDS_TO_LOG 2.0
+#define AMOUNT_OF_DATA_TO_LOG (SECONDS_TO_LOG * SAMPLE_RATE)//20000000 /* conversions (on TWO channels, simultaneously) */
 #define HIGH_CHANNEL 7 /* channels 0 through HIGH_CHANNEL are sampled, simultaneously, from both ADAS3022 chips */
 
 #define NUM_CHANNELS ((HIGH_CHANNEL+1)*2)
@@ -85,6 +86,7 @@ void * log_main(void *arg)
   while (!terminate)
   {
     status = sem_wait(&ring_sem);
+    if (terminate) goto endlog;
 
     for (int i = 0; i < SAMPLES_PER_TRANSFER ; i++)
     {
@@ -93,12 +95,12 @@ void * log_main(void *arg)
       // print the data accumulated into counts[channel] only after the current sample ("i") indicates the channel has wrapped
       if (channel == 0)
       {
-        //fprintf(out, "%d", row);
+        fprintf(out, "%d", row);
         for (int j = 0 ; j < NUM_CHANNELS ; j++)
         {
-          //fprintf(out, ",%d", counts[j]);
+          fprintf(out, ",%d", counts[j]);
         }
-        //fprintf(out, "\n");
+        fprintf(out, "\n");
         row++;
         memset(counts, 0, sizeof(counts));
       }
@@ -109,6 +111,7 @@ void * log_main(void *arg)
     ring_read_index++;
     ring_read_index %= RING_BUFFER_SLOTS;
    };
+   endlog:
    fclose(out);
 }
 
@@ -239,7 +242,6 @@ int main (void)
       }
       if (num_slots == 0)
       {
-        printf("Waiting for IRQ\n");
         status = apci_wait_for_irq(fd, 1);
         if (status)
         {
@@ -268,7 +270,7 @@ int main (void)
             BYTES_PER_TRANSFER * (num_slots - (RING_BUFFER_SLOTS - first_slot)));
       }
 
-      printf("Telling driver we've taken %d buffer%c\n", num_slots, (num_slots == 1) ? ' ':'s');
+      // printf("Telling driver we've taken %d buffer%c\n", num_slots, (num_slots == 1) ? ' ':'s');
       apci_dma_data_done(fd, 1, num_slots);
 
       for (int i = 0; i < num_slots; i++)
@@ -296,11 +298,15 @@ int main (void)
 
 
 err_out: //Once a start has been issued to the card we need to tell it to stop before exiting
-  terminate = 1;
-  pthread_join(logger_thread, NULL);
-
   /* put the card back in the power-up state */
   apci_write8(fd, 1, 2, RESETOFFSET, 0xf);
+
+  terminate = 1;
+  sem_post(&ring_sem);
+  printf("Done acquiring %d second%c. Waiting for log file to flush.\n", (int)(SECONDS_TO_LOG), SECONDS_TO_LOG?' ':'s');
+  pthread_join(logger_thread, NULL);
+
+
 
   printf("Done. Data logged to %s\n", LOG_FILE_NAME);
 }
