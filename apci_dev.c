@@ -864,8 +864,6 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
         case mPCIe_AI12_16A:
         case mPCIe_AI12_16:
         case mPCIe_AI12_16E:
-          outb(0, ddata->regions[2].start + 2);
-          break;
         case mPCIe_AIO16_16F_proto:
         case mPCIe_AIO16_16A_proto:
         case mPCIe_AIO16_16E_proto:
@@ -881,7 +879,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
         {
           //If this is a FIFO near full IRQ then tell the card
           //to write to the next buffer (and don't notify the user?)
-          //else if it is a write done IRQ set lat_valid_buffer and notify user
+          //else if it is a write done IRQ set last_valid_buffer and notify user
           uint8_t irq_event = ioread8(ddata->regions[2].mapped_address + 0x2);
           if (irq_event & 0x1) //FIFO almost full
           {
@@ -901,13 +899,13 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
 
             if (ddata->dma_last_buffer == ddata->dma_first_valid)
             {
-              apci_error("data discarded");
+              apci_error("ISR: data discarded");
               ddata->dma_last_buffer--;
+              if ( ddata->dma_last_buffer < 0 ) ddata->dma_last_buffer = ddata->dma_num_slots-1;
               ddata->dma_data_discarded++;
             }
             spin_unlock(&(ddata->dma_data_lock));
             base += ddata->dma_slot_size * ddata->dma_last_buffer;
-
 
             iowrite32(base & 0xffffffff, ddata->regions[0].mapped_address);
             iowrite32(base >> 32, ddata->regions[0].mapped_address + 4);
@@ -915,9 +913,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
             iowrite32(4, ddata->regions[0].mapped_address + 12);
           }
           iowrite8(irq_event, ddata->regions[2].mapped_address + 0x2);
-          apci_devel("irq_event = 0x%x\n", irq_event);
-          apci_devel("depth = 0x%x\n", ioread32(ddata->regions[2].mapped_address + 0x28));
-
+          apci_debug("ISR: irq_event = 0x%x, depth = 0x%x\n", irq_event, ioread32(ddata->regions[2].mapped_address + 0x28));
         }
     };
 

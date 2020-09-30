@@ -329,6 +329,7 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
                if (ddata->dma_virt_addr == NULL) return -ENOMEM;
                ddata->dma_last_buffer = -1;
                ddata->dma_first_valid = -1;
+               ddata->dma_data_discarded = 0;
           }
 
           break;
@@ -347,27 +348,40 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
                data_ready_t data_ready = {0};
 
                spin_lock_irqsave(&(ddata->dma_data_lock), flags);
-
-               data_ready.start_index = ddata->dma_first_valid;
-               //last_valid = ddata->dma_last_buffer - 1;
-               last_valid = ddata->dma_last_buffer - 1;
-               if (last_valid == -1) last_valid = ddata->dma_num_slots - 1;
-
-               if (last_valid >= data_ready.start_index)
+               if (( ddata->dma_last_buffer < 0 ) || (ddata->dma_first_valid == -1))
                {
-                    data_ready.slots = last_valid - data_ready.start_index;
+                    data_ready.slots = 0;
+               }
+               else if (ddata->dma_first_valid == ddata->dma_last_buffer)
+               {
+                    data_ready.slots = 0;
                }
                else
                {
-                    data_ready.slots = ddata->dma_num_slots - (data_ready.start_index + last_valid + 1);
+                    data_ready.start_index = ddata->dma_first_valid;
+                    last_valid = ddata->dma_last_buffer - 1;
+
+                    if (last_valid == -1) last_valid = ddata->dma_num_slots - 1;
+
+                    apci_debug("last_valid = %d, ddata_dma_last_buffer = %d\n", last_valid, ddata->dma_last_buffer);
+
+                    if (last_valid >= data_ready.start_index)
+                    {
+                         data_ready.slots = last_valid - data_ready.start_index +1;
+                    }
+                    else
+                    {
+                         data_ready.slots = ddata->dma_num_slots - data_ready.start_index + last_valid + 1;
+                    }
                }
+
+               apci_debug("data_ready.start_index = %d, ddata->dma_last_buffer = %d, data_ready.slots = %d\n", data_ready.start_index, ddata->dma_last_buffer, data_ready.slots);
+
                data_ready.data_discarded = ddata->dma_data_discarded;
                ddata->dma_data_discarded = 0;
                spin_unlock_irqrestore(&(ddata->dma_data_lock), flags);
 
-               if (data_ready.start_index == -1) data_ready.slots = 0;
-
-               apci_error("start_index = %d, num_slots = %d, discarded = %d\n", data_ready.start_index, data_ready.slots, data_ready.data_discarded);
+               apci_debug("start_index = %d, first_valid = %d, num_slots = %d, discarded = %d\n", data_ready.start_index, ddata->dma_first_valid, data_ready.slots, data_ready.data_discarded);
 
                status = copy_to_user((data_ready_t *)arg, &data_ready,
                                    sizeof(data_ready_t));

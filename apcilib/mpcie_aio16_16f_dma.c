@@ -10,19 +10,21 @@
 #include <math.h>
 #include <semaphore.h>
 #include <pthread.h>
+#include <signal.h>
+#include <stdlib.h>
 
 #include "apcilib.h"
 
 #define DEVICEPATH "/dev/apci/mPCIe_AIO16_16F_proto_0"
-#define SAMPLE_RATE 100.0 /* Hz */
+#define SAMPLE_RATE 100000.0 /* Hz */
 
 #define LOG_FILE_NAME "samples.csv"
-#define AMOUNT_OF_DATA_TO_LOG 1000 /* conversions */
+#define AMOUNT_OF_DATA_TO_LOG 1000000 /* conversions */
 #define HIGH_CHANNEL 7 /* channels 0 through HIGH_CHANNEL are sampled, simultaneously, from both ADAS3022 chips */
 
 #define NUM_CHANNELS ((HIGH_CHANNEL+1)*2)
 
-#define SAMPLES_PER_TRANSFER 0x100  /* FIFO Almost Full IRQ Threshold value (0 < FAF <= 0xFFF */
+#define SAMPLES_PER_TRANSFER 0xf00  /* FIFO Almost Full IRQ Threshold value (0 < FAF <= 0xFFF */
 #define BYTES_PER_SAMPLE 8
 #define BYTES_PER_TRANSFER SAMPLES_PER_TRANSFER * BYTES_PER_SAMPLE
 
@@ -46,10 +48,21 @@ static sem_t ring_sem;
 static int terminate;
 
 #define ADC_SAMPLE_FIFO_DEPTH 4096
-#define DMA_BUFF_SIZE BYTES_PER_TRANSFER * RING_BUFFER_SLOTS /* the buffer halves are ping-ponged by the driver, filled by DMA one half per IRQ */
+#define DMA_BUFF_SIZE BYTES_PER_TRANSFER * RING_BUFFER_SLOTS
 #define NUMBER_OF_DMA_TRANSFERS (AMOUNT_OF_DATA_TO_LOG / SAMPLES_PER_TRANSFER)
 
+int fd;
+pthread_t logger_thread;
 
+void abort_handler(int s){
+  printf("Caught signal %d\n",s);
+  /* put the card back in the power-up state */
+  apci_write8(fd, 1, 2, RESETOFFSET, 0xf);
+
+  terminate = 1;
+  pthread_join(logger_thread, NULL);
+  exit(1);
+}
 
 /* background thread to save acquired data to disk.  Note this has to keep up or the current static-length ring buffer would overwrite data */
 void * log_main(void *arg)
@@ -62,6 +75,13 @@ void * log_main(void *arg)
   int channel;
   FILE *out = fopen(LOG_FILE_NAME, "w");
 
+  if (out == NULL)
+  {
+    printf("Error opening file\n");
+    apci_write8(fd, 1, 2, RESETOFFSET, 0xf);
+    exit(1);
+  }
+
   while (!terminate)
   {
     status = sem_wait(&ring_sem);
@@ -73,12 +93,12 @@ void * log_main(void *arg)
       // print the data accumulated into counts[channel] only after the current sample ("i") indicates the channel has wrapped
       if (channel == 0)
       {
-        fprintf(out, "%d", row);
+        //fprintf(out, "%d", row);
         for (int j = 0 ; j < NUM_CHANNELS ; j++)
         {
-          fprintf(out, ",%d", counts[j]);
+          //fprintf(out, ",%d", counts[j]);
         }
-        fprintf(out, "\n");
+        //fprintf(out, "\n");
         row++;
         memset(counts, 0, sizeof(counts));
       }
@@ -121,17 +141,25 @@ void set_acquisition_rate (int fd, double *Hz)
 
 int main (void)
 {
-	int fd;
 	int i;
 	volatile void *mmap_addr;
 	int status = 0;
   double rate = SAMPLE_RATE;
 	uint32_t depth_readback;
 	uint16_t start_command;
-  pthread_t logger_thread;
   int ring_write_index = 0;
   int last_status = -1;
   struct timespec dma_delay = {0};
+
+
+  struct sigaction sigIntHandler;
+
+  sigIntHandler.sa_handler = abort_handler;
+  sigemptyset(&sigIntHandler.sa_mask);
+  sigIntHandler.sa_flags = 0;
+
+   sigaction(SIGINT, &sigIntHandler, NULL);
+   sigaction(SIGABRT, &sigIntHandler, NULL);
 
   printf("mPCIe-AIO16-16F Family ADC logging sample.\n");
 
@@ -146,6 +174,7 @@ int main (void)
 
   //Setup dma ring buffer in driver
   status = apci_dma_transfer_size(fd, 1, RING_BUFFER_SLOTS, BYTES_PER_TRANSFER);
+  printf("Setting bytes per transfer: 0x%x\n", BYTES_PER_TRANSFER);
 
   if (status)  {
     printf("Error setting transfer_size\n");
@@ -164,7 +193,7 @@ int main (void)
     printf("Unable to init semaphore\n");
     return -1;
   }
-//  pthread_create(&logger_thread, NULL, &log_main, NULL);
+  pthread_create(&logger_thread, NULL, &log_main, NULL);
 
 
   //reset everything
@@ -204,7 +233,10 @@ int main (void)
     {
       status = apci_dma_data_ready(fd, 1, &first_slot, &num_slots, &data_discarded);
 
-      printf("first_slot = %d, num_slots = %d, data_discarded = %d\n", first_slot, num_slots, data_discarded);
+      if (data_discarded != 0)
+      {
+        printf("first_slot = %d, num_slots = %d, data_discarded = %d\n", first_slot, num_slots, data_discarded);
+      }
       if (num_slots == 0)
       {
         printf("Waiting for IRQ\n");
@@ -219,7 +251,8 @@ int main (void)
 
       fflush(stdout);
 
-      if (first_slot + num_slots <= RING_BUFFER_SLOTS)
+      // if (first_slot + num_slots <= RING_BUFFER_SLOTS) --Jay's code
+      if ((num_slots >0) && (first_slot + num_slots <= RING_BUFFER_SLOTS))
       {
         memcpy(ring_buffer[first_slot],
               mmap_addr + (BYTES_PER_TRANSFER * first_slot),
@@ -235,6 +268,7 @@ int main (void)
             BYTES_PER_TRANSFER * (num_slots - (RING_BUFFER_SLOTS - first_slot)));
       }
 
+      printf("Telling driver we've taken %d buffer%c\n", num_slots, (num_slots == 1) ? ' ':'s');
       apci_dma_data_done(fd, 1, num_slots);
 
       for (int i = 0; i < num_slots; i++)
@@ -242,13 +276,22 @@ int main (void)
         sem_post(&ring_sem);
       }
 
-      // sem_getvalue(&ring_sem, &buffers_queued);
-      // if (buffers_queued >= RING_BUFFER_SLOTS) {
-      //   printf("overran the ring buffer.  Saving the log was too slow. Aborting.\n");
-      //   break;
-      // }
+      sem_getvalue(&ring_sem, &buffers_queued);
+      if (buffers_queued >= RING_BUFFER_SLOTS) {
+        printf("overran the ring buffer.  Saving the log was too slow. Aborting.\n");
+        break;
+      }
+      transfer_count += num_slots;
 
     }while (transfer_count < NUMBER_OF_DMA_TRANSFERS);
+  }
+
+  {
+    int buffers_queued;
+    do
+    {
+      sem_getvalue(&ring_sem, &buffers_queued);
+    } while (buffers_queued > 0);
   }
 
 
