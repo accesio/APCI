@@ -19,7 +19,7 @@
 #define SAMPLE_RATE 1000000.0 /* Hz */
 
 #define LOG_FILE_NAME "samples.csv"
-#define SECONDS_TO_LOG 0.4
+#define SECONDS_TO_LOG 1.0
 #define AMOUNT_OF_DATA_TO_LOG (SECONDS_TO_LOG * SAMPLE_RATE)//20000000 /* conversions (on TWO channels, simultaneously) */
 #define HIGH_CHANNEL 7 /* channels 0 through HIGH_CHANNEL are sampled, simultaneously, from both ADAS3022 chips */
 
@@ -303,7 +303,7 @@ err_out: //Once a start has been issued to the card we need to tell it to stop b
 
   terminate = 1;
   sem_post(&ring_sem);
-  printf("Done acquiring %3.2f second%c. Waiting for log file to flush.\n", (SECONDS_TO_LOG), SECONDS_TO_LOG?' ':'s');
+  printf("Done acquiring %3.2f second%c. Waiting for log file to flush.\n", (SECONDS_TO_LOG), (SECONDS_TO_LOG==1)?' ':'s');
   pthread_join(logger_thread, NULL);
 
 
