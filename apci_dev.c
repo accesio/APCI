@@ -911,6 +911,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
             iowrite32(base >> 32, ddata->regions[0].mapped_address + 4);
             iowrite32(ddata->dma_slot_size, ddata->regions[0].mapped_address + 8);
             iowrite32(4, ddata->regions[0].mapped_address + 12);
+            udelay(5);
           }
           iowrite8(irq_event, ddata->regions[2].mapped_address + 0x2);
           apci_debug("ISR: irq_event = 0x%x, depth = 0x%x\n", irq_event, ioread32(ddata->regions[2].mapped_address + 0x28));

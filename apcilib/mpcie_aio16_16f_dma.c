@@ -19,13 +19,13 @@
 #define SAMPLE_RATE 1000000.0 /* Hz */
 
 #define LOG_FILE_NAME "samples.csv"
-#define SECONDS_TO_LOG 1.0
+#define SECONDS_TO_LOG 10.0
 #define AMOUNT_OF_DATA_TO_LOG (SECONDS_TO_LOG * SAMPLE_RATE)//20000000 /* conversions (on TWO channels, simultaneously) */
 #define HIGH_CHANNEL 7 /* channels 0 through HIGH_CHANNEL are sampled, simultaneously, from both ADAS3022 chips */
 
 #define NUM_CHANNELS ((HIGH_CHANNEL+1)*2)
 
-#define SAMPLES_PER_TRANSFER 0xF00  /* FIFO Almost Full IRQ Threshold value (0 < FAF <= 0xFFF */
+#define SAMPLES_PER_TRANSFER 0xf00  /* FIFO Almost Full IRQ Threshold value (0 < FAF <= 0xFFF */
 #define BYTES_PER_SAMPLE 8
 #define BYTES_PER_TRANSFER (SAMPLES_PER_TRANSFER * BYTES_PER_SAMPLE)
 
@@ -273,6 +273,7 @@ int main (void)
       // printf("Telling driver we've taken %d buffer%c\n", num_slots, (num_slots == 1) ? ' ':'s');
       apci_dma_data_done(fd, 1, num_slots);
 
+
       for (int i = 0; i < num_slots; i++)
       {
         sem_post(&ring_sem);
@@ -293,6 +294,7 @@ int main (void)
     do
     {
       sem_getvalue(&ring_sem, &buffers_queued);
+      usleep(100);
     } while (buffers_queued > 0);
   }
 
