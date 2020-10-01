@@ -334,7 +334,7 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 
           break;
      case apci_data_ready:
-         apci_error("Getting data ready\n");
+         apci_debug("Getting data ready\n");
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
           status = access_ok(arg, sizeof(dma_buffer_settings_t));
@@ -392,7 +392,7 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
                unsigned long flags;
                {
                     spin_lock_irqsave(&(ddata->dma_data_lock), flags);
-                    apci_error("Adding %lu to first_valid", arg);
+                    apci_devel("Adding %lu to first_valid", arg);
                     ddata->dma_first_valid += arg;
                     ddata->dma_first_valid %= ddata->dma_num_slots;
                     spin_unlock_irqrestore(&(ddata->dma_data_lock), flags);

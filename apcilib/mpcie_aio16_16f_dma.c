@@ -19,15 +19,15 @@
 #define SAMPLE_RATE 1000000.0 /* Hz */
 
 #define LOG_FILE_NAME "samples.csv"
-#define SECONDS_TO_LOG 2.0
+#define SECONDS_TO_LOG 0.4
 #define AMOUNT_OF_DATA_TO_LOG (SECONDS_TO_LOG * SAMPLE_RATE)//20000000 /* conversions (on TWO channels, simultaneously) */
 #define HIGH_CHANNEL 7 /* channels 0 through HIGH_CHANNEL are sampled, simultaneously, from both ADAS3022 chips */
 
 #define NUM_CHANNELS ((HIGH_CHANNEL+1)*2)
 
-#define SAMPLES_PER_TRANSFER 0xf00  /* FIFO Almost Full IRQ Threshold value (0 < FAF <= 0xFFF */
+#define SAMPLES_PER_TRANSFER 0xF00  /* FIFO Almost Full IRQ Threshold value (0 < FAF <= 0xFFF */
 #define BYTES_PER_SAMPLE 8
-#define BYTES_PER_TRANSFER SAMPLES_PER_TRANSFER * BYTES_PER_SAMPLE
+#define BYTES_PER_TRANSFER (SAMPLES_PER_TRANSFER * BYTES_PER_SAMPLE)
 
 /* Hardware registers */
 #define RESETOFFSET         0x00
@@ -44,7 +44,7 @@
 /* This simple sample uses a Ring-buffer to queue data for logging to disk via a background thread */
 /* It is possible for the driver and the user to have a different number of slots, but making them match is less complicated */
 #define RING_BUFFER_SLOTS 10
-static uint16_t ring_buffer[RING_BUFFER_SLOTS][SAMPLES_PER_TRANSFER * 4];
+volatile static uint16_t ring_buffer[RING_BUFFER_SLOTS][SAMPLES_PER_TRANSFER * 4];
 static sem_t ring_sem;
 static int terminate;
 
@@ -269,7 +269,7 @@ int main (void)
             mmap_addr,
             BYTES_PER_TRANSFER * (num_slots - (RING_BUFFER_SLOTS - first_slot)));
       }
-
+      __sync_synchronize();
       // printf("Telling driver we've taken %d buffer%c\n", num_slots, (num_slots == 1) ? ' ':'s');
       apci_dma_data_done(fd, 1, num_slots);
 
@@ -303,7 +303,7 @@ err_out: //Once a start has been issued to the card we need to tell it to stop b
 
   terminate = 1;
   sem_post(&ring_sem);
-  printf("Done acquiring %d second%c. Waiting for log file to flush.\n", (int)(SECONDS_TO_LOG), SECONDS_TO_LOG?' ':'s');
+  printf("Done acquiring %3.2f second%c. Waiting for log file to flush.\n", (SECONDS_TO_LOG), SECONDS_TO_LOG?' ':'s');
   pthread_join(logger_thread, NULL);
 
 
