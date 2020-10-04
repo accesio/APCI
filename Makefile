@@ -1,5 +1,5 @@
 obj-m += apci.o
-CC		:= "gcc -O3"
+CC		:= "gcc"
 KVERSION        := $(shell uname -r)
 KDIR		:= /lib/modules/$(KVERSION)/build
 
@@ -8,9 +8,9 @@ apci-objs :=          \
 	apci_dev.o
 
 all:
-	$(MAKE) CC=$(CC) -C $(KDIR) M=$(PWD) modules 
+	$(MAKE) CC=$(CC) -C $(KDIR) M=$(PWD) modules
 
-clean: 
+clean:
 	$(MAKE) CC=$(CC) -C $(KDIR) M=$(PWD) clean
 
 install:

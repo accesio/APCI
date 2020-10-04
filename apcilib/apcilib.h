@@ -38,5 +38,7 @@ int apci_read32(int fd, unsigned long device_index, int bar, int offset, __u32 *
 int apci_wait_for_irq(int fd, unsigned long device_index);
 int apci_cancel_irq(int fd, unsigned long device_index);
 
-int apci_dma(int fd, unsigned long device_index);
-int apci_dma_transfer_size(int fd, unsigned long device_index, __u32 size);
+int apci_dma_transfer_size(int fd, unsigned long device_index, __u8 num_slots, size_t slot_size);
+int apci_dma_data_ready(int fd, unsigned long device_index, int *start_index, int *slots, int *data_discarded);
+int apci_dma_data_done(int fd, unsigned long device_index, int num_slots);
+
