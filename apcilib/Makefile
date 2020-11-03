@@ -22,4 +22,4 @@ mpcie_quad_8: mpcie_quad_8.c apcilib.h apcilib.c
 	gcc -o mpcie_quad_8 mpcie_quad_8.c apcilib.c
 
 clean:
-	rm mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f mpcie_aio16_16f_dma
+	rm mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f mpcie_aio16_16f_dma
