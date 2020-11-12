@@ -23,10 +23,7 @@
 #include "apci_common.h"
 
 
-
-
-
-/* The device IDs for all the PCI cards this driver will support. */
+/* The device IDs for all the PCI/PCIe/mPCIe/etc cards this driver will support. */
 #define PCIe_DIO_24	0x0C52
 #define PCIe_DIO_24D	0x0C53
 #define PCIe_DIO_24S	0x0E53
@@ -117,6 +114,7 @@
 #define mPCIe_AI12_16A_proto 0x8258
 #define mPCIe_AI12_16_proto 0x8259
 #define mPCIe_AI12_16E_proto 0x825A
+#define PCIe_DIO_24HC 0x0C54
 
 /* names for the drivers we create */
 #define NAME_PCIe_DIO_24                "pcie_dio_24"
@@ -130,7 +128,6 @@
 #define NAME_PCIe_DIO_72                "pcie_dio_72"
 #define NAME_PCIe_DIO_96                "pcie_dio_96"
 #define NAME_PCIe_DIO_120               "pcie_dio_120"
-
 #define NAME_PCIe_IIRO_8                "pcie_iiro_8"
 #define NAME_PCIe_IIRO_16               "pcie_iiro_16"
 #define NAME_PCI_DIO_24H                "pci_dio_24h"
@@ -180,14 +177,14 @@
 #define NAME_MPCIE_II_16                "mpcie_ii_16"
 #define NAME_MPCIE_II_8                 "mpcie_ii_8"
 #define NAME_MPCIE_II_4                 "mpcie_ii_4"
-#define NAME_MPCIE_QUAD_8                "mpcie_quad_8"
-#define NAME_MPCIE_QUAD_4                "mpcie_quad_4"
+#define NAME_MPCIE_QUAD_8               "mpcie_quad_8"
+#define NAME_MPCIE_QUAD_4               "mpcie_quad_4"
 #define NAME_MPCIE_DIO_24               "mpcie_dio_24"
-#define NAME_MPCIE_DIO_24S               "mpcie_dio_24s"
+#define NAME_MPCIE_DIO_24S              "mpcie_dio_24s"
 #define NAME_MPCIE_DIO_24S_R1           "mpcie_dio_24s"
 #define NAME_PCIe_IDIO_12				"pcie_idio_12"
 #define NAME_PCIe_IDIO_24				"pcie_idio_24"
-#define NAME_mPCIe_AIO16_16F                 "mpcie_aio16_16f"
+#define NAME_mPCIe_AIO16_16F            "mpcie_aio16_16f"
 #define NAME_mPCIe_AIO16_16A            "mpcie_aio16_16a"
 #define NAME_mPCIe_AIO16_16E            "mpcie_aio16_16e"
 #define NAME_mPCIe_AI16_16F             "mpcie_ai16_16f"
@@ -211,6 +208,7 @@
 #define NAME_mPCIe_AI12_16A_proto       "mPCIe_AI12_16A_proto"
 #define NAME_mPCIe_AI12_16_proto        "mPCIe_AI12_16_proto"
 #define NAME_mPCIe_AI12_16E_proto       "mPCIe_AI12_16E_proto"
+#define NAME_PCIe_DIO_24HC              "PCIe_DIO_24HC"
 
 enum ADDRESS_TYPE {INVALID = 0, IO, MEM};
 typedef enum ADDRESS_TYPE address_type;

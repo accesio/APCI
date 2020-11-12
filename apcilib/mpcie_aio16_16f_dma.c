@@ -19,11 +19,11 @@
 #define SAMPLE_RATE 1000000.0 /* Hz */
 
 #define LOG_FILE_NAME "samples.csv"
-#define SECONDS_TO_LOG 10.0
-#define AMOUNT_OF_DATA_TO_LOG (SECONDS_TO_LOG * SAMPLE_RATE)//20000000 /* conversions (on TWO channels, simultaneously) */
+#define SECONDS_TO_LOG 2.0
+#define AMOUNT_OF_DATA_TO_LOG (SECONDS_TO_LOG * SAMPLE_RATE)
 #define HIGH_CHANNEL 7 /* channels 0 through HIGH_CHANNEL are sampled, simultaneously, from both ADAS3022 chips */
 
-#define NUM_CHANNELS ((HIGH_CHANNEL+1)*2)
+#define NUM_CHANNELS ((HIGH_CHANNEL+1)*2) /* conversions (on TWO channels, simultaneously) */
 
 #define SAMPLES_PER_TRANSFER 0xf00  /* FIFO Almost Full IRQ Threshold value (0 < FAF <= 0xFFF */
 #define BYTES_PER_SAMPLE 8
@@ -217,7 +217,9 @@ int main (void)
   apci_write8(fd, 1, 2, IRQENABLEOFFSET, 0b00000001);
 
   //Start command
-	start_command = 0xfcee;
+	// start_command = 0xf4ee; // differential //note: logger thread would need refactoring to handle differential well, it will currently report "0"
+  start_command = 0xfcee; // single-ended
+  
 	start_command &= ~(7 << 12);
 	start_command |= HIGH_CHANNEL << 12;
   start_command |= 1;
@@ -307,8 +309,6 @@ err_out: //Once a start has been issued to the card we need to tell it to stop b
   sem_post(&ring_sem);
   printf("Done acquiring %3.2f second%c. Waiting for log file to flush.\n", (SECONDS_TO_LOG), (SECONDS_TO_LOG==1)?' ':'s');
   pthread_join(logger_thread, NULL);
-
-
 
   printf("Done. Data logged to %s\n", LOG_FILE_NAME);
 }
