@@ -16,6 +16,16 @@
                 "base": "$gcc",
                 "fileLocation":"absolute",
             }
+        },
+        {
+            "label": "make",
+            "type": "shell",
+            "command": "reset ; make -C build",
+            "group": {
+                    "kind": "build",
+                    "isDefault": true
+            },
+            "problemMatcher":{ "base": "$gcc", "fileLocation":"absolute"}
         }
     ]
 }

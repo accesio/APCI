@@ -37,14 +37,14 @@
 #define DIVISOROFFSET       0x10
 #define ADCRANGEOFFSET      0x18
 #define ADC2RANGEOFFSET     (ADCRANGEOFFSET + 4)
-#define AFLEVELOFFSET       0x20
+#define FAFIRQTHRESHOLDOFFSET       0x20
 #define ADCSTARTSTOPOFFSET  0x38
 #define ADCIMMEDIATEOFFSET  0x3A
 
 /* This simple sample uses a Ring-buffer to queue data for logging to disk via a background thread */
 /* It is possible for the driver and the user to have a different number of slots, but making them match is less complicated */
 #define RING_BUFFER_SLOTS 10
-volatile static uint16_t ring_buffer[RING_BUFFER_SLOTS][SAMPLES_PER_TRANSFER * 4];
+static uint16_t ring_buffer[RING_BUFFER_SLOTS][SAMPLES_PER_TRANSFER * 4];
 static sem_t ring_sem;
 static int terminate;
 
@@ -145,7 +145,7 @@ void set_acquisition_rate (int fd, double *Hz)
 int main (void)
 {
 	int i;
-	volatile void *mmap_addr;
+	void *mmap_addr;
 	int status = 0;
   double rate = SAMPLE_RATE;
 	uint32_t depth_readback;
@@ -203,8 +203,8 @@ int main (void)
   apci_write8(fd, 1, 2, RESETOFFSET, 0xf);
 
   //set depth of FIFO to generate IRQ
-  apci_write32(fd, 1, 2, AFLEVELOFFSET, SAMPLES_PER_TRANSFER);
-	apci_read32(fd, 1, 2, AFLEVELOFFSET, &depth_readback);
+  apci_write32(fd, 1, 2, FAFIRQTHRESHOLDOFFSET, SAMPLES_PER_TRANSFER);
+	apci_read32(fd, 1, 2, FAFIRQTHRESHOLDOFFSET, &depth_readback);
 	printf("depth_readback = 0x%x\n", depth_readback);
 
   set_acquisition_rate(fd, &rate);

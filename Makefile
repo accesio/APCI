@@ -3,8 +3,8 @@ CC		:= "gcc"
 KVERSION        := $(shell uname -r)
 KDIR		:= /lib/modules/$(KVERSION)/build
 
-apci-objs :=          \
-        apci_fops.o   \
+apci-objs :=      \
+    apci_fops.o   \
 	apci_dev.o
 
 all:

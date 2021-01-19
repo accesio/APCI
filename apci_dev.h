@@ -114,6 +114,18 @@
 #define mPCIe_AI12_16A_proto 0x8258
 #define mPCIe_AI12_16_proto 0x8259
 #define mPCIe_AI12_16E_proto 0x825A
+#define mPCIe_ADIO16_8F 0xC0EC
+#define mPCIe_ADIO16_8A 0xC0ED
+#define mPCIe_ADIO16_8E 0xC0EE
+#define mPCIe_ADI16_8F 0x80EC
+#define mPCIe_ADI16_8A 0x80ED
+#define mPCIe_ADI16_8E 0x80EE
+#define mPCIe_ADIO12_8A 0xC05C
+#define mPCIe_ADIO12_8 0xC05D
+#define mPCIe_ADIO12_8E 0xC05E
+#define mPCIe_ADI12_8A 0x805C
+#define mPCIe_ADI12_8 0x805D
+#define mPCIe_ADI12_8E 0x805E
 #define PCIe_DIO_24HC 0x0C54
 
 /* names for the drivers we create */
@@ -208,6 +220,18 @@
 #define NAME_mPCIe_AI12_16A_proto       "mPCIe_AI12_16A_proto"
 #define NAME_mPCIe_AI12_16_proto        "mPCIe_AI12_16_proto"
 #define NAME_mPCIe_AI12_16E_proto       "mPCIe_AI12_16E_proto"
+#define NAME_mPCIe_ADIO16_8F            "mpcie_adio16_8f"
+#define NAME_mPCIe_ADIO16_8A            "mpcie_adio16_8a"
+#define NAME_mPCIe_ADIO16_8E            "mpcie_adio16_8e"
+#define NAME_mPCIe_ADI16_8F             "mpcie_adi16_8f"
+#define NAME_mPCIe_ADI16_8A             "mpcie_adi16_8a"
+#define NAME_mPCIe_ADI16_8E             "mpcie_adi16_8e"
+#define NAME_mPCIe_ADIO12_8A            "mpcie_adio12_8a"
+#define NAME_mPCIe_ADIO12_8             "mpcie_adio12_8"
+#define NAME_mPCIe_ADIO12_8E            "mpcie_adio12_8e"
+#define NAME_mPCIe_ADI12_8A             "mpcie_adi12_8a"
+#define NAME_mPCIe_ADI12_8              "mpcie_adi12_8"
+#define NAME_mPCIe_ADI12_8E             "mpcie_adi12_8e"
 #define NAME_PCIe_DIO_24HC              "PCIe_DIO_24HC"
 
 enum ADDRESS_TYPE {INVALID = 0, IO, MEM};

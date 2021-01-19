@@ -10,6 +10,7 @@
 #include <stdlib.h>
 
 #include "apcilib.h"
+#define DEVICEPATH "/dev/apci/mpcie_aio16_16f_0"
 
 const uint16_t BaseADCCommand_SE = 0x8C4E;
 const uint16_t BaseADCCommand_Diff = 0x844E;
@@ -61,18 +62,18 @@ int DAC_OutputV(int fd, uint32_t Ch, double V)
 	return LTC2664_WriteDAC(fd, LTC2664Cmd_Data, Ch, Data);
 }
 
-// The card uses 2 ADCs("sequencers"), each of which handles 8 channels. 
-// In immediate mode, you can only use one ADC at a time, so this code acquires them in turn.
+
 void GetADCDataRaw(int fd, unsigned int iSequencer, uint16_t RangeCode, uint32_t ADCData[])
 {
 	unsigned int iChannel;
 	uint16_t ImmediateCmd;
 	unsigned int Toss;
+	printf("Acquiring 8 channels from Sequencer %d\n", iSequencer);
 
 	// Clear the FIFO and reset the internal pipeline.
 	apci_write32(fd, 1, 2, ADCDataRegisterOffset[iSequencer], 0);
 
-	for ( iChannel = 0; iChannel <= 7; ++iChannel )
+	for ( iChannel = 0; iChannel < 8; ++iChannel )
 	{
 		// Command an immediate conversion on each channel.
 		// You can use a different range for each channel if you want, rather than a single variable.
@@ -92,7 +93,7 @@ void GetADCDataRaw(int fd, unsigned int iSequencer, uint16_t RangeCode, uint32_t
 	for ( iChannel = 0; iChannel <= 7; ++iChannel )
 	{
 		// Read out the data for each channel.
-		apci_read32(fd, 1, 2, ADCDataRegisterOffset[iSequencer], &ADCData[iSequencer*8 + iChannel]);
+		apci_read32(fd, 1, 2, ADCDataRegisterOffset[iSequencer], &ADCData[iChannel]);
 	}
 
 	// Will need to clear the FIFO and reset the internal pipeline before the next ADC operation.
@@ -120,6 +121,8 @@ double VFromRaw(uint32_t RawSample)
 	return RangeScale[RangeCode] * (int16_t)Counts;
 }
 
+// The card uses 2 ADCs("sequencers"), each of which handles 8 channels. 
+// In immediate mode, you can only use one ADC at a time, so this code acquires them in turn.
 void GetADCDataV(int fd, uint16_t RangeCode, double ADCDataV[])
 {
 	uint32_t ADCDataRaw[16];
@@ -127,7 +130,7 @@ void GetADCDataV(int fd, uint16_t RangeCode, double ADCDataV[])
 
 	// Fetch the raw data(numeric counts plus status bits) for each ADC.
 	GetADCDataRaw(fd, 0, RangeCode, &ADCDataRaw[0]);
-	GetADCDataRaw(fd, 1, RangeCode, &ADCDataRaw[8]);
+	GetADCDataRaw(fd, 1, RangeCode, &(ADCDataRaw[8]));
 
 	// Convert all 16 channels to V.
 	for ( iChannel = 0; iChannel <= 15; ++iChannel )
@@ -139,12 +142,12 @@ void GetADCDataV(int fd, uint16_t RangeCode, double ADCDataV[])
 int main (int argc, char **argv)
 {
 	int fd;
-  
-	fd = open("/dev/apci/mpcie_aio16_16f", O_RDONLY);
+	printf("mPCIe-AIO16-16F Family ADC Sample 0\n");
+	fd = open(DEVICEPATH, O_RDONLY);
 
 	if (fd < 0)
 	{
-		printf("Device file could not be opened. Please ensure the iogen driver module is loaded.\n");
+		printf("Device file could not be opened. Please ensure the APCI driver module is loaded.\n");
 		exit(0);
 	}
 

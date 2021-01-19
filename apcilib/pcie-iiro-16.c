@@ -78,10 +78,10 @@ int main (int argc, char **argv)
     printf(" read of relay bits 8-15 = %02hhX\n", relayData);
 
     apci_read8(fd, 1, 2, 1, &inputData);
-    printf(" read of input bits 0-7 = %02hhX\n", &inputData);
+    printf(" read of input bits 0-7 = %02hhX\n", inputData);
 
     apci_read8(fd, 1, 2, 5, &inputData);
-    printf(" read of input bits 8-15= %04hhX\n", &inputData);
+    printf(" read of input bits 8-15= %04hhX\n", inputData);
    
 
     pthread_create(&worker_thread, NULL, &worker, NULL);
@@ -99,10 +99,10 @@ int main (int argc, char **argv)
     apci_cancel_irq(fd, 1);
 
     apci_read8(fd, 1, 2, 1, &inputData);
-    printf(" read of input bits 0-7 = %02hhX\n", &inputData);
+    printf(" read of input bits 0-7 = %02hhX\n", inputData);
 
     apci_read8(fd, 1, 2, 5, &inputData);
-    printf(" read of input bits 8-15= %04hhX\n", &inputData);
+    printf(" read of input bits 8-15= %04hhX\n", inputData);
 
 err_out:
   close(fd);
