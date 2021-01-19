@@ -673,7 +673,19 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
       case mPCIe_AIO12_16E_proto:
       case mPCIe_AI12_16A_proto:
       case mPCIe_AI12_16_proto:
-      case mPCIe_AI12_16E_proto:    
+      case mPCIe_AI12_16E_proto:
+      case mPCIe_AIO16_16F:
+      case mPCIe_AIO16_16A:
+      case mPCIe_AIO16_16E:
+      case mPCIe_AI16_16F:
+      case mPCIe_AI16_16A:
+      case mPCIe_AI16_16E:
+      case mPCIe_AIO12_16A:
+      case mPCIe_AIO12_16:
+      case mPCIe_AIO12_16E:
+      case mPCIe_AI12_16A:
+      case mPCIe_AI12_16:
+      case mPCIe_AI12_16E:      
         apci_devel("setting up DMA in alloc\n");
         ddata->regions[0].start   = pci_resource_start(pdev, 0);
         ddata->regions[0].end     = pci_resource_end(pdev, 0);
