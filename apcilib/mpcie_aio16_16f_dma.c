@@ -16,7 +16,8 @@
 #include "apcilib.h"
 
 #define DEVICEPATH "/dev/apci/mPCIe_AIO16_16F_proto_0"
-#define SAMPLE_RATE 1000000.0 /* Hz */
+#define DEV2PATH "/dev/apci/mpcie_aio16_16f_0"
+#define SAMPLE_RATE 62500.0 /* Hz */
 
 #define LOG_FILE_NAME "samples.csv"
 #define SECONDS_TO_LOG 2.0
@@ -154,7 +155,6 @@ int main (void)
   int last_status = -1;
   struct timespec dma_delay = {0};
 
-
   struct sigaction sigIntHandler;
 
   sigIntHandler.sa_handler = abort_handler;
@@ -169,11 +169,16 @@ int main (void)
   dma_delay.tv_nsec = 10;
 
 	fd = open(DEVICEPATH, O_RDONLY);
-
-	if (fd < 0)	{
-		printf("Device file could not be opened. Please ensure the iogen driver module is loaded.\n");
-		return -1;
-	}
+	if (fd < 0)
+	{
+		printf("Device file %s could not be opened. Please ensure the APCI driver module is loaded or try sudo?.\nTrying Alternate [ %s ]...\n", DEVICEPATH, DEV2PATH);
+		fd = open(DEV2PATH, O_RDONLY);
+		if (fd < 0)
+		{
+			printf("Device file %s could not be opened. Please ensure the APCI driver module is loaded or try sudo?.\n", DEV2PATH);
+			exit(0);
+		} 
+}
 
   //Setup dma ring buffer in driver
   status = apci_dma_transfer_size(fd, 1, RING_BUFFER_SLOTS, BYTES_PER_TRANSFER);
@@ -207,8 +212,20 @@ int main (void)
 	apci_read32(fd, 1, 2, FAFIRQTHRESHOLDOFFSET, &depth_readback);
 	printf("depth_readback = 0x%x\n", depth_readback);
 
-  set_acquisition_rate(fd, &rate);
+  //set_acquisition_rate(fd, &rate);
+  uint32_t base_clock;
+  uint32_t divisor;
 
+  apci_read32(fd, 1, 2, BASECLOCKOFFSET, &base_clock);
+
+  printf("base_clock=%d\n", base_clock);
+
+  divisor = round(base_clock / rate);
+  printf("divisor = %d\n", divisor);
+  rate = base_clock / divisor; /* actual Hz selected, based on the limitation caused by  integer divisors */
+  printf("base_clock = %d, divisor = %d, Hz = %f\n", base_clock, divisor, rate);
+
+  apci_write32(fd, 1, 2, DIVISOROFFSET, divisor);
   //set ranges
   apci_write32(fd, 1, 2, ADCRANGEOFFSET, 0);
   apci_write32(fd, 1, 2, ADC2RANGEOFFSET , 0);

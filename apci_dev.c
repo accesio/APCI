@@ -578,9 +578,9 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
               ddata->regions[0].flags   = pci_resource_flags(pdev, 0);
               ddata->regions[0].length  = ddata->regions[0].end - ddata->regions[0].start + 1;
 
-              ddata->regions[1].start   = pci_resource_start(pdev, 2);
-              ddata->regions[1].end     = pci_resource_end(pdev, 2);
-              ddata->regions[1].flags   = pci_resource_flags(pdev, 2);
+              ddata->regions[1].start   = pci_resource_start(pdev, 1);
+              ddata->regions[1].end     = pci_resource_end(pdev, 1);
+              ddata->regions[1].flags   = pci_resource_flags(pdev, 1);
               ddata->regions[1].length  = ddata->regions[1].end - ddata->regions[1].start + 1;
 
               ddata->irq = pdev->irq;

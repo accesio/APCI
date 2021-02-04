@@ -43,13 +43,12 @@ int apci;
 
 uint8_t CHANNEL_COUNT = 16;
 
-
 const uint32_t BaseADCCommand_SE = 0b1000101111111100 | MPCIE_ADC_CFG_MASK | MPCIE_ADC_START_MASK ;
 const uint32_t BaseADCCommand_SE_Immediate = 0b1000100001001100 | MPCIE_ADC_CFG_MASK | MPCIE_ADC_START_MASK;
 
 void BRD_Reset(int apci)
 {
-	apci_write32(apci, 1, BAR_REGISTER, RESETOFFSET, 1);	
+	apci_write32(apci, 1, BAR_REGISTER, RESETOFFSET, 0x1);	
 }
 
 void abort_handler(int s)
@@ -174,6 +173,7 @@ int main (int argc, char **argv)
 	sigaction(SIGABRT, &sigIntHandler, NULL);
 
 	printf("\nmPCIe-AIO16-16F/mPCIe-ADIO16-8F Family ADC Sample 0+\n");
+	uint32_t Version = 0;
 
 	apci = open(DEVICEPATH, O_RDONLY);
 	if (apci < 0)
@@ -191,7 +191,8 @@ int main (int argc, char **argv)
 	}
 
 	printf("Demonstrating SOFTWARE START FOREGROUND POLLING ACQUISITION\n");
-
+	apci_read32(apci, 1, BAR_REGISTER, 0x68, &Version);
+	printf("  FPGA Revision %08X\n", Version);
 		int ch;
 		uint32_t ADCFIFODepth;
 		uint32_t ADCDataRaw;
@@ -204,14 +205,14 @@ int main (int argc, char **argv)
 		apci_write32(apci, 1, BAR_REGISTER, ADCRATEDIVISOROFFSET, 0); // setting ADC Rate Divisor to zero selects software start ADC mode
 		for (ch=0; ch<8; ++ch)
 		{
-			apci_write32(apci, 1, 1, ADCControlOffset, BaseADCCommand_SE_Immediate | (ch << 12) );	// start one conversion
+			apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset, BaseADCCommand_SE_Immediate | (ch << 12) );	// start one conversion
 			usleep(10); // must not write to +38 faster than once every 10 microseconds in Software Start mode
 		}
 
 		if (CHANNEL_COUNT == 16)
 			for (ch=0; ch<8; ++ch)
 			{
-				apci_write32(apci, 1, 1, ADCControlOffset+4, BaseADCCommand_SE_Immediate | (ch << 12) );	// start one conversion
+				apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset+4, BaseADCCommand_SE_Immediate | (ch << 12) );	// start one conversion
 				usleep(10); // must not write to +3C faster than once every 10 microseconds in Software Start mode
 			}
 
@@ -222,7 +223,7 @@ int main (int argc, char **argv)
 		{
 			apci_read32(apci, 1, BAR_REGISTER, ADCDataRegisterOffset, &ADCDataRaw);
 			ParseADCRawData(ADCDataRaw, &iChannel, &ADCDataV, &ADCGainCode, NULL, NULL, NULL, NULL, NULL);		
-			printf("    ADC CH %d = % 10.6f [gain code %d] [raw:%08X]\n", iChannel, ADCDataV, ADCGainCode, ADCDataRaw);
+			printf("    ADC CH %2d = % 10.6f [gain code %d] [raw:%08X]\n", iChannel, ADCDataV, ADCGainCode, ADCDataRaw);
 		}
 
 		printf("Done with one scan of software-started conversions.\n\n\n");
@@ -233,7 +234,7 @@ int main (int argc, char **argv)
 		getchar();
 			
 		BRD_Reset(apci);
-		double Hz = 10.0;
+		double Hz = 100.0;
 		set_acquisition_rate(apci, &Hz);
 		printf("ADC Rate: (%lf Hz)\n", Hz);
 
@@ -241,8 +242,8 @@ int main (int argc, char **argv)
 		pthread_create(&worker_thread, NULL, &worker_main, NULL);
 		
 		// start sequence of conversions
-		if (CHANNEL_COUNT == 16) apci_write32(apci, 1, 1, ADCControlOffset+4, BaseADCCommand_SE | (7 << 12) );	
-		apci_write32(apci, 1, 1, ADCControlOffset, BaseADCCommand_SE | (7 << 12) );	
+		if (CHANNEL_COUNT == 16) apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset+4, BaseADCCommand_SE | (7 << 12) );	
+		apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset, BaseADCCommand_SE | (7 << 12) );	
 
 		while (!terminate)
 		{

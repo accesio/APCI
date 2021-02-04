@@ -30,9 +30,6 @@ mpcie_adio16_8f: mpcie_adio16_8f.c apcilib.h apcilib.c
 mpcie_aio16_16f_dma: mpcie_aio16_16f_dma.c apcilib.h apcilib.c
 	gcc -o mpcie_aio16_16f_dma mpcie_aio16_16f_dma.c apcilib.c -lm -lpthread -O3
 
-mpcie_quad_4:
-	gcc -o mpcie_quad_8 mpcie_quad_8.c apcilib.c
-
 mpcie_adio16_8f_dma: mpcie_adio16_8f_dma.c apcilib.h apcilib.c
 	gcc -g -o mpcie_adio16_8f_dma mpcie_adio16_8f_dma.c apcilib.c -lm -lpthread -O3
 
@@ -43,4 +40,4 @@ check_dma:
 	gcc -g -o check_dma check_dma.c apcilib.c -lm -lpthread -O3
 
 clean:
-	rm mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f mpcie_aio16_16f_dma
+	rm pcie-iiro-16 mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_adio16_8f mpcie_adio16_8f_dma mpcie_aio16_16f mpcie_aio16_16f_dma check check_dma irq
