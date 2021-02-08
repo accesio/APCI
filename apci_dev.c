@@ -42,9 +42,20 @@
 static struct pci_device_id ids[] = {
         { PCI_DEVICE(A_VENDOR_ID, PCIe_IIRO_8), },
         { PCI_DEVICE(A_VENDOR_ID, PCI_DIO_24D), },
-        { PCI_DEVICE(A_VENDOR_ID, PCI_DA12_4) , },
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_DA16_16) , },
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_DA16_8) , },
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_DA16_6) , },
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_DA16_4) , },
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_DA16_2) , },
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_DA12_16) , },
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_DA12_8) , },
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_DA12_6) , },
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_DA12_4) , },
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_DA12_2) , },
+        { PCI_DEVICE(A_VENDOR_ID, PCI_DA12_16) , },
+        { PCI_DEVICE(A_VENDOR_ID, PCI_DA12_8) , },
         { PCI_DEVICE(A_VENDOR_ID, PCI_DA12_6) , },
-        { PCI_DEVICE(A_VENDOR_ID, PCI_DA12_2) , },
+        { PCI_DEVICE(A_VENDOR_ID, PCI_DA12_4) , },
         { PCI_DEVICE(A_VENDOR_ID, PCI_DA12_2) , },
         { PCI_DEVICE(A_VENDOR_ID, P104_DIO_48S    ), },
         { PCI_DEVICE(A_VENDOR_ID, P104_DIO_96     ), },
@@ -210,6 +221,16 @@ static struct apci_lookup_table_entry apci_driver_table[] = \
                          APCI_MAKE_ENTRY( PCI_AIO12_16 ),
                          APCI_MAKE_ENTRY( PCI_A12_16A ),
                          APCI_MAKE_ENTRY( LPCI_A16_16A ),
+                         APCI_MAKE_ENTRY( PCIe_DA16_16 ),
+                         APCI_MAKE_ENTRY( PCIe_DA16_8 ),
+                         APCI_MAKE_ENTRY( PCIe_DA16_6 ),
+                         APCI_MAKE_ENTRY( PCIe_DA16_4 ),
+                         APCI_MAKE_ENTRY( PCIe_DA16_2 ),
+                         APCI_MAKE_ENTRY( PCIe_DA12_16 ),
+                         APCI_MAKE_ENTRY( PCIe_DA12_8 ),
+                         APCI_MAKE_ENTRY( PCIe_DA12_6 ),
+                         APCI_MAKE_ENTRY( PCIe_DA12_4 ),
+                         APCI_MAKE_ENTRY( PCIe_DA12_2 ),
                          APCI_MAKE_ENTRY( PCI_DA12_16 ),
                          APCI_MAKE_ENTRY( PCI_DA12_8 ),
                          APCI_MAKE_ENTRY( PCI_DA12_6 ),
@@ -578,10 +599,17 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
               ddata->regions[0].flags   = pci_resource_flags(pdev, 0);
               ddata->regions[0].length  = ddata->regions[0].end - ddata->regions[0].start + 1;
 
+              
+
               ddata->regions[1].start   = pci_resource_start(pdev, 1);
               ddata->regions[1].end     = pci_resource_end(pdev, 1);
               ddata->regions[1].flags   = pci_resource_flags(pdev, 1);
               ddata->regions[1].length  = ddata->regions[1].end - ddata->regions[1].start + 1;
+
+              ddata->regions[2].start   = pci_resource_start(pdev, 2);
+              ddata->regions[2].end     = pci_resource_end(pdev, 2);
+              ddata->regions[2].flags   = pci_resource_flags(pdev, 2);
+              ddata->regions[2].length  = ddata->regions[2].end - ddata->regions[2].start + 1;
 
               ddata->irq = pdev->irq;
               ddata->irq_capable = 1;
@@ -597,6 +625,10 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
               break;
 
          case LPCI_A16_16A:
+         case PCIe_DA12_16:
+         case PCIe_DA12_8:
+         case PCIe_DA16_16:
+         case PCIe_DA16_8:
          case PCI_DA12_16:
          case PCI_DA12_8:
          case mPCIe_AIO16_16F_proto:
@@ -638,6 +670,12 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
          case PCI_DA12_6: /* group4 */
          case PCI_DA12_4:
          case PCI_DA12_2:
+         case PCIe_DA12_6: /* group4 */
+         case PCIe_DA12_4:
+         case PCIe_DA12_2:
+         case PCIe_DA16_6: /* group4 */
+         case PCIe_DA16_4:
+         case PCIe_DA16_2:
               ddata->regions[2].start   = pci_resource_start(pdev, 2);
               ddata->regions[2].end     = pci_resource_end(pdev, 2);
               ddata->regions[2].flags   = pci_resource_flags(pdev, 2);

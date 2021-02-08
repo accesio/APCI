@@ -17,6 +17,8 @@
 
 #define DEVICEPATH "/dev/apci/mPCIe_AIO16_16F_proto_0"
 #define DEV2PATH "/dev/apci/mpcie_aio16_16f_0"
+#define REGISTER_BAR 1
+
 #define SAMPLE_RATE 62500.0 /* Hz */
 
 #define LOG_FILE_NAME "samples.csv"
@@ -59,7 +61,7 @@ pthread_t logger_thread;
 void abort_handler(int s){
   printf("Caught signal %d\n",s);
   /* put the card back in the power-up state */
-  apci_write8(fd, 1, 2, RESETOFFSET, 0xf);
+  apci_write8(fd, 1, REGISTER_BAR, RESETOFFSET, 0xf);
 
   terminate = 1;
   pthread_join(logger_thread, NULL);
@@ -80,7 +82,7 @@ void * log_main(void *arg)
   if (out == NULL)
   {
     printf("Error opening file\n");
-    apci_write8(fd, 1, 2, RESETOFFSET, 0xf);
+    apci_write8(fd, 1, REGISTER_BAR, RESETOFFSET, 0xf);
     exit(1);
   }
 
@@ -121,13 +123,13 @@ void set_acquisition_rate (int fd, double *Hz)
   uint32_t base_clock;
   uint32_t divisor;
 
-  apci_read32(fd, 1, 2, BASECLOCKOFFSET, &base_clock);
+  apci_read32(fd, 1, REGISTER_BAR, BASECLOCKOFFSET, &base_clock);
 
   divisor = round(base_clock / *Hz);
   *Hz = base_clock / divisor; /* actual Hz selected, based on the limitation caused by  integer divisors */
   printf("base_clock = %d, divisor = %d, Hz = %f\n", base_clock, divisor, *Hz);
 
-  apci_write32(fd, 1, 2, DIVISOROFFSET, divisor);
+  apci_write32(fd, 1, REGISTER_BAR, DIVISOROFFSET, divisor);
 }
 
   void diag_dump_buffer_half (volatile void *mmap_addr, int half)
@@ -205,18 +207,18 @@ int main (void)
 
 
   //reset everything
-  apci_write8(fd, 1, 2, RESETOFFSET, 0xf);
+  apci_write8(fd, 1, REGISTER_BAR, RESETOFFSET, 0xf);
 
   //set depth of FIFO to generate IRQ
-  apci_write32(fd, 1, 2, FAFIRQTHRESHOLDOFFSET, SAMPLES_PER_TRANSFER);
-	apci_read32(fd, 1, 2, FAFIRQTHRESHOLDOFFSET, &depth_readback);
+  apci_write32(fd, 1, REGISTER_BAR, FAFIRQTHRESHOLDOFFSET, SAMPLES_PER_TRANSFER);
+	apci_read32(fd, 1, REGISTER_BAR, FAFIRQTHRESHOLDOFFSET, &depth_readback);
 	printf("depth_readback = 0x%x\n", depth_readback);
 
   //set_acquisition_rate(fd, &rate);
   uint32_t base_clock;
   uint32_t divisor;
 
-  apci_read32(fd, 1, 2, BASECLOCKOFFSET, &base_clock);
+  apci_read32(fd, 1, REGISTER_BAR, BASECLOCKOFFSET, &base_clock);
 
   printf("base_clock=%d\n", base_clock);
 
@@ -225,13 +227,13 @@ int main (void)
   rate = base_clock / divisor; /* actual Hz selected, based on the limitation caused by  integer divisors */
   printf("base_clock = %d, divisor = %d, Hz = %f\n", base_clock, divisor, rate);
 
-  apci_write32(fd, 1, 2, DIVISOROFFSET, divisor);
+  apci_write32(fd, 1, REGISTER_BAR, DIVISOROFFSET, divisor);
   //set ranges
-  apci_write32(fd, 1, 2, ADCRANGEOFFSET, 0);
-  apci_write32(fd, 1, 2, ADC2RANGEOFFSET , 0);
+  apci_write32(fd, 1, REGISTER_BAR, ADCRANGEOFFSET, 0);
+  apci_write32(fd, 1, REGISTER_BAR, ADC2RANGEOFFSET , 0);
 
   //enable FAF Threshold Reached IRQ
-  apci_write8(fd, 1, 2, IRQENABLEOFFSET, 0b00000001);
+  apci_write8(fd, 1, REGISTER_BAR, IRQENABLEOFFSET, 0b00000001);
 
   //Start command
 	// start_command = 0xf4ee; // differential //note: logger thread would need refactoring to handle differential well, it will currently report "0"
@@ -240,7 +242,7 @@ int main (void)
 	start_command &= ~(7 << 12);
 	start_command |= HIGH_CHANNEL << 12;
   start_command |= 1;
-  apci_write16(fd, 1, 2, ADCSTARTSTOPOFFSET, start_command);
+  apci_write16(fd, 1, REGISTER_BAR, ADCSTARTSTOPOFFSET, start_command);
 	printf("start_command = 0x%04x\n", start_command);
 
   //diag_dump_buffer_half(mmap_addr, 0);
@@ -320,7 +322,7 @@ int main (void)
 
 err_out: //Once a start has been issued to the card we need to tell it to stop before exiting
   /* put the card back in the power-up state */
-  apci_write8(fd, 1, 2, RESETOFFSET, 0xf);
+  apci_write8(fd, 1, REGISTER_BAR, RESETOFFSET, 0xf);
 
   terminate = 1;
   sem_post(&ring_sem);

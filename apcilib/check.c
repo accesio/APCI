@@ -14,7 +14,7 @@
 #define DEVICEPATH "/dev/apci/mpcie_aio16_16f_0"
 #define DEV2PATH "/dev/apci/mpcie_adio16_8f_0"
 
-#define BAR_REGISTER 1
+#define BAR_REGISTER 2
 pthread_t worker_thread;
 static int terminate;
 int apci;
@@ -44,47 +44,50 @@ int apci;
 uint8_t CHANNEL_COUNT = 16;
 
 const uint32_t BaseADCCommand_SE = 0b1000101111111100 | MPCIE_ADC_CFG_MASK | MPCIE_ADC_START_MASK ;
-const uint32_t BaseADCCommand_SE_Immediate = 0b1000100001001100 | MPCIE_ADC_CFG_MASK | MPCIE_ADC_START_MASK;
+//const uint32_t BaseADCCommand_SE_Immediate = 0b1000100001001100 | MPCIE_ADC_CFG_MASK | MPCIE_ADC_START_MASK;
+const uint32_t BaseADCCommand_SE_Immediate = 0x3884C;
+
+void BRD_Reset(int apci); // forward reference
+
+				void abort_handler(int s)
+				{
+					printf("\n\nCaught signal %d\n",s);
+
+					terminate = 1;
+					pthread_join(worker_thread, NULL);
+
+					/* put the card back in the power-up state */
+					BRD_Reset(apci);
+					exit(1);
+				}
+
+	double VFromRaw(uint32_t rawData)
+	{
+		// All ranges are bipolar, all counts are 16-bit, so the 0x8000 constant is half the span of counts.
+		// These numbers include the extra 2.4% margin for calibration.
+		const double RangeScale[8] =
+		{
+			24.576 / 0x8000, // code 0
+			10.24 / 0x8000, // code 1
+			5.12 / 0x8000, // code 2
+			2.56 / 0x8000, // code 3
+			1.28 / 0x8000, // code 4
+			0.64 / 0x8000, // code 5
+			NAN, // code 6
+			20.48 / 0x8000, // code 7
+		};
+		uint16_t Counts = rawData & 0xFFFF;
+		uint16_t RangeCode = (rawData >> 16) & 0x7;
+		// The other status bits are useful for streaming.
+
+		return rawData & (1<<31) // if invalid
+					? NAN
+					: RangeScale[RangeCode] * (int16_t)Counts;
+	}
 
 void BRD_Reset(int apci)
 {
 	apci_write32(apci, 1, BAR_REGISTER, RESETOFFSET, 0x1);	
-}
-
-void abort_handler(int s)
-{
-	printf("\n\nCaught signal %d\n",s);
-
-	terminate = 1;
-	pthread_join(worker_thread, NULL);
-
-	/* put the card back in the power-up state */
-	BRD_Reset(apci);
-	exit(1);
-}
-
-double VFromRaw(uint32_t rawData)
-{
-	// All ranges are bipolar, all counts are 16-bit, so the 0x8000 constant is half the span of counts.
-	// These numbers include the extra 2.4% margin for calibration.
-	const double RangeScale[8] =
-	{
-		24.576 / 0x8000, // code 0
-		10.24 / 0x8000, // code 1
-		5.12 / 0x8000, // code 2
-		2.56 / 0x8000, // code 3
-		1.28 / 0x8000, // code 4
-		0.64 / 0x8000, // code 5
-		NAN, // code 6
-		20.48 / 0x8000, // code 7
-	};
-	uint16_t Counts = rawData & 0xFFFF;
-	uint16_t RangeCode = (rawData >> 16) & 0x7;
-	// The other status bits are useful for streaming.
-
-	return rawData & (1<<31) // if invalid
-	               ? NAN
-			       : RangeScale[RangeCode] * (int16_t)Counts;
 }
 
 int ParseADCRawData(uint32_t rawData, uint32_t *channel, double *volts, uint8_t *gainCode, uint16_t *digitalData, int *differential, int *temp, int *mux, int *running )
@@ -190,16 +193,20 @@ int main (int argc, char **argv)
 		}
 	}
 
-	printf("Demonstrating SOFTWARE START FOREGROUND POLLING ACQUISITION\n");
-	apci_read32(apci, 1, BAR_REGISTER, 0x68, &Version);
 	printf("  FPGA Revision %08X\n", Version);
-		int ch;
-		uint32_t ADCFIFODepth;
-		uint32_t ADCDataRaw;
-		uint32_t iChannel;
-		double ADCDataV;
-		uint8_t ADCGainCode;
+	int ch;
+	uint32_t ADCFIFODepth;
+	uint32_t ADCDataRaw;
+	uint32_t iChannel;
+	double ADCDataV;
+	uint8_t ADCGainCode;
+			
+	if(0)
+	{
+		printf("Demonstrating SOFTWARE START FOREGROUND POLLING ACQUISITION\n");
+		apci_read32(apci, 1, BAR_REGISTER, 0x68, &Version);
 		
+
 		BRD_Reset(apci);
 
 		apci_write32(apci, 1, BAR_REGISTER, ADCRATEDIVISOROFFSET, 0); // setting ADC Rate Divisor to zero selects software start ADC mode
@@ -227,8 +234,75 @@ int main (int argc, char **argv)
 		}
 
 		printf("Done with one scan of software-started conversions.\n\n\n");
+	}
+
+	if (1) /* debug: diagnosing intermittent wrong voltage on individual channels while performing software-start ADC readings  */
+	{
+		BRD_Reset(apci);
+		ch = 0;
+		do {
+			if (ch<8)
+			{
+				usleep(10); // must not write to +3C faster than once every 10 microseconds in Software Start mode
+				apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset, BaseADCCommand_SE_Immediate | (ch << 12) );	// start one conversion
+
+			}else{
+				usleep(10);
+				apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset+4, BaseADCCommand_SE_Immediate | ((ch & 7) << 12) );	// start one conversion on 2nd ADAS3022
+			}
+			usleep(10);
+			ch ++;
+			ch %= 16;
+
+			apci_read32(apci, 1, BAR_REGISTER, ADCFIFODepthOffset, &ADCFIFODepth);
+
+			while (ADCFIFODepth > 0) {
+				apci_read32(apci, 1, BAR_REGISTER, ADCDataRegisterOffset, &ADCDataRaw);// read data, 1st conversion result
+				ParseADCRawData(ADCDataRaw, &iChannel, &ADCDataV, NULL, NULL, NULL, NULL, NULL, NULL);
+				printf("%d=% 10.6f, ", iChannel, ADCDataV); //printf("%d=%08X,", channel, ADCDataRaw);
+
+				if (iChannel == (15)) printf("\n  ");
+
+				apci_read32(apci, 1, BAR_REGISTER, ADCFIFODepthOffset, &ADCFIFODepth);
+			};
+		}while (!terminate); // CTRL-C flag
+	}
+
+	if (0) /* debug: diagnosing intermittent wrong voltage on individual channels while performing software-start ADC readings  */
+	{
+		BRD_Reset(apci);
+		ch = 0;
+		do {
+			usleep(10); // must not write to +3C faster than once every 10 microseconds in Software Start mode
+			apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset, BaseADCCommand_SE_Immediate | (ch << 12) );	// start one conversion
+			usleep(10);
+			apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset+4, BaseADCCommand_SE_Immediate | (ch << 12) );	// start one conversion on 2nd ADAS3022
+			usleep(10);
+			ch ++;
+			ch %= 8;
+
+			apci_read32(apci, 1, BAR_REGISTER, ADCFIFODepthOffset, &ADCFIFODepth);
+
+			while (ADCFIFODepth > 0) {
+				apci_read32(apci, 1, BAR_REGISTER, ADCDataRegisterOffset, &ADCDataRaw);// read data, 1st conversion result
+				ParseADCRawData(ADCDataRaw, &iChannel, &ADCDataV, NULL, NULL, NULL, NULL, NULL, NULL);
+				printf("%d=% 10.6f, ", iChannel, ADCDataV); //printf("%d=%08X,", channel, ADCDataRaw);
+
+				apci_read32(apci, 1, BAR_REGISTER, ADCDataRegisterOffset, &ADCDataRaw); // read data, 2nd conversion result	
+				ParseADCRawData(ADCDataRaw, &iChannel, &ADCDataV, NULL, NULL, NULL, NULL, NULL, NULL);		
+
+				printf("%d=% f ", iChannel, ADCDataV); //printf("%d=%08X,", channel+8, ADCDataRaw);
+
+				if (iChannel == (CHANNEL_COUNT-1)) printf("\n  ");
+
+				apci_read32(apci, 1, BAR_REGISTER, ADCFIFODepthOffset, &ADCFIFODepth);
+			};
+		}while (!terminate); // CTRL-C flag
+	}
+
 	
-	if (1){
+	if (0)
+	{
 	printf("Demonstrating TIMER-DRIVEN BACKGROUND-THREAD POLLING ACQUISITION\n");
 		printf("Press CTRL-C to halt\nPRESS ENTER TO CONTINUE\n");
 		getchar();
@@ -252,7 +326,7 @@ int main (int argc, char **argv)
 		};
 	}
 
-	printf("Sample Done."); // never prints due to CTRL-C abort
+	printf("Sample Done.\n"); // never prints due to CTRL-C abort
 }
 
 
