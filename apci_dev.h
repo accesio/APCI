@@ -54,6 +54,7 @@
 #define PCI_DIO_96C3	0x2C58
 #define PCI_DIO_120	0x0C78
 #define PCI_AI12_16	0xACA8
+#define PCI_AI12_16_ 0xACA0
 #define PCI_AI12_16A	0xACA9
 #define PCI_AIO12_16	0xECA8
 #define PCI_A12_16A	0xECAA
@@ -169,6 +170,7 @@
 #define NAME_PCI_DIO_96C3               "pci_dio_96c3"
 #define NAME_PCI_DIO_120                "pci_dio_120"
 #define NAME_PCI_AI12_16                "pci_ai12_16"
+#define NAME_PCI_AI12_16_               "pci_ai12_16"
 #define NAME_PCI_AI12_16A               "pci_ai12_16a"
 #define NAME_PCI_AIO12_16               "pci_aio12_16"
 #define NAME_PCI_A12_16A                "pci_a12_16a"

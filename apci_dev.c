@@ -217,6 +217,7 @@ static struct apci_lookup_table_entry apci_driver_table[] = \
                          APCI_MAKE_ENTRY( PCI_DIO_96C3 ),
                          APCI_MAKE_ENTRY( PCI_DIO_120 ),
                          APCI_MAKE_ENTRY( PCI_AI12_16 ),
+                         APCI_MAKE_ENTRY( PCI_AI12_16_ ),
                          APCI_MAKE_ENTRY( PCI_AI12_16A ),
                          APCI_MAKE_ENTRY( PCI_AIO12_16 ),
                          APCI_MAKE_ENTRY( PCI_A12_16A ),
@@ -535,6 +536,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
          case PCI_DIO_96C3:
          case PCI_DIO_120:
          case PCI_AI12_16:
+         case PCI_AI12_16_:
          case PCI_AI12_16A:
          case PCI_A12_16A:
          case LPCI_IIRO_8:
@@ -1017,11 +1019,10 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
 
         case PCI_DA12_16:
         case PCI_DA12_8:
-        case PCI_DA12_6:
-        case PCI_DA12_4:
-        case PCI_DA12_2:
-        case PCI_DA12_16V:
-        case PCI_DA12_8V:
+        case PCIe_DA16_16:
+        case PCIe_DA16_8:
+        case PCIe_DA12_16:
+        case PCIe_DA12_8:
           byte = inb(ddata->regions[2].start + 0xC);
           break;
 
@@ -1045,6 +1046,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
           break;
 
         case PCI_AI12_16:
+        case PCI_AI12_16_:
         case PCI_AI12_16A:
         case PCI_AIO12_16:
         case PCI_A12_16A:
