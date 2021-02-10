@@ -137,7 +137,11 @@ static struct pci_device_id ids[] = {
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_ADI12_8A ), },
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_ADI12_8 ), },
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_ADI12_8E ), },        
-        { PCI_DEVICE(A_VENDOR_ID, PCIe_DIO_24HC ), },        
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_DIO_24HC ), },   
+        { PCI_DEVICE(A_VENDOR_ID, PCI_AI12_16_ ), },
+        { PCI_DEVICE(A_VENDOR_ID, PCI_AI12_16 ), },
+        { PCI_DEVICE(A_VENDOR_ID, PCI_AI12_16A ), },
+        { PCI_DEVICE(A_VENDOR_ID, PCI_A12_16A ), },
         {0,}
 };
 MODULE_DEVICE_TABLE(pci, ids);
@@ -956,7 +960,6 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
           */
           if( !ddata->is_pcie ) 
           {
-
             byte = inb(ddata->plx_region.start + 0x4C);
 
             if ((byte & 4) == 0) {
@@ -1375,16 +1378,18 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	   ret = -ENOMEM;
 	   goto exit_free;
 	 }
+
    //TODO: Fix this when HW is available to test MEM version
-   if (ddata->is_pcie && ddata->plx_region.flags & IORESOURCE_IO)
-   {
-      outb(0x9, ddata->plx_region.start + 0x69);
-   }
-   else
-   {
-     apci_debug("Enabling IRQ MEM/IO plx region\n");
-     iowrite8(0x9, ddata->plx_region.mapped_address + 0x69);
-   }
+   if (ddata->is_pcie)
+      if (ddata->plx_region.flags & IORESOURCE_IO)
+      {
+          outb(0x9, ddata->plx_region.start + 0x69);
+      }
+      else
+      {
+        apci_debug("Enabling IRQ MEM/IO plx region\n");
+        iowrite8(0x9, ddata->plx_region.mapped_address + 0x69);
+      }
 
          /* switch( id->device ) {  */
          /* case PCIe_IIRO_8: */
