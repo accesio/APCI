@@ -44,7 +44,7 @@ uint8_t CHANNEL_COUNT = 16;
 #define FIFOLEVELOFFSET			0x28
 #define ADCCONTROLOFFSET		0x38
 #define IRQENABLEOFFSET			0x40
-#define MPCIE_ADC_START_MASK 0x30000
+#define ADC_START_MASK 0x30000
 
 /* This simple sample uses a Ring-buffer to queue data for logging to disk via a background thread */
 /* It is possible for the driver and the user to have a different number of slots, but making them match is less complicated */
@@ -335,7 +335,7 @@ int main (void)
 	
 	start_command &= ~(7 << 12);
 	start_command |= HIGH_CHANNEL << 12;
-	start_command |= MPCIE_ADC_START_MASK;
+	start_command |= ADC_START_MASK;
 
 	apci_write32(fd, 1, BAR_REGISTER, ADCCONTROLOFFSET+4, start_command);
 	apci_write32(fd, 1, BAR_REGISTER, ADCCONTROLOFFSET, start_command);

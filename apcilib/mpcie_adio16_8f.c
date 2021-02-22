@@ -27,8 +27,8 @@ int apci;
 #define ADCDataRegisterOffset	0x30
 #define ADCControlOffset		0x38
 #define IRQENABLEOFFSET			0x40
-#define MPCIE_ADC_CFG_MASK   0x20000
-#define MPCIE_ADC_START_MASK 0x10000
+#define ADC_CFG_MASK   0x20000
+#define ADC_START_MASK 0x10000
 
 #define RAWrunningshift 30
 #define RAWdioshift 26
@@ -39,8 +39,8 @@ int apci;
 #define RAWgainshift 16
 #define RAWrunningshift 30
 
-const uint32_t BaseADCCommand_SE = 0b1000101111111100 | MPCIE_ADC_CFG_MASK | MPCIE_ADC_START_MASK ;
-const uint32_t BaseADCCommand_SE_Immediate = 0b1000100001001100 | MPCIE_ADC_CFG_MASK | MPCIE_ADC_START_MASK;
+const uint32_t BaseADCCommand_SE = 0b1000101111111100 | ADC_CFG_MASK | ADC_START_MASK ;
+const uint32_t BaseADCCommand_SE_Immediate = 0b1000100001001100 | ADC_CFG_MASK | ADC_START_MASK;
 
 void BRD_Reset(int apci)
 {
