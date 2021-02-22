@@ -20,7 +20,7 @@
  */
 extern int apci_debug_level;
 
-//#define A_PCI_DEBUG
+#define A_PCI_DEBUG 3
 
 #ifdef A_PCI_DEBUG
 #define apci_debug(fmt,...) if( A_PCI_DEBUG > 0 ) { pr_err(APCI_PREFIX fmt, ##__VA_ARGS__ ); }

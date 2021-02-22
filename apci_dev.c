@@ -605,17 +605,10 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
               ddata->regions[0].flags   = pci_resource_flags(pdev, 0);
               ddata->regions[0].length  = ddata->regions[0].end - ddata->regions[0].start + 1;
 
-              
-
-              ddata->regions[1].start   = pci_resource_start(pdev, 1);
-              ddata->regions[1].end     = pci_resource_end(pdev, 1);
-              ddata->regions[1].flags   = pci_resource_flags(pdev, 1);
+              ddata->regions[1].start   = pci_resource_start(pdev, 2);
+              ddata->regions[1].end     = pci_resource_end(pdev, 2);
+              ddata->regions[1].flags   = pci_resource_flags(pdev, 2);
               ddata->regions[1].length  = ddata->regions[1].end - ddata->regions[1].start + 1;
-
-              ddata->regions[2].start   = pci_resource_start(pdev, 2);
-              ddata->regions[2].end     = pci_resource_end(pdev, 2);
-              ddata->regions[2].flags   = pci_resource_flags(pdev, 2);
-              ddata->regions[2].length  = ddata->regions[2].end - ddata->regions[2].start + 1;
 
               ddata->irq = pdev->irq;
               ddata->irq_capable = 1;
@@ -1380,7 +1373,8 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	 }
 
    //TODO: Fix this when HW is available to test MEM version
-   if (ddata->is_pcie)
+  if (ddata->is_pcie)
+  {
       if (ddata->plx_region.flags & IORESOURCE_IO)
       {
           outb(0x9, ddata->plx_region.start + 0x69);
@@ -1390,6 +1384,7 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
         apci_debug("Enabling IRQ MEM/IO plx region\n");
         iowrite8(0x9, ddata->plx_region.mapped_address + 0x69);
       }
+  }
 
          /* switch( id->device ) {  */
          /* case PCIe_IIRO_8: */

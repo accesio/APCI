@@ -14,7 +14,7 @@
 #define DEVICEPATH "/dev/apci/mpcie_aio16_16f_0"
 #define DEV2PATH "/dev/apci/mpcie_adio16_8f_0"
 
-#define BAR_REGISTER 2
+#define BAR_REGISTER 1
 pthread_t worker_thread;
 static int terminate;
 int apci;
@@ -211,7 +211,7 @@ void * worker_main(void *arg)
 			if (bAux)
 				printf("AUX %d=% 5.1f [%08x], ",iChannel?1:0, ADCDataV, ADCDataRaw);
 			else
-				printf("%d=% 10.6f, ", iChannel, ADCDataV);
+				printf("%d=% 8.4f, ", iChannel, ADCDataV);
 
 			// read data, 2nd conversion result	
 			apci_read32(apci, 1, BAR_REGISTER, ADCDataRegisterOffset, &ADCDataRaw);
@@ -223,7 +223,7 @@ void * worker_main(void *arg)
 			if (bAux)
 				printf("AUX %d=% 5.1f [%08x], ",iChannel?1:0, ADCDataV, ADCDataRaw);
 			else
-				printf("%d=% 10.6f, ", iChannel, ADCDataV);
+				printf("%d=% 8.4f, ", iChannel, ADCDataV);
 			
 			apci_read32(apci, 1, BAR_REGISTER, ADCFIFODepthOffset, &ADCFIFODepth);
 		};
@@ -320,89 +320,14 @@ int main (int argc, char **argv)
 		printf("Done with one scan of software-started conversions.\n\n\n");
 	}
 
-	if(1)
-	{
-		printf("Demonstrating TEMPERATURE acquisition\n");
-
-		BRD_Reset(apci);
-
-		apci_write32(apci, 1, BAR_REGISTER, ADCRATEDIVISOROFFSET, 0); // setting ADC Rate Divisor to zero selects software start ADC mode
-
-		uint32_t controlValue = ADC_BuildControlValue(1,0,0,0,0,0,1,0);
-		apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset, controlValue );	// start one conversion of temperature input
-		usleep(10); // must not write to +38 faster than once every 10 microseconds in Software Start mode
-
-		if (CHANNEL_COUNT == 16) // read second ADC's temperature input sensor
-		{
-			uint32_t controlValue = ADC_BuildControlValue(1,0,0,0,0,0,1,0);			
-			apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset + 4, controlValue );	// start one conversion of temperature input
-			usleep(10); // must not write to +38 faster than once every 10 microseconds in Software Start mode
-		}
-
-		apci_read32(apci, 1, BAR_REGISTER, ADCFIFODepthOffset, &ADCFIFODepth);
-		printf("  ADC FIFO has %d entries\n", ADCFIFODepth);
-
-		for (ch=0; ch < ADCFIFODepth; ++ch)	// read and display data from FIFO
-		{
-			int bTemp = 0;
-			apci_read32(apci, 1, BAR_REGISTER, ADCDataRegisterOffset, &ADCDataRaw);
-			ParseADCRawData(ADCDataRaw, &iChannel, &ADCDataV, &ADCGainCode, NULL, NULL, &bTemp, NULL, NULL);		
-			if (bTemp)
-				printf("    ADC %d Temp = % 3.1fC [raw:%08X]\n", iChannel?1:0, ADCDataV, ADCDataRaw);
-			else
-				printf("    ADC CH %2d = % 10.6f [gain code %d] [raw:%08X] [temp:%d]\n", iChannel, ADCDataV, ADCGainCode, ADCDataRaw, bTemp);
-		}
-
-		printf("Done with temperature sensor conversions.\n\n\n");
-	}
-	
-	if(1)
-	{
-		printf("Demonstrating AUX acquisition\n");
-
-		BRD_Reset(apci);
-
-		apci_write32(apci, 1, BAR_REGISTER, ADCRATEDIVISOROFFSET, 0); // setting ADC Rate Divisor to zero selects software start ADC mode
-
-		uint32_t controlValue = ADC_BuildControlValue(1,0,0,0,1,0,0,0);
-		apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset, controlValue );	// start one conversion of temperature input
-		usleep(10); // must not write to +38 faster than once every 10 microseconds in Software Start mode
-
-		if (CHANNEL_COUNT == 16) // read second ADC's temperature input sensor
-		{
-			uint32_t controlValue = ADC_BuildControlValue(1,0,0,0,1,0,0,0);			
-			apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset + 4, controlValue );	// start one conversion of temperature input
-			usleep(10); // must not write to +38 faster than once every 10 microseconds in Software Start mode
-		}
-
-		apci_read32(apci, 1, BAR_REGISTER, ADCFIFODepthOffset, &ADCFIFODepth);
-		printf("  ADC FIFO has %d entries\n", ADCFIFODepth);
-
-		for (ch=0; ch < ADCFIFODepth; ++ch)	// read and display data from FIFO
-		{
-			int bTemp, bAux = 0;
-			apci_read32(apci, 1, BAR_REGISTER, ADCDataRegisterOffset, &ADCDataRaw);
-			ParseADCRawData(ADCDataRaw, &iChannel, &ADCDataV, &ADCGainCode, NULL, NULL, &bTemp, &bAux, NULL);		
-			if (bTemp)
-				printf("    ADC %d Temp =% 5.1fC [%08x]\n",iChannel?1:0, ADCDataV, ADCDataRaw);
-			else
-			if (bAux)
-				printf("    AUX %d=% 5.1f [%08x]\n",iChannel?1:0, ADCDataV, ADCDataRaw);
-			else
-				printf("    ADC CH %2d = % 10.6f [gain code %d] [raw:%08X] [temp:%d]\n", iChannel, ADCDataV, ADCGainCode, ADCDataRaw, bTemp);			
-		}
-
-		printf("Done with AUX sensor conversions.\n\n\n");
-	}
-
 	if (1)
 	{
-		printf("Demonstrating TIMER-DRIVEN (Advanced Sequencer+Temperature+AUX) BACKGROUND-THREAD POLLING ACQUISITION\n");
+		printf("Demonstrating TIMER-DRIVEN (Advanced Sequencer) BACKGROUND-THREAD POLLING ACQUISITION\n");
 		printf("Press CTRL-C to halt\nPRESS ENTER TO CONTINUE\n");
 		getchar();
 			
 		BRD_Reset(apci);
-		double Hz = 1.0;
+		double Hz = 100.0;
 		set_acquisition_rate(apci, &Hz);
 		printf("ADC Rate: (%lf Hz)\n", Hz);
 
@@ -410,7 +335,7 @@ int main (int argc, char **argv)
 		pthread_create(&worker_thread, NULL, &worker_main, NULL);
 		
 		// start sequence of conversions
-		uint32_t controlValue = ADC_BuildControlValue(1,1,0,0,1,1,1,0);		
+		uint32_t controlValue = ADC_BuildControlValue(1,7,0,0,0,1,0,0);		
 		printf("ADC Control = %08x\n", controlValue);	
 		if (CHANNEL_COUNT == 16)
 			apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset + 4, controlValue );	
