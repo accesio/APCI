@@ -444,8 +444,6 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
       case mPCIe_AI12_16:
       case mPCIe_AI12_16E:
       case mPCIe_ADIO16_8F:
-      case mPCIe_ADIO16_8A:
-      case mPCIe_ADIO16_8E:
       case mPCIe_ADI16_8F:
       case mPCIe_ADI16_8A:
       case mPCIe_ADI16_8E:
@@ -479,8 +477,8 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
 
         ddata->plx_region.length = ddata->plx_region.end - ddata->plx_region.start + 1;
 
-        apci_debug("plx_region.start = %08x\n", ddata->plx_region.start );
-        apci_debug("plx_region.end   = %08x\n", ddata->plx_region.end );
+        apci_debug("plx_region.start = %08llx\n", ddata->plx_region.start );
+        apci_debug("plx_region.end   = %08llx\n", ddata->plx_region.end );
         apci_debug("plx_region.length= %08x\n", ddata->plx_region.length );
 
         if (ddata->plx_region.flags & IORESOURCE_IO)
@@ -504,8 +502,6 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
 
     switch(ddata->dev_id) {
          case PCIe_DIO_24:/* group1 */
-         case PCIe_DIO_24D:
-         case PCIe_DIO_24S:
          case MPCIE_DIO_24S:
          case MPCIE_DIO_24S_R1:
          case MPCIE_IDIO_8:
@@ -557,8 +553,8 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
               ddata->regions[2].length  = ddata->regions[2].end - ddata->regions[2].start + 1;
               ddata->irq                = pdev->irq;
               ddata->irq_capable        = 1;
-              apci_debug("regions[2].start = %08x\n", ddata->regions[2].start );
-              apci_debug("regions[2].end   = %08x\n", ddata->regions[2].end );
+              apci_debug("regions[2].start = %08llx\n", ddata->regions[2].start );
+              apci_debug("regions[2].end   = %08llx\n", ddata->regions[2].end );
               apci_debug("regions[2].length= %08x\n", ddata->regions[2].length );
               apci_debug("regions[2].flags = %lx\n", ddata->regions[2].flags );
               apci_debug("irq = %d\n", ddata->irq );
@@ -569,8 +565,8 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
               ddata->regions[2].end     = pci_resource_end(pdev, 2);
               ddata->regions[2].flags   = pci_resource_flags(pdev, 2);
               ddata->regions[2].length  = ddata->regions[2].end - ddata->regions[2].start + 1;
-              apci_debug("regions[2].start = %08x\n", ddata->regions[2].start );
-              apci_debug("regions[2].end   = %08x\n", ddata->regions[2].end );
+              apci_debug("regions[2].start = %08llx\n", ddata->regions[2].start );
+              apci_debug("regions[2].end   = %08llx\n", ddata->regions[2].end );
               apci_debug("regions[2].length= %08x\n", ddata->regions[2].length );
               apci_debug("regions[2].flags = %lx\n", ddata->regions[2].flags );
               apci_debug("NO irq\n");
@@ -603,8 +599,6 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
               ddata->regions[0].start   = pci_resource_start(pdev, 0);
               ddata->regions[0].end     = pci_resource_end(pdev, 0);
               ddata->regions[0].flags   = pci_resource_flags(pdev, 0);
-              ddata->regions[0].length  = ddata->regions[0].end - ddata->regions[0].start + 1;
-
               ddata->regions[1].start   = pci_resource_start(pdev, 2);
               ddata->regions[1].end     = pci_resource_end(pdev, 2);
               ddata->regions[1].flags   = pci_resource_flags(pdev, 2);
@@ -612,12 +606,12 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
 
               ddata->irq = pdev->irq;
               ddata->irq_capable = 1;
-              apci_debug("[%04x]: regions[0].start = %08x\n", ddata->dev_id, ddata->regions[0].start );
-              apci_debug("        regions[0].end   = %08x\n", ddata->regions[0].end );
+              apci_debug("[%04x]: regions[0].start = %08llx\n", ddata->dev_id, ddata->regions[0].start );
+              apci_debug("        regions[0].end   = %08llx\n", ddata->regions[0].end );
               apci_debug("        regions[0].length= %08x\n", ddata->regions[0].length );
               apci_debug("        regions[0].flags = %lx\n", ddata->regions[0].flags );
-              apci_debug("        regions[1].start = %08x\n", ddata->regions[1].start );
-              apci_debug("        regions[1].end   = %08x\n", ddata->regions[1].end );
+              apci_debug("        regions[1].start = %08llx\n", ddata->regions[1].start );
+              apci_debug("        regions[1].end   = %08llx\n", ddata->regions[1].end );
               apci_debug("        regions[1].length= %08x\n", ddata->regions[1].length );
               apci_debug("        regions[1].flags = %lx\n", ddata->regions[1].flags );
               apci_debug("        irq = %d\n", ddata->irq );        
@@ -655,12 +649,12 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
 
               ddata->irq = pdev->irq;
               ddata->irq_capable = 1;
-              apci_debug("regions[2].start = %08x\n", ddata->regions[2].start );
-              apci_debug("regions[2].end   = %08x\n", ddata->regions[2].end );
+              apci_debug("regions[2].start = %08llx\n", ddata->regions[2].start );
+              apci_debug("regions[2].end   = %08llx\n", ddata->regions[2].end );
               apci_debug("regions[2].length= %08x\n", ddata->regions[2].length );
               apci_debug("regions[2].flags = %lx\n", ddata->regions[2].flags );
-              apci_debug("regions[3].start = %08x\n", ddata->regions[3].start );
-              apci_debug("regions[3].end   = %08x\n", ddata->regions[3].end );
+              apci_debug("regions[3].start = %08llx\n", ddata->regions[3].start );
+              apci_debug("regions[3].end   = %08llx\n", ddata->regions[3].end );
               apci_debug("regions[3].length= %08x\n", ddata->regions[3].length );
               apci_debug("regions[3].flags = %lx\n", ddata->regions[3].flags );
               apci_debug("irq = %d\n", ddata->irq );
@@ -684,12 +678,12 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
               ddata->regions[3].end     = pci_resource_end(pdev, 3);
               ddata->regions[3].flags   = pci_resource_flags(pdev, 3);
               ddata->regions[3].length  = ddata->regions[3].end - ddata->regions[3].start + 1;
-              apci_debug("regions[2].start = %08x\n", ddata->regions[2].start );
-              apci_debug("regions[2].end   = %08x\n", ddata->regions[2].end );
+              apci_debug("regions[2].start = %08llx\n", ddata->regions[2].start );
+              apci_debug("regions[2].end   = %08llx\n", ddata->regions[2].end );
               apci_debug("regions[2].length= %08x\n", ddata->regions[2].length );
               apci_debug("regions[2].flags = %lx\n", ddata->regions[2].flags );
-              apci_debug("regions[3].start = %08x\n", ddata->regions[3].start );
-              apci_debug("regions[3].end   = %08x\n", ddata->regions[3].end );
+              apci_debug("regions[3].start = %08llx\n", ddata->regions[3].start );
+              apci_debug("regions[3].end   = %08llx\n", ddata->regions[3].end );
               apci_debug("regions[3].length= %08x\n", ddata->regions[3].length );
               apci_debug("regions[3].flags = %lx\n", ddata->regions[3].flags );  
               apci_debug("NO irq\n");                          
@@ -730,8 +724,8 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
         ddata->regions[0].length  = ddata->regions[0].end - ddata->regions[0].start + 1;
 
         iounmap(ddata->plx_region.mapped_address);
-        apci_debug("regions[0].start = %08x\n", ddata->regions[0].start );
-        apci_debug("regions[0].end   = %08x\n", ddata->regions[0].end );
+        apci_debug("regions[0].start = %08llx\n", ddata->regions[0].start );
+        apci_debug("regions[0].end   = %08llx\n", ddata->regions[0].end );
         apci_debug("regions[0].length= %08x\n", ddata->regions[0].length );
         apci_debug("regions[0].flags = %lx\n", ddata->regions[0].flags );
 
@@ -748,10 +742,10 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
       }
       if (ddata->regions[count].flags & IORESOURCE_IO) {
 
-        apci_debug("requesting io region start=%08x,len=%d\n", ddata->regions[count].start, ddata->regions[count].length );
+        apci_debug("requesting io region start=%08llx,len=%d\n", ddata->regions[count].start, ddata->regions[count].length );
         presource = request_region(ddata->regions[count].start, ddata->regions[count].length, "apci");
       } else {
-        apci_debug("requesting mem region start=%08x,len=%d\n", ddata->regions[count].start, ddata->regions[count].length );
+        apci_debug("requesting mem region start=%08llx,len=%d\n", ddata->regions[count].start, ddata->regions[count].length );
         presource = request_mem_region(ddata->regions[count].start, ddata->regions[count].length, "apci");
         if (presource != NULL) {
           ddata->regions[count].mapped_address = ioremap(ddata->regions[count].start, ddata->regions[count].length);
@@ -844,7 +838,7 @@ apci_free_driver( struct pci_dev *pdev )
 
      if (ddata->plx_region.flags & IORESOURCE_IO)
      {
-        apci_debug("releasing memory of %08x , length=%d\n", ddata->plx_region.start, ddata->plx_region.length );
+        apci_debug("releasing memory of %08llx , length=%d\n", ddata->plx_region.start, ddata->plx_region.length );
         release_region( ddata->plx_region.start, ddata->plx_region.length );
      }
      else
@@ -1375,6 +1369,7 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
    //TODO: Fix this when HW is available to test MEM version
   if (ddata->is_pcie)
   {
+    if (ddata->dev_id != 0xC0E8){
       if (ddata->plx_region.flags & IORESOURCE_IO)
       {
           outb(0x9, ddata->plx_region.start + 0x69);
@@ -1384,6 +1379,7 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
         apci_debug("Enabling IRQ MEM/IO plx region\n");
         iowrite8(0x9, ddata->plx_region.mapped_address + 0x69);
       }
+    }
   }
 
          /* switch( id->device ) {  */

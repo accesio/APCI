@@ -262,8 +262,8 @@ typedef enum ADDRESS_TYPE address_type;
 
 
 typedef struct {
-    __u32 start;
-    __u32 end;
+    __u64 start;
+    __u64 end;
     __u32 length;
     unsigned long flags;
     void *mapped_address;
