@@ -1108,6 +1108,12 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
           //to write to the next buffer (and don't notify the user?)
           //else if it is a write done IRQ set last_valid_buffer and notify user
           irq_event = ioread8(ddata->regions[2].mapped_address + 0x2);
+          if (irq_event == 0) 
+          {
+            apci_devel("ISR: not our IRQ\n");
+            return IRQ_NONE;
+          }
+
           if (irq_event & 0x1) //FIFO almost full
           {
             dma_addr_t base = ddata->dma_addr;
@@ -1141,6 +1147,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
             iowrite32(4, ddata->regions[0].mapped_address + 12);
             udelay(5);
           }
+
           iowrite8(irq_event, ddata->regions[2].mapped_address + 0x2);
           apci_debug("ISR: irq_event = 0x%x, depth = 0x%x\n", irq_event, ioread32(ddata->regions[2].mapped_address + 0x28));
           break;
@@ -1165,6 +1172,12 @@ case mPCIe_AIO16_16F: /* testing HMAIO*/
           //to write to the next buffer (and don't notify the user?)
           //else if it is a write done IRQ set last_valid_buffer and notify user
           irq_event = ioread32(ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // TODO: Upgrade to doRegisterAction("AmI?")
+          if (irq_event == 0) 
+          {
+            apci_devel("ISR: not our IRQ\n");
+            return IRQ_NONE;
+          }
+
           if ( irq_event & (bmADIO_ADCTRIGGERStatus|bmADIO_DMADoneStatus) )
           {
             dma_addr_t base = ddata->dma_addr;
