@@ -1079,17 +1079,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
           outl(dword, ddata->regions[2].start + 0x8);
           break;
 
-        case mPCIe_AIO16_16A:
-        case mPCIe_AIO16_16E:
-        case mPCIe_AI16_16F:
-        case mPCIe_AI16_16A:
-        case mPCIe_AI16_16E:
-        case mPCIe_AIO12_16A:
-        case mPCIe_AIO12_16:
-        case mPCIe_AIO12_16E:
-        case mPCIe_AI12_16A:
-        case mPCIe_AI12_16:
-        case mPCIe_AI12_16E:
+
         case mPCIe_AIO16_16F_proto:
         case mPCIe_AIO16_16A_proto:
         case mPCIe_AIO16_16E_proto:
@@ -1153,7 +1143,18 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
           break;
         }
 
-case mPCIe_AIO16_16F: /* testing HMAIO*/
+        case mPCIe_AIO16_16F:
+        case mPCIe_AIO16_16A:
+        case mPCIe_AIO16_16E:
+        case mPCIe_AI16_16F:
+        case mPCIe_AI16_16A:
+        case mPCIe_AI16_16E:
+        case mPCIe_AIO12_16A:
+        case mPCIe_AIO12_16:
+        case mPCIe_AIO12_16E:
+        case mPCIe_AI12_16A:
+        case mPCIe_AI12_16:
+        case mPCIe_AI12_16E:
         case mPCIe_ADIO16_8F:
         case mPCIe_ADIO16_8A:
         case mPCIe_ADIO16_8E:

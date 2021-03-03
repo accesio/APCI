@@ -139,22 +139,22 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 
           switch(is_valid_addr(ddata, io_pack.bar,io_pack.offset)) {
             case IO:
-              apci_info("performing I/O write to %X\n",
+              apci_info("performing I/O write to %llX\n",
                         ddata->regions[io_pack.bar].start + io_pack.offset);
 
               switch (io_pack.size) {
                 case BYTE:
-                  apci_devel("writing byte %02X to %X\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
+                  apci_devel("writing byte %02X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
                   outb(io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
                   break;
 
                 case WORD:
-                  apci_devel("writing word %04X to %X\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
+                  apci_devel("writing word %04X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
                   outw(io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
                   break;
 
                 case DWORD:
-                  apci_devel("writing dword %08X to %X\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
+                  apci_devel("writing dword %08X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
                   outl(io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
                   break;
               };
@@ -163,18 +163,18 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
             case MEM:
               switch(io_pack.size) {
                 case BYTE:
-                  apci_devel("writing byte %02X to %X\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);               
+                  apci_devel("writing byte %02X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);               
                   iowrite8(io_pack.data, ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
                   break;
 
                 case WORD:
-                  apci_devel("writing word %04X to %X\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
+                  apci_devel("writing word %04X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
                   iowrite16(io_pack.data, ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
                   break;
 
                 case DWORD:
                   iowrite32(io_pack.data, ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
-                  apci_devel("writing dword %08X to %X\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
+                  apci_devel("writing dword %08X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
                   break;
               };
               break;
@@ -204,17 +204,17 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
                   switch (io_pack.size) {
                   case BYTE:
                        io_pack.data = inb(ddata->regions[io_pack.bar].start + io_pack.offset);
-                       apci_devel("performed read from %X, got %02X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
+                       apci_devel("performed read from %llX, got %02X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
                        break;
 
                   case WORD:
                        io_pack.data = inw(ddata->regions[io_pack.bar].start + io_pack.offset);
-                       apci_devel("performed read from %X, got %04X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
+                       apci_devel("performed read from %llX, got %04X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
                        break;
 
                   case DWORD:
                        io_pack.data = inl(ddata->regions[io_pack.bar].start + io_pack.offset);
-                       apci_devel("performed read from %X, got %08X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
+                       apci_devel("performed read from %llX, got %08X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
                        break;
                   };
                   break;
@@ -223,17 +223,17 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
                   switch (io_pack.size) {
                   case BYTE:
                        io_pack.data = ioread8(ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
-                       apci_devel("performed read from %X, got %02X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
+                       apci_devel("performed read from %llX, got %02X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
                        break;
 
                   case WORD:
                        io_pack.data = ioread16(ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
-                       apci_devel("performed read from %X, got %04X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
+                       apci_devel("performed read from %llX, got %04X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
                        break;
 
                   case DWORD:
                        io_pack.data = ioread32(ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
-                       apci_devel("performed read from %X, got %08X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
+                       apci_devel("performed read from %llX, got %08X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
                        break;
                   };
                   break;
