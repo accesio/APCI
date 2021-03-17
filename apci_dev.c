@@ -716,7 +716,19 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
       case mPCIe_AIO12_16E:
       case mPCIe_AI12_16A:
       case mPCIe_AI12_16:
-      case mPCIe_AI12_16E:      
+      case mPCIe_AI12_16E: 
+      case mPCIe_ADIO16_8F:
+      case mPCIe_ADIO16_8A:
+      case mPCIe_ADIO16_8E:
+      case mPCIe_ADI16_8F:
+      case mPCIe_ADI16_8A:
+      case mPCIe_ADI16_8E:
+      case mPCIe_ADIO12_8A:
+      case mPCIe_ADIO12_8:
+      case mPCIe_ADIO12_8E:
+      case mPCIe_ADI12_8A:
+      case mPCIe_ADI12_8:
+      case mPCIe_ADI12_8E:           
         apci_devel("setting up DMA in alloc\n");
         ddata->regions[0].start   = pci_resource_start(pdev, 0);
         ddata->regions[0].end     = pci_resource_end(pdev, 0);
@@ -727,9 +739,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
         apci_debug("regions[0].start = %08llx\n", ddata->regions[0].start );
         apci_debug("regions[0].end   = %08llx\n", ddata->regions[0].end );
         apci_debug("regions[0].length= %08x\n", ddata->regions[0].length );
-        apci_debug("regions[0].flags = %lx\n", ddata->regions[0].flags );
-
-      
+        apci_debug("regions[0].flags = %lx\n", ddata->regions[0].flags );      
         break;
     }
 
@@ -1168,7 +1178,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
         case mPCIe_ADI12_8:
         case mPCIe_ADI12_8E:
         {
-          apci_devel("ISR: mPCIe-ADIO irq_event\n");
+          apci_devel("ISR: mPCIe-AxIO irq_event\n");
           //If this is a FIFO near full IRQ then tell the card
           //to write to the next buffer (and don't notify the user?)
           //else if it is a write done IRQ set last_valid_buffer and notify user
@@ -1215,61 +1225,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
           iowrite32(irq_event, ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // clear whatever IRQ occurred and retain enabled IRQ sources // TODO: Upgrade to doRegisterAction("Clear&Enable")
           apci_debug("ISR: irq_event = 0x%x, depth = 0x%x, IRQStatus = 0x%x\n", irq_event, ioread32(ddata->regions[1].mapped_address + 0x28), ioread32(ddata->regions[1].mapped_address + 0x40));
           break;
-        }        
-#if 0 
-        { // throws segfault on first DMA, roughly
-          dma_addr_t base = ddata->dma_addr;
-          apci_devel("ISR: mPCIe-ADIO irq_event\n");
-          //If this is a FIFO near full IRQ then tell the card
-          //to write to the next buffer (and don't notify the user?)
-          //else if it is a write done IRQ set last_valid_buffer and notify user
-          irq_event = ioread32(ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // TODO: Upgrade to doRegisterAction("AmI?")
-
-          if (irq_event & bmADIO_ADCTRIGGERStatus) // FIRST IRQ
-          {
-            apci_debug("ISR: ADC Trigger IRQ\n")
-            notify_user = false;
-            ddata->dma_last_buffer++;
-
-            // INITIAL DMA SETUP
-            iowrite32(base & 0xffffffff, ddata->regions[0].mapped_address + 0x10);
-            iowrite32(base >> 32, ddata->regions[0].mapped_address + 4 + 0x10);
-            iowrite32(ddata->dma_slot_size, ddata->regions[0].mapped_address + 8 + 0x10);
-            iowrite32(4, ddata->regions[0].mapped_address + 12 + 0x10);
-          }
-
-          if (irq_event & bmADIO_DMADoneStatus)
-          {
-            apci_debug("ISR: DMA Done IRQ\n")
-            spin_lock(&(ddata->dma_data_lock));
-            if (ddata->dma_first_valid == -1)
-            {
-              ddata->dma_first_valid = 0;
-            }
-
-            ddata->dma_last_buffer++;
-            ddata->dma_last_buffer %= ddata->dma_num_slots;
-
-            if (ddata->dma_last_buffer == ddata->dma_first_valid)
-            {
-              apci_error("ISR: data discarded\n");
-              ddata->dma_last_buffer--;
-              if ( ddata->dma_last_buffer < 0 ) ddata->dma_last_buffer = ddata->dma_num_slots-1;
-              ddata->dma_data_discarded++;
-            }
-            spin_unlock(&(ddata->dma_data_lock));
-            base += ddata->dma_slot_size * ddata->dma_last_buffer;
-
-            iowrite32(base & 0xffffffff, ddata->regions[0].mapped_address + 0x10);
-            iowrite32(base >> 32, ddata->regions[0].mapped_address + 4 + 0x10);
-            iowrite32(ddata->dma_slot_size, ddata->regions[0].mapped_address + 8 + 0x10);
-            iowrite32(4, ddata->regions[0].mapped_address + 12 + 0x10);
-            //udelay(5);
-          }
-          iowrite32(irq_event, ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // clear whatever IRQ occurred and retain enabled IRQ sources // TODO: Upgrade to doRegisterAction("Clear&Enable")
-          apci_debug("ISR: irq_event = 0x%x, depth = 0x%x, IRQStatus = 0x%x\n", irq_event, ioread32(ddata->regions[1].mapped_address + 0x28), ioread32(ddata->regions[1].mapped_address + 0x40));
-        }
-#endif        
+        }             
     };
 
     /* Check to see if we were actually waiting for an IRQ. If we were
@@ -1528,5 +1484,5 @@ static void __exit apci_exit(void)
 module_init( apci_init  );
 module_exit( apci_exit  );
 
-MODULE_AUTHOR("Jimi Damon <jdamon@accesio.com>");
+MODULE_AUTHOR("John Hentges <JHentges@accesio.com>");
 MODULE_LICENSE("GPL");

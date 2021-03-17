@@ -112,6 +112,7 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
           }
 
           status = copy_to_user((info_struct *) arg, &info, sizeof(info_struct));
+          apci_debug("exiting get_device_info_ioctl\n");
           break;
 
         case apci_write_ioctl:

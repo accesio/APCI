@@ -15,11 +15,11 @@
 
 #include "apcilib.h"
 
-#define DEVICEPATH "/dev/apci/mpcie_aio16_16f_0"
+#define DEVICEPATH "/dev/apci/mpcie_ai16_16e_0"
 #define DEV2PATH "/dev/apci/mpcie_adio16_8f_0"
 
 #define BAR_REGISTER 1
-#define SAMPLE_RATE 1000000.0 /* Hz */
+#define SAMPLE_RATE 100000.0 /* Hz */
 
 #define LOG_FILE_NAME "samples.csv"
 #define SECONDS_TO_LOG 2.0
