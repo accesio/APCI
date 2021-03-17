@@ -364,7 +364,7 @@ static struct pci_driver pci_driver = {
         .name      = "acpi",
         .id_table  = ids,
         .probe     = probe,
-        .remove    = remove
+        .remove    = remove,
 };
 
 
@@ -1414,6 +1414,13 @@ exit_free:
     return ret;
 }
 
+static char *apci_devnode(struct device *dev, umode_t *mode)
+{
+  if (!mode)
+          return NULL;
+  *mode = 0666;
+  return NULL;
+}
 
 int __init
 apci_init(void)
@@ -1435,13 +1442,16 @@ apci_init(void)
         }
 
         /* Create the sysfs entry for this */
-	class_apci = class_create(THIS_MODULE, APCI_CLASS_NAME  );
-	if (IS_ERR(ptr_err = class_apci))
-		goto err;
+        class_apci = class_create(THIS_MODULE, APCI_CLASS_NAME  );
+        if (IS_ERR(ptr_err = class_apci))
+          goto err;
+        class_apci->devnode = apci_devnode;
+
 
         cdev_init( &apci_cdev, &apci_fops );
         apci_cdev.owner = THIS_MODULE;
         apci_cdev.ops   = &apci_fops;
+        
         result = cdev_add(&apci_cdev, dev, 1 );
 
 #ifdef TEST_CDEV_ADD_FAIL

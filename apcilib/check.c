@@ -97,8 +97,10 @@ int apci;
 					channel is either "the one channel to acquire" (when bSequencedMode is false)
 					or channel is "the last channel in the sequence to acquire" (when bSequencedMode is true)
 				*/
-				uint32_t ADC_BuildControlValue(int bStartADC, int channel_lastchannel, int bDifferential, int gainCode, int bAux, int bSequencedMode, int bTemp, int bFast)
+				uint32_t ADC_BuildControlValue(int bStartADC, int channel_lastchannel, int bDifferential, int gainCode, int bSequencedMode, int bFast)
 				{
+					int bTemp = 0;
+					int bAux = 0;
 					uint32_t controlValue = 0x00000000;
 					controlValue |= ADC_CFG_MASK;
 					if (bStartADC) 
@@ -169,9 +171,9 @@ int apci;
 							printf("ADC %d Temp =% 5.1fC",iChannel?1:0, ADCDataV);
 						else
 						if (bAux)
-							printf("AUX %d=% 5.1f",iChannel?1:0, ADCDataV);
+							printf("ADC %d Aux =% 5.1f",iChannel?1:0, ADCDataV);
 						else
-							printf("%d=% 8.4f", iChannel, ADCDataV);
+							printf("CH %2d =% 8.4f", iChannel, ADCDataV);
 					}
 
 					if (bCompact) 
@@ -274,6 +276,7 @@ void set_acquisition_rate (int fd, double *Hz)
 }
 
 
+
 //------------------------------------------------------------------------------------
 int main (int argc, char **argv)
 {
@@ -285,26 +288,39 @@ int main (int argc, char **argv)
 	sigaction(SIGINT, &sigIntHandler, NULL);
 	sigaction(SIGABRT, &sigIntHandler, NULL);
 
-	printf("\nmPCIe-AIO16-16F/mPCIe-ADIO16-8F Family ADC Sample 0+\n");
 	uint32_t Version = 0;
-
-	apci = open(DEVICEPATH, O_RDONLY);
-	if (apci < 0)
-	{
-		printf("Device file %s could not be opened. Please ensure the APCI driver module is loaded or try sudo?.\nTrying Alternate [ %s ]...\n", DEVICEPATH, DEV2PATH);
-		apci = open(DEV2PATH, O_RDONLY);
-		if (apci < 0)
-		{
-			printf("Device file %s could not be opened. Please ensure the APCI driver module is loaded or try sudo?.\n", DEV2PATH);
-			exit(0);
-		} else
-		{
-			CHANNEL_COUNT = 8;
-		}
-	}
-
 	apci_read32(apci, 1, BAR_REGISTER, 0x68, &Version);
-	printf("  FPGA Revision %08X\n", Version);
+	printf("\nmPCIe-AIO16-16F/mPCIe-ADIO16-8F Family ADC Sample 0+ [FPGA Rev %08X]\n", Version);
+
+				// this code section is weak.  TODO: improve plug-and-play and device file detection / selection
+				apci = -1;
+
+				if (argc > 1) 
+				{
+					apci = open(argv[1], O_RDONLY);	// open device file from command line
+					if (apci < 0)
+						printf("Couldn't open device file on command line: do you need sudo? /dev/apci? [%s]\n", argv[1]);
+				}
+
+				if (apci < 0) // if the command line didn't work, or if they didn't pass a parameter
+				{
+					apci = open(DEVICEPATH, O_RDONLY);
+					if (apci < 0)
+					{
+						printf("Device file %s could not be opened. Please ensure the APCI driver module is loaded or try sudo?.\nTrying Alternate [ %s ]...\n", DEVICEPATH, DEV2PATH);
+						apci = open(DEV2PATH, O_RDONLY);
+						if (apci < 0)
+						{
+							printf("Device file %s could not be opened. Please ensure the APCI driver module is loaded or try sudo?.\n", DEV2PATH);
+							exit(0);
+						} else
+						{
+							CHANNEL_COUNT = 8;
+						}
+					}
+				}
+
+
 
 	if(1)
 	{
@@ -319,7 +335,7 @@ int main (int argc, char **argv)
 		apci_write32(apci, 1, BAR_REGISTER, ADCRATEDIVISOROFFSET, 0); // setting ADC Rate Divisor to zero selects software start ADC mode
 		for (ch=0; ch<8; ++ch)
 		{
-			uint32_t controlValue = ADC_BuildControlValue(1,ch,0,0,0,0,0,0);	
+			uint32_t controlValue = ADC_BuildControlValue(1,ch,0,0,0,0);	
 			
 			apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset, controlValue );	// start one conversion on selected channel
 			usleep(10); // must not write to +38 faster than once every 10 microseconds in Software Start mode
@@ -328,13 +344,13 @@ int main (int argc, char **argv)
 		if (CHANNEL_COUNT == 16)
 			for (ch=0; ch<8; ++ch)
 			{
-			uint32_t controlValue = ADC_BuildControlValue(1,ch,0,0,0,0,0,0);			
+			uint32_t controlValue = ADC_BuildControlValue(1,ch,0,0,0,0);			
 			apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset + 4, controlValue );	// start one conversion on selected channel of second ADC
 			usleep(10); // must not write to +3C faster than once every 10 microseconds in Software Start mode
 			}
 
 		apci_read32(apci, 1, BAR_REGISTER, ADCFIFODepthOffset, &ADCFIFODepth);
-		printf("  ADC FIFO has %d entries\n", ADCFIFODepth);
+		// printf("  ADC FIFO has %d entries\n", ADCFIFODepth); // debug/diagnostic; should match the number of ADC Control writes
 
 		int bTemp=0, bAux=0;
 		for (ch=0; ch < ADCFIFODepth; ++ch)	// read and display data from FIFO
@@ -361,7 +377,7 @@ int main (int argc, char **argv)
 		pthread_create(&worker_thread, NULL, &worker_main, NULL);
 		
 		// start sequence of conversions
-		uint32_t AdcControlValue = ADC_BuildControlValue(1,7,0,0,0,1,0,0);		 
+		uint32_t AdcControlValue = ADC_BuildControlValue(1,7,0,0,1,0);		 
 
 		if (CHANNEL_COUNT == 16)
 			apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset + 4, AdcControlValue );	
