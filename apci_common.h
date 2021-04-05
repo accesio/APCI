@@ -1,11 +1,17 @@
+
 #ifndef APCI_COMMON_H
 #define APCI_COMMON_H
+
+#define A_PCI_DEBUG 0 // feel free to change this value
+
+/* ACCES does not recommend changing anything else in this file. */
 
 /* The vendor ID for all the PCI cards this driver will support. */
 #define A_VENDOR_ID 0x494F
 #define ACCES_MAJOR  98
 #define ACCES_MAGIC_NUM 0xE0
 
+#define APCI_DEFAULT_DEVFILE_MODE 0000 // /dev/{cardname} will get these permissions on creation
 
 #define APCI_PREFIX "apci: "
 #define APCI "apci"
@@ -19,8 +25,6 @@
  * Debugging , simplified
  */
 extern int apci_debug_level;
-
-#define A_PCI_DEBUG 0
 
 #ifdef A_PCI_DEBUG
 #define apci_debug(fmt,...) if( A_PCI_DEBUG > 0 ) { pr_err(APCI_PREFIX fmt, ##__VA_ARGS__ ); }

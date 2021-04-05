@@ -11,8 +11,8 @@
 #include <unistd.h>
 
 #include "apcilib.h"
-#define DEVICEPATH "/dev/apci/mpcie_ai16_16e_0"
-#define DEV2PATH "/dev/apci/mpcie_adio16_8f_0"
+#define DEVICEPATH "/dev/apci/mpcie_aio16_16f_0"
+#define DEV2PATH "/dev/apci/mpcie_adio16_8e_0"
 uint8_t CHANNEL_COUNT = 16; // change to 8 for M.2-/mPCIe-ADIO16-8F Family cards
 
 int bDiagnostic = 0;
@@ -321,14 +321,21 @@ int main (int argc, char **argv)
 				}
 
 
+	int testcount=0, passcount=0, errcount=0, readbackerrcount=0, chan;
+	uint32_t readControlValue;
+
+	uint32_t TempcontrolValue = ADC_BuildControlValue(1,0,0,0,0,0);
+	printf("Control value used is %05X", TempcontrolValue);
+	TempcontrolValue = ADC_BuildControlValue(1,7,0,0,0,0);
+	printf(" through %05X\n", TempcontrolValue);
+
 
 	if(1)
+	while(testcount < 1000)
 	{
 		int ch;
 		uint32_t ADCFIFODepth;
 		uint32_t ADCDataRaw;
-				
-		printf("Demonstrating SOFTWARE START FOREGROUND POLLING ACQUISITION\n");
 
 		BRD_Reset(apci);
 
@@ -339,29 +346,51 @@ int main (int argc, char **argv)
 			
 			apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset, controlValue );	// start one conversion on selected channel
 			usleep(10); // must not write to +38 faster than once every 10 microseconds in Software Start mode
+				apci_read32(apci,1, BAR_REGISTER, ADCControlOffset, &readControlValue);
+				if ((controlValue&0x0000FFFF) != (readControlValue&0x0000FFFF))
+				{
+					readbackerrcount++;
+					printf("%08X/%08X ", readControlValue, controlValue);
+				}			
 		}
 
 		if (CHANNEL_COUNT == 16)
 			for (ch=0; ch<8; ++ch)
 			{
-			uint32_t controlValue = ADC_BuildControlValue(1,ch,0,0,0,0);			
-			apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset + 4, controlValue );	// start one conversion on selected channel of second ADC
-			usleep(10); // must not write to +3C faster than once every 10 microseconds in Software Start mode
+				uint32_t controlValue = ADC_BuildControlValue(1,ch,0,0,0,0);			
+				apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset + 4, controlValue );	// start one conversion on selected channel of second ADC
+				usleep(10); // must not write to +3C faster than once every 10 microseconds in Software Start mode
+				apci_read32(apci,1, BAR_REGISTER, ADCControlOffset + 4, &readControlValue);
+				if ((controlValue&0x0000FFFF) != (readControlValue&0x0000FFFF))
+				{
+					readbackerrcount++;
+					printf("%08X/%08X ", readControlValue, controlValue);
+				}
 			}
 
-		apci_read32(apci, 1, BAR_REGISTER, ADCFIFODepthOffset, &ADCFIFODepth);
-		// printf("  ADC FIFO has %d entries\n", ADCFIFODepth); // debug/diagnostic; should match the number of ADC Control writes
 
+		apci_read32(apci, 1, BAR_REGISTER, ADCFIFODepthOffset, &ADCFIFODepth);
+		//printf("  ADC FIFO has %d entries\n", ADCFIFODepth); // debug/diagnostic; should match the number of ADC Control writes
+		if (ADCFIFODepth != CHANNEL_COUNT) 
+			errcount++;
+		else 
+			passcount++;
+		testcount++;
 		int bTemp=0, bAux=0;
+		
 		for (ch=0; ch < ADCFIFODepth; ++ch)	// read and display data from FIFO
 		{
 			apci_read32(apci, 1, BAR_REGISTER, ADCDataRegisterOffset, &ADCDataRaw);
-			pretty_print_ADC_raw_data(ADCDataRaw, 0);
+			// pretty_print_ADC_raw_data(ADCDataRaw, 0);
+			ParseADCRawData(ADCDataRaw, &chan,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+			printf("%02d ",chan);
 		}
-
-		printf("Done with one scan of software-started conversions.\n\n\n");
+		printf("\n");
+		//printf("Done with one scan of software-started conversions.\n\n\n");
 	}
 
+	printf("\n%d failures, %d passes. Failure%% = %f.  Control readback failures: %d",errcount,passcount,(double)errcount/(double)testcount*100.0, readbackerrcount);
+	
 	if (1)
 	{
 		printf("Demonstrating TIMER-DRIVEN (Advanced Sequencer) BACKGROUND-THREAD POLLING ACQUISITION\n");
@@ -387,6 +416,7 @@ int main (int argc, char **argv)
 		{
 			// do other work while data is collected and displayed by the worker thread.
 			// use CTRL-C to exit
+			
 		};
 	}
 

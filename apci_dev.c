@@ -1414,11 +1414,12 @@ exit_free:
     return ret;
 }
 
+/* Configure the default /dev/{devicename} permissions */
 static char *apci_devnode(struct device *dev, umode_t *mode)
 {
   if (!mode)
           return NULL;
-  *mode = 0666;
+  *mode = APCI_DEFAULT_DEVFILE_MODE;
   return NULL;
 }
 
@@ -1445,7 +1446,7 @@ apci_init(void)
         class_apci = class_create(THIS_MODULE, APCI_CLASS_NAME  );
         if (IS_ERR(ptr_err = class_apci))
           goto err;
-        class_apci->devnode = apci_devnode;
+        class_apci->devnode = apci_devnode; // set device file permissions 
 
 
         cdev_init( &apci_cdev, &apci_fops );
