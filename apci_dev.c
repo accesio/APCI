@@ -136,8 +136,8 @@ static struct pci_device_id ids[] = {
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_ADIO12_8E ), },
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_ADI12_8A ), },
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_ADI12_8 ), },
-        { PCI_DEVICE(A_VENDOR_ID, mPCIe_ADI12_8E ), },        
-        { PCI_DEVICE(A_VENDOR_ID, PCIe_DIO_24HC ), },   
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_ADI12_8E ), },
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_DIO_24HC ), },
         { PCI_DEVICE(A_VENDOR_ID, PCI_AI12_16_ ), },
         { PCI_DEVICE(A_VENDOR_ID, PCI_AI12_16 ), },
         { PCI_DEVICE(A_VENDOR_ID, PCI_AI12_16A ), },
@@ -305,8 +305,8 @@ static struct apci_lookup_table_entry apci_driver_table[] = \
                          APCI_MAKE_ENTRY( mPCIe_ADIO12_8E ),
                          APCI_MAKE_ENTRY( mPCIe_ADI12_8A ),
                          APCI_MAKE_ENTRY( mPCIe_ADI12_8 ),
-                         APCI_MAKE_ENTRY( mPCIe_ADI12_8E ),                         
-                         APCI_MAKE_ENTRY( PCIe_DIO_24HC ),                         
+                         APCI_MAKE_ENTRY( mPCIe_ADI12_8E ),
+                         APCI_MAKE_ENTRY( PCIe_DIO_24HC ),
                           );
 
 #define APCI_TABLE_SIZE  sizeof(apci_driver_table)/sizeof(struct apci_lookup_table_entry)
@@ -383,7 +383,6 @@ static struct file_operations apci_fops = {
 static const int NUM_DEVICES         = 4;
 static const char APCI_CLASS_NAME[]  = "apci";
 struct cdev apci_cdev;
-static int major_num;
 
 
 static struct class *class_apci;
@@ -393,7 +392,9 @@ struct apci_my_info head;
 
 static int dev_counter = 0;
 
-static dev_t apci_first_dev = MKDEV(0,0);
+#define APCI_MAJOR 247
+
+static dev_t apci_first_dev = MKDEV(APCI_MAJOR,0);
 
 
 void *
@@ -614,7 +615,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
               apci_debug("        regions[1].end   = %08llx\n", ddata->regions[1].end );
               apci_debug("        regions[1].length= %08x\n", ddata->regions[1].length );
               apci_debug("        regions[1].flags = %lx\n", ddata->regions[1].flags );
-              apci_debug("        irq = %d\n", ddata->irq );        
+              apci_debug("        irq = %d\n", ddata->irq );
               break;
 
          case LPCI_A16_16A:
@@ -685,8 +686,8 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
               apci_debug("regions[3].start = %08llx\n", ddata->regions[3].start );
               apci_debug("regions[3].end   = %08llx\n", ddata->regions[3].end );
               apci_debug("regions[3].length= %08x\n", ddata->regions[3].length );
-              apci_debug("regions[3].flags = %lx\n", ddata->regions[3].flags );  
-              apci_debug("NO irq\n");                          
+              apci_debug("regions[3].flags = %lx\n", ddata->regions[3].flags );
+              apci_debug("NO irq\n");
               break;
     }
 
@@ -716,7 +717,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
       case mPCIe_AIO12_16E:
       case mPCIe_AI12_16A:
       case mPCIe_AI12_16:
-      case mPCIe_AI12_16E: 
+      case mPCIe_AI12_16E:
       case mPCIe_ADIO16_8F:
       case mPCIe_ADIO16_8A:
       case mPCIe_ADIO16_8E:
@@ -728,7 +729,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
       case mPCIe_ADIO12_8E:
       case mPCIe_ADI12_8A:
       case mPCIe_ADI12_8:
-      case mPCIe_ADI12_8E:           
+      case mPCIe_ADI12_8E:
         apci_devel("setting up DMA in alloc\n");
         ddata->regions[0].start   = pci_resource_start(pdev, 0);
         ddata->regions[0].end     = pci_resource_end(pdev, 0);
@@ -739,7 +740,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
         apci_debug("regions[0].start = %08llx\n", ddata->regions[0].start );
         apci_debug("regions[0].end   = %08llx\n", ddata->regions[0].end );
         apci_debug("regions[0].length= %08x\n", ddata->regions[0].length );
-        apci_debug("regions[0].flags = %lx\n", ddata->regions[0].flags );      
+        apci_debug("regions[0].flags = %lx\n", ddata->regions[0].flags );
         break;
     }
 
@@ -808,7 +809,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
       case mPCIe_AIO12_16E:
       case mPCIe_AI12_16A:
       case mPCIe_AI12_16:
-      case mPCIe_AI12_16E:     
+      case mPCIe_AI12_16E:
       case mPCIe_ADIO16_8F:
       case mPCIe_ADIO16_8A:
       case mPCIe_ADIO16_8E:
@@ -820,7 +821,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
       case mPCIe_ADIO12_8E:
       case mPCIe_ADI12_8A:
       case mPCIe_ADI12_8:
-      case mPCIe_ADI12_8E:       
+      case mPCIe_ADI12_8E:
         spin_lock_init(&(ddata->dma_data_lock));
         ddata->plx_region = ddata->regions[0];
         apci_debug("DMA spinlock init\n" );
@@ -955,7 +956,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
           * If it is then we can proceed to clear the IRQ. Otherwise let
           * Linux know that it wasn't us.
           */
-          if( !ddata->is_pcie ) 
+          if( !ddata->is_pcie )
           {
             byte = inb(ddata->plx_region.start + 0x4C);
 
@@ -1108,7 +1109,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
           //to write to the next buffer (and don't notify the user?)
           //else if it is a write done IRQ set last_valid_buffer and notify user
           irq_event = ioread8(ddata->regions[2].mapped_address + 0x2);
-          if (irq_event == 0) 
+          if (irq_event == 0)
           {
             apci_devel("ISR: not our IRQ\n");
             return IRQ_NONE;
@@ -1183,7 +1184,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
           //to write to the next buffer (and don't notify the user?)
           //else if it is a write done IRQ set last_valid_buffer and notify user
           irq_event = ioread32(ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // TODO: Upgrade to doRegisterAction("AmI?")
-          if (irq_event == 0) 
+          if (irq_event == 0)
           {
             apci_devel("ISR: not our IRQ\n");
             return IRQ_NONE;
@@ -1225,7 +1226,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
           iowrite32(irq_event, ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // clear whatever IRQ occurred and retain enabled IRQ sources // TODO: Upgrade to doRegisterAction("Clear&Enable")
           apci_debug("ISR: irq_event = 0x%x, depth = 0x%x, IRQStatus = 0x%x\n", irq_event, ioread32(ddata->regions[1].mapped_address + 0x28), ioread32(ddata->regions[1].mapped_address + 0x40));
           break;
-        }             
+        }
     };
 
     /* Check to see if we were actually waiting for an IRQ. If we were
@@ -1429,7 +1430,7 @@ apci_init(void)
 	void *ptr_err;
         int result;
         int ret;
-        dev_t dev = MKDEV(0,0);
+        dev_t dev = MKDEV(APCI_MAJOR,0);
         apci_debug("performing init duties\n");
         spin_lock_init( &head.driver_list_lock);
         INIT_LIST_HEAD( &head.driver_list );
@@ -1446,13 +1447,13 @@ apci_init(void)
         class_apci = class_create(THIS_MODULE, APCI_CLASS_NAME  );
         if (IS_ERR(ptr_err = class_apci))
           goto err;
-        class_apci->devnode = apci_devnode; // set device file permissions 
+        class_apci->devnode = apci_devnode; // set device file permissions
 
 
         cdev_init( &apci_cdev, &apci_fops );
         apci_cdev.owner = THIS_MODULE;
         apci_cdev.ops   = &apci_fops;
-        
+
         result = cdev_add(&apci_cdev, dev, 1 );
 
 #ifdef TEST_CDEV_ADD_FAIL
@@ -1477,7 +1478,7 @@ err:
 
         apci_error("Unregistering chrdev_region.\n");
 
-        unregister_chrdev_region(MKDEV(major_num,0),1 );
+        unregister_chrdev_region(MKDEV(APCI_MAJOR,0),1 );
 
 	class_destroy(class_apci);
 	return PTR_ERR(ptr_err);
@@ -1488,7 +1489,7 @@ static void __exit apci_exit(void)
     apci_debug("performing exit duties\n");
     pci_unregister_driver(&pci_driver);
     cdev_del(&apci_cdev);
-    unregister_chrdev_region(MKDEV(major_num,0),1 );
+    unregister_chrdev_region(MKDEV(APCI_MAJOR,0),1 );
     class_destroy(class_apci );
 }
 
