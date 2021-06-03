@@ -903,7 +903,7 @@ apci_class_dev_register( struct apci_my_info *ddata )
     struct apci_lookup_table_entry *obj = &apci_driver_table[ APCI_LOOKUP_ENTRY( (int)ddata->id->device ) ];
     apci_devel("entering apci_class_dev_register\n");
 
-    ddata->dev = device_create(class_apci, &ddata->pci_dev->dev , apci_first_dev + dev_counter, NULL, "apci/%s_%d", obj->name, obj->counter ++ );
+    ddata->dev = device_create(class_apci, &ddata->pci_dev->dev , apci_first_dev + dev_counter, NULL, "apci/%s_%d", obj->name, obj->counter);
 
     /* add pointer to the list of all ACCES I/O products */
 
@@ -913,6 +913,7 @@ apci_class_dev_register( struct apci_my_info *ddata )
       ddata->dev = NULL;
       return ret;
     }
+    obj->counter ++;
     dev_counter ++;
     apci_devel("leaving apci_class_dev_register\n");
     return 0;
