@@ -412,6 +412,8 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
     ddata->irq = 0;
     ddata->irq_capable = 0;
 
+    ddata->dma_virt_addr = NULL;
+
     for (count = 0; count < 6; count++) {
         ddata->regions[count].start = 0;
         ddata->regions[count].end = 0;
