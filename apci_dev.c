@@ -113,7 +113,7 @@ static struct pci_device_id ids[] = {
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI12_16A ), },
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI12_16 ), },
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI12_16E ), },
-        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16F_proto ) },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16F_proto ), },
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16A_proto ), },
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16E_proto ), },
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI16_16F_proto ), },
@@ -602,6 +602,8 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
               ddata->regions[0].start   = pci_resource_start(pdev, 0);
               ddata->regions[0].end     = pci_resource_end(pdev, 0);
               ddata->regions[0].flags   = pci_resource_flags(pdev, 0);
+              ddata->regions[0].length  = ddata->regions[0].end - ddata->regions[0].start + 1;
+
               ddata->regions[1].start   = pci_resource_start(pdev, 2);
               ddata->regions[1].end     = pci_resource_end(pdev, 2);
               ddata->regions[1].flags   = pci_resource_flags(pdev, 2);
