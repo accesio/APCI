@@ -113,7 +113,7 @@ static struct pci_device_id ids[] = {
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI12_16A ), },
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI12_16 ), },
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI12_16E ), },
-        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16F_proto ) },
+        { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16F_proto ), },
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16A_proto ), },
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16E_proto ), },
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_AI16_16F_proto ), },
@@ -412,6 +412,8 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
     ddata->irq = 0;
     ddata->irq_capable = 0;
 
+    ddata->dma_virt_addr = NULL;
+
     for (count = 0; count < 6; count++) {
         ddata->regions[count].start = 0;
         ddata->regions[count].end = 0;
@@ -600,6 +602,8 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
               ddata->regions[0].start   = pci_resource_start(pdev, 0);
               ddata->regions[0].end     = pci_resource_end(pdev, 0);
               ddata->regions[0].flags   = pci_resource_flags(pdev, 0);
+              ddata->regions[0].length  = ddata->regions[0].end - ddata->regions[0].start + 1;
+
               ddata->regions[1].start   = pci_resource_start(pdev, 2);
               ddata->regions[1].end     = pci_resource_end(pdev, 2);
               ddata->regions[1].flags   = pci_resource_flags(pdev, 2);
@@ -899,7 +903,7 @@ apci_class_dev_register( struct apci_my_info *ddata )
     struct apci_lookup_table_entry *obj = &apci_driver_table[ APCI_LOOKUP_ENTRY( (int)ddata->id->device ) ];
     apci_devel("entering apci_class_dev_register\n");
 
-    ddata->dev = device_create(class_apci, &ddata->pci_dev->dev , apci_first_dev + dev_counter, NULL, "apci/%s_%d", obj->name, obj->counter ++ );
+    ddata->dev = device_create(class_apci, &ddata->pci_dev->dev , apci_first_dev + dev_counter, NULL, "apci/%s_%d", obj->name, obj->counter);
 
     /* add pointer to the list of all ACCES I/O products */
 
@@ -909,6 +913,7 @@ apci_class_dev_register( struct apci_my_info *ddata )
       ddata->dev = NULL;
       return ret;
     }
+    obj->counter ++;
     dev_counter ++;
     apci_devel("leaving apci_class_dev_register\n");
     return 0;
