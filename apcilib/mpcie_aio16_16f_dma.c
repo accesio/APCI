@@ -15,14 +15,14 @@
 
 #include "apcilib.h"
 
-#define DEVICEPATH "/dev/apci/mpcie_ai16_16e_0"
-#define DEV2PATH "/dev/apci/mpcie_adio16_8f_0"
+#define DEVICEPATH "/dev/apci/mpcie_adio16_8e_1"
+#define DEV2PATH "/dev/apci/mpcie_adio16_8e_0"
 
 #define BAR_REGISTER 1
 #define SAMPLE_RATE 100000.0 /* Hz */
 
 #define LOG_FILE_NAME "samples.csv"
-#define SECONDS_TO_LOG 2.0
+#define SECONDS_TO_LOG 4.0
 #define AMOUNT_OF_DATA_TO_LOG (SECONDS_TO_LOG * SAMPLE_RATE)
 
 uint8_t CHANNEL_COUNT = 16;
@@ -65,9 +65,11 @@ volatile static int terminate;
 #define bmADIO_ADCTRIGGERStatus (1<<16)
 #define bmADIO_ADCTRIGGEREnable (1<<0)
 
-int fd;
+int fd, fd2;
 pthread_t logger_thread;
 pthread_t worker_thread;
+pthread_t logger_thread2;
+pthread_t worker_thread2;
 
 			/* diagnostic data dump function; unused */ 
 			void diag_dump_buffer_half (volatile void *mmap_addr, int half)
@@ -98,13 +100,21 @@ void abort_handler(int s){
  */
 void * log_main(void *arg)
 {
+
+    int fd = *(int *)arg;
 	int ring_read_index = 0;
 	int status;
 	int row = 0;
 	int last_channel = -1;
 	int16_t counts[NUM_CHANNELS];
 	int channel;
-	FILE *out = fopen(LOG_FILE_NAME, "w");
+	char index = (fd & 0x0f) +0x30;
+
+    char *name = malloc(sizeof(char) * 1024);
+	sprintf(name, "samples%c.csv", index);
+
+
+	FILE *out = fopen(name, "w");
 
 	if (out == NULL)
 	{
@@ -152,6 +162,8 @@ void * log_main(void *arg)
 /* Background thread to acquire data and queue to logger_thread */ 
 void * worker_main(void *arg)
 {
+
+	int fd = *(int *)arg;
 	int status;
 
 	//map the DMA destination buffer
@@ -167,7 +179,7 @@ void * worker_main(void *arg)
 		return NULL; // was -1
 	}
 	
-	pthread_create(&logger_thread, NULL, &log_main, NULL); 
+	pthread_create(&logger_thread, NULL, &log_main, &fd); 
 	printf("  Worker Thread: launched Logging Thread\n");
 
 	int transfer_count = 0;
@@ -255,6 +267,10 @@ void set_acquisition_rate (int fd, double *Hz)
 	printf("divisor (%d) = ", divisor);
 
 	apci_write32(fd, 1, BAR_REGISTER, DIVISOROFFSET, divisor);
+	apci_read32(fd,1,BAR_REGISTER, DIVISOROFFSET, &divisor);
+
+	printf(" [divisor readback=%d] ", divisor);
+
 }
 
 /* mPCIe-ADIO16-8F Family:  ADC Data Acquisition sample (with logging to sample.csv)
@@ -284,11 +300,12 @@ int main (void)
 	 sigaction(SIGABRT, &sigIntHandler, NULL);
 
 	printf("mPCIe-ADIO16-16F Family ADC logging sample.\n");
-
+	
 	dma_delay.tv_nsec = 10;
-
+    CHANNEL_COUNT = 8;
 	fd = open(DEVICEPATH, O_RDONLY);
-	if (fd < 0)
+	//fd2 = open(DEV2PATH, O_RDONLY);
+	if ((fd < 0) || (fd2<0))
 	{
 		printf("Device file %s could not be opened. Please ensure the APCI driver module is loaded or try sudo?.\nTrying Alternate [ %s ]...\n", DEVICEPATH, DEV2PATH);
 		fd = open(DEV2PATH, O_RDONLY);
@@ -301,9 +318,14 @@ int main (void)
 			CHANNEL_COUNT = 8;
 		}
 	}
-
+	uint32_t Version = 0;
+	apci_read32(fd, 1, BAR_REGISTER, 0x68, &Version);
+	printf("\nFPGA Rev %08X\n", Version);
+	if (fd2) apci_read32(fd2, 1, BAR_REGISTER, 0x68, &Version);
+	if (fd2) printf("FPGA Rev %08X\n", Version);
 	//Setup dma ring buffer in driver
 	status = apci_dma_transfer_size(fd, 1, RING_BUFFER_SLOTS, BYTES_PER_TRANSFER);
+	if (fd2) status = apci_dma_transfer_size(fd2, 1, RING_BUFFER_SLOTS, BYTES_PER_TRANSFER);
 	printf("Setting bytes per transfer: 0x%x\n", BYTES_PER_TRANSFER);
 
 	if (status)  {
@@ -311,24 +333,31 @@ int main (void)
 		return -1;
 	}
 
-	pthread_create(&worker_thread, NULL, &worker_main, NULL);
+	pthread_create(&worker_thread, NULL, &worker_main, &fd);
+	if (fd2) pthread_create(&worker_thread2, NULL, &worker_main, &fd2);
 
 	//reset everything
 	apci_write32(fd, 1,BAR_REGISTER, RESETOFFSET, 0x1);
+	if (fd2) apci_write32(fd2, 1,BAR_REGISTER, RESETOFFSET, 0x1);
 	
 	//set depth of FIFO to generate IRQ
 	apci_write32(fd, 1, BAR_REGISTER, FAFIRQTHRESHOLDOFFSET, SAMPLES_PER_TRANSFER);
 	apci_read32(fd, 1, BAR_REGISTER, FAFIRQTHRESHOLDOFFSET, &depth_readback);
+	if (fd2) apci_write32(fd2, 1, BAR_REGISTER, FAFIRQTHRESHOLDOFFSET, SAMPLES_PER_TRANSFER);
+	if (fd2) apci_read32(fd2, 1, BAR_REGISTER, FAFIRQTHRESHOLDOFFSET, &depth_readback);
 	printf("FIFO Almost Full (FAF) IRQ Threshold set to = 0x%x\n", depth_readback);
 
 	set_acquisition_rate(fd, &rate);
+	if (fd2) set_acquisition_rate(fd2, &rate);
 	printf("ADC Rate: (%lf Hz)\n", rate);
 
 	//set ranges
 	apci_write32(fd, 1, BAR_REGISTER, ADCRANGEOFFSET, 0);
+	if (fd2) apci_write32(fd2, 1, BAR_REGISTER, ADCRANGEOFFSET, 0);
 
 	//enable ADC Trigger IRQ
 	apci_write32(fd, 1, BAR_REGISTER, IRQENABLEOFFSET, bmADIO_ADCTRIGGEREnable|bmADIO_DMADoneEnable);
+	if (fd2) apci_write32(fd2, 1, BAR_REGISTER, IRQENABLEOFFSET, bmADIO_ADCTRIGGEREnable|bmADIO_DMADoneEnable);
 
 	// start_command = 0xf4ee; // differential //note: logger thread would need refactoring to handle differential well, it will currently report "0"
 	start_command = 0xfcee; // single-ended
@@ -339,6 +368,8 @@ int main (void)
 
 	apci_write32(fd, 1, BAR_REGISTER, ADCCONTROLOFFSET+4, start_command);
 	apci_write32(fd, 1, BAR_REGISTER, ADCCONTROLOFFSET, start_command);
+	if (fd2) apci_write32(fd2, 1, BAR_REGISTER, ADCCONTROLOFFSET+4, start_command);
+	if (fd2) apci_write32(fd2, 1, BAR_REGISTER, ADCCONTROLOFFSET, start_command);
 
 	printf("start_command = 0x%05x\n", start_command);
 
@@ -361,11 +392,12 @@ int main (void)
 err_out: //Once a start has been issued to the card we need to tell it to stop before exiting
 	/* put the card back in the power-up state */
 	apci_write32(fd, 1, BAR_REGISTER, RESETOFFSET, 0x1);
+	if (fd2) apci_write32(fd2, 1, BAR_REGISTER, RESETOFFSET, 0x1);
 
 	terminate = 1;
 	sem_post(&ring_sem);
 	printf("Done acquiring %3.2f second%c. Waiting for log file to flush.\n", (SECONDS_TO_LOG), (SECONDS_TO_LOG==1)?' ':'s');
 	pthread_join(logger_thread, NULL);
-
+	if (fd2) pthread_join(logger_thread2, NULL);
 	printf("Done. Data logged to %s\n", LOG_FILE_NAME);
 }

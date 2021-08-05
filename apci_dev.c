@@ -101,6 +101,20 @@ static struct pci_device_id ids[] = {
         { PCI_DEVICE(A_VENDOR_ID, MPCIE_DIO_24  ), },
         { PCI_DEVICE(A_VENDOR_ID, PCIe_IDIO_12   ), },
         { PCI_DEVICE(A_VENDOR_ID, PCIe_IDIO_24   ), },
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_ADIO16_16F ), },
+
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_ADIO16_16A ),},
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_ADIO16_16E ),},
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_ADI16_16F  ),},
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_ADI16_16A  ),},
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_ADI16_16E  ),},
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_ADIO12_16A ),},
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_ADIO12_16  ),},
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_ADIO12_16E ),},
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_ADI12_16A  ),},
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_ADI12_16   ),},
+        { PCI_DEVICE(A_VENDOR_ID, PCIe_ADI12_16E  ),},
+
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16F ), },
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16A ), },
         { PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16E ), },
@@ -270,6 +284,20 @@ static struct apci_lookup_table_entry apci_driver_table[] = \
                          APCI_MAKE_ENTRY( MPCIE_DIO_24S ),
                          APCI_MAKE_ENTRY( PCIe_IDIO_12 ),
                          APCI_MAKE_ENTRY( PCIe_IDIO_24 ),
+
+                         APCI_MAKE_ENTRY( PCIe_ADIO16_16F  ),
+                         APCI_MAKE_ENTRY( PCIe_ADIO16_16A ),
+                         APCI_MAKE_ENTRY( PCIe_ADIO16_16E ),
+                         APCI_MAKE_ENTRY( PCIe_ADI16_16F ),
+                         APCI_MAKE_ENTRY( PCIe_ADI16_16A ),
+                         APCI_MAKE_ENTRY( PCIe_ADI16_16E ),
+                         APCI_MAKE_ENTRY( PCIe_ADIO12_16A ),
+                         APCI_MAKE_ENTRY( PCIe_ADIO12_16 ),
+                         APCI_MAKE_ENTRY( PCIe_ADIO12_16E ),
+                         APCI_MAKE_ENTRY( PCIe_ADI12_16A ),
+                         APCI_MAKE_ENTRY( PCIe_ADI12_16 ),
+                         APCI_MAKE_ENTRY( PCIe_ADI12_16E ),
+
                          APCI_MAKE_ENTRY( mPCIe_AIO16_16F ),
                          APCI_MAKE_ENTRY( mPCIe_AIO16_16A ),
                          APCI_MAKE_ENTRY( mPCIe_AIO16_16E ),
@@ -453,6 +481,18 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
       case mPCIe_ADI12_8A:
       case mPCIe_ADI12_8:
       case mPCIe_ADI12_8E:
+      case PCIe_ADIO16_16F: 
+      case PCIe_ADIO16_16A: 
+      case PCIe_ADIO16_16E: 
+      case PCIe_ADI16_16F : 
+      case PCIe_ADI16_16A : 
+      case PCIe_ADI16_16E : 
+      case PCIe_ADIO12_16A: 
+      case PCIe_ADIO12_16 : 
+      case PCIe_ADIO12_16E: 
+      case PCIe_ADI12_16A : 
+      case PCIe_ADI12_16  : 
+      case PCIe_ADI12_16E : 
       break;
 
       default:
@@ -596,6 +636,18 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
          case mPCIe_ADI12_8A:
          case mPCIe_ADI12_8:
          case mPCIe_ADI12_8E:
+        case PCIe_ADIO16_16F: 
+        case PCIe_ADIO16_16A: 
+        case PCIe_ADIO16_16E: 
+        case PCIe_ADI16_16F : 
+        case PCIe_ADI16_16A : 
+        case PCIe_ADI16_16E : 
+        case PCIe_ADIO12_16A: 
+        case PCIe_ADIO12_16 : 
+        case PCIe_ADIO12_16E: 
+        case PCIe_ADI12_16A : 
+        case PCIe_ADI12_16  : 
+        case PCIe_ADI12_16E : 
               ddata->regions[0].start   = pci_resource_start(pdev, 0);
               ddata->regions[0].end     = pci_resource_end(pdev, 0);
               ddata->regions[0].flags   = pci_resource_flags(pdev, 0);
@@ -705,6 +757,19 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
       case mPCIe_AI12_16A_proto:
       case mPCIe_AI12_16_proto:
       case mPCIe_AI12_16E_proto:
+
+      case PCIe_ADIO16_16F: 
+      case PCIe_ADIO16_16A: 
+      case PCIe_ADIO16_16E: 
+      case PCIe_ADI16_16F : 
+      case PCIe_ADI16_16A : 
+      case PCIe_ADI16_16E : 
+      case PCIe_ADIO12_16A: 
+      case PCIe_ADIO12_16 : 
+      case PCIe_ADIO12_16E: 
+      case PCIe_ADI12_16A : 
+      case PCIe_ADI12_16  : 
+      case PCIe_ADI12_16E : 
       case mPCIe_AIO16_16F:
       case mPCIe_AIO16_16A:
       case mPCIe_AIO16_16E:
@@ -797,6 +862,19 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
       case mPCIe_AI12_16A_proto:
       case mPCIe_AI12_16_proto:
       case mPCIe_AI12_16E_proto:
+
+      case PCIe_ADIO16_16F: 
+      case PCIe_ADIO16_16A: 
+      case PCIe_ADIO16_16E: 
+      case PCIe_ADI16_16F : 
+      case PCIe_ADI16_16A : 
+      case PCIe_ADI16_16E : 
+      case PCIe_ADIO12_16A: 
+      case PCIe_ADIO12_16 : 
+      case PCIe_ADIO12_16E: 
+      case PCIe_ADI12_16A : 
+      case PCIe_ADI12_16  : 
+      case PCIe_ADI12_16E : 
       case mPCIe_AIO16_16F:
       case mPCIe_AIO16_16A:
       case mPCIe_AIO16_16E:
@@ -924,6 +1002,18 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
     ddata = (struct apci_my_info *) dev_id;
     switch(ddata->dev_id)
     {
+      case PCIe_ADIO16_16F: 
+      case PCIe_ADIO16_16A: 
+      case PCIe_ADIO16_16E: 
+      case PCIe_ADI16_16F : 
+      case PCIe_ADI16_16A : 
+      case PCIe_ADI16_16E : 
+      case PCIe_ADIO12_16A: 
+      case PCIe_ADIO12_16 : 
+      case PCIe_ADIO12_16E: 
+      case PCIe_ADI12_16A : 
+      case PCIe_ADI12_16  : 
+      case PCIe_ADI12_16E : 
       case mPCIe_AIO16_16F:
       case mPCIe_AIO16_16A:
       case mPCIe_AIO16_16E:
@@ -1153,6 +1243,18 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
           break;
         }
 
+      case PCIe_ADIO16_16F: 
+      case PCIe_ADIO16_16A: 
+      case PCIe_ADIO16_16E: 
+      case PCIe_ADI16_16F : 
+      case PCIe_ADI16_16A : 
+      case PCIe_ADI16_16E : 
+      case PCIe_ADIO12_16A: 
+      case PCIe_ADIO12_16 : 
+      case PCIe_ADIO12_16E: 
+      case PCIe_ADI12_16A : 
+      case PCIe_ADI12_16  : 
+      case PCIe_ADI12_16E : 
         case mPCIe_AIO16_16F:
         case mPCIe_AIO16_16A:
         case mPCIe_AIO16_16E:
@@ -1434,7 +1536,6 @@ apci_init(void)
         spin_lock_init( &head.driver_list_lock);
         INIT_LIST_HEAD( &head.driver_list );
         sort( apci_driver_table, APCI_TABLE_SIZE , APCI_TABLE_ENTRY_SIZE ,te_sort, NULL );
-
 
         ret = alloc_chrdev_region( &apci_first_dev, 0, MAX_APCI_CARDS , APCI );
         if( ret ) {

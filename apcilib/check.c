@@ -11,11 +11,11 @@
 #include <unistd.h>
 
 #include "apcilib.h"
-#define DEVICEPATH "/dev/apci/mpcie_aio16_16f_0"
+#define DEVICEPATH "/dev/apci/pcie_adio16_16f_0"
 #define DEV2PATH "/dev/apci/mpcie_adio16_8e_0"
 uint8_t CHANNEL_COUNT = 16; // change to 8 for M.2-/mPCIe-ADIO16-8F Family cards
 
-int bDiagnostic = 0;
+int bDiagnostic = 1;
 
 #define BAR_REGISTER 1
 
@@ -91,30 +91,36 @@ int apci;
 				}
 
 				/*
-				Assemble an ADC control register command uint32 piecemeal
-				all params except channel_lastchannel are bools, 0==false
+					Assemble an ADC control register command uint32 piecemeal
+					all params except `channel_lastchannel` are bools, 0==false
 					channel is between 0 and 7 inclusive, 
 					channel is either "the one channel to acquire" (when bSequencedMode is false)
 					or channel is "the last channel in the sequence to acquire" (when bSequencedMode is true)
 				*/
 				uint32_t ADC_BuildControlValue(int bStartADC, int channel_lastchannel, int bDifferential, int gainCode, int bSequencedMode, int bFast)
 				{
-					int bTemp = 0;
-					int bAux = 0;
+					int bTemp = 0; // temp readings are for factory use only
+					int bAux = 0;  // the aux inputs aren't connected to anything
+					
 					uint32_t controlValue = 0x00000000;
 					controlValue |= ADC_CFG_MASK;
 					if (bStartADC) 
 						controlValue |= ADC_START_MASK;
+
 					if ((channel_lastchannel < 8) && (channel_lastchannel >= 0)) 
 						controlValue |= channel_lastchannel << ADC_CHANNEL_SHIFT;
 					else 
 						return -1;	// invalid channel / last_channel
+
 					if (! bDifferential) 
 						controlValue |= ADC_NOT_DIFF_MASK;
+
 					if ((gainCode < 8) && (gainCode >= 0)) 
 						controlValue |= gainCode << ADC_GAIN_SHIFT;
 					else return -2;	// invalid gain code
 
+
+					// TEMP and AUX are interpreted differently in Sequenced vs "On Demand Conversion" ("Immediate") mode
 					if (bSequencedMode)
 					{
 						controlValue |= ADC_ADVANCED_SEQ_MASK;
@@ -122,14 +128,21 @@ int apci;
 							controlValue |= ADC_NOT_AUX_MASK;
 						if (! bTemp)
 							controlValue |= ADC_NOT_TEMP_MASK;
+						
+						// sequenced differential only accepts even channel#s
+						if (bDifferential) 
+							controlValue &= ~(1 << ADC_CHANNEL_SHIFT);
 					}
 					else // "On Demand Conversion Mode" uses the AUX and TEMP bits differently:
 					{
 						if (bAux && bTemp) return -3;	// invalid to select both Aux and Temp inputs in Immediate mode (On Demand Conversion Mode)
+
 						if (!bAux && !bTemp) 
 							controlValue = controlValue | ADC_NOT_AUX_MASK | ADC_NOT_TEMP_MASK;
+
 						if (bAux || bTemp) 
 							controlValue = controlValue & ~(ADC_NOT_AUX_MASK | ADC_NOT_TEMP_MASK);
+
 						if (!bTemp)
 							controlValue |= ADC_NOT_TEMP_MASK; // select NOT temp thus AUX
 					}
@@ -138,7 +151,7 @@ int apci;
 						controlValue |= ADC_NOT_FAST_MASK;
 
 					if (bDiagnostic)						
-						printf("  ADC Control Value %04X %s %s CH%2d %s %s\n", controlValue, bTemp?"TEMP":"", bAux?"AUX":"", channel_lastchannel,bSequencedMode?"SEQ":"Imm", bDifferential?"Diff":"S.E.");
+						printf("  ADC Control Value %8X %s %s CH%2d%s%s\n", controlValue, bTemp?"TEMP":"", bAux?"AUX":"", channel_lastchannel,bSequencedMode?" SEQ":" Imm", bDifferential?" Diff":" S.E.");
 
 					return controlValue;
 				}
@@ -280,6 +293,9 @@ void set_acquisition_rate (int fd, double *Hz)
 //------------------------------------------------------------------------------------
 int main (int argc, char **argv)
 {
+	printf("Control Value: %08X\n", ADC_BuildControlValue(1,6,1,1,1,0));
+	printf("Control Value: %08X\n", ADC_BuildControlValue(1,7,0,1,1,0));
+	
 	struct sigaction sigIntHandler;
 
 	sigIntHandler.sa_handler = abort_handler;
@@ -292,7 +308,7 @@ int main (int argc, char **argv)
 	apci_read32(apci, 1, BAR_REGISTER, 0x68, &Version);
 	printf("\nmPCIe-AIO16-16F/mPCIe-ADIO16-8F Family ADC Sample 0+ [FPGA Rev %08X]\n", Version);
 
-				// this code section is weak.  TODO: improve plug-and-play and device file detection / selection
+				// this code section is weak.  TODO: improve plug-and-play and device file detection / selection; enumerate /dev/apci/ and if >1 device have menu?
 				apci = -1;
 
 				if (argc > 1) 
@@ -324,14 +340,8 @@ int main (int argc, char **argv)
 	int testcount=0, passcount=0, errcount=0, readbackerrcount=0, chan;
 	uint32_t readControlValue;
 
-	uint32_t TempcontrolValue = ADC_BuildControlValue(1,0,0,0,0,0);
-	printf("Control value used is %05X", TempcontrolValue);
-	TempcontrolValue = ADC_BuildControlValue(1,7,0,0,0,0);
-	printf(" through %05X\n", TempcontrolValue);
-
-
 	if(1)
-	while(testcount < 1000)
+	while(testcount < 100)
 	{
 		int ch;
 		uint32_t ADCFIFODepth;
@@ -370,7 +380,7 @@ int main (int argc, char **argv)
 
 
 		apci_read32(apci, 1, BAR_REGISTER, ADCFIFODepthOffset, &ADCFIFODepth);
-		//printf("  ADC FIFO has %d entries\n", ADCFIFODepth); // debug/diagnostic; should match the number of ADC Control writes
+		printf("  ADC FIFO has %d entries\n", ADCFIFODepth); // debug/diagnostic; should match the number of ADC Control writes
 		if (ADCFIFODepth != CHANNEL_COUNT) 
 			errcount++;
 		else 
@@ -381,16 +391,19 @@ int main (int argc, char **argv)
 		for (ch=0; ch < ADCFIFODepth; ++ch)	// read and display data from FIFO
 		{
 			apci_read32(apci, 1, BAR_REGISTER, ADCDataRegisterOffset, &ADCDataRaw);
-			// pretty_print_ADC_raw_data(ADCDataRaw, 0);
-			ParseADCRawData(ADCDataRaw, &chan,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
-			printf("%02d ",chan);
+			pretty_print_ADC_raw_data(ADCDataRaw, 0);
+			//ParseADCRawData(ADCDataRaw, &chan,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+			//printf("%02d ",chan);
 		}
 		printf("\n");
 		//printf("Done with one scan of software-started conversions.\n\n\n");
+		
+		printf("\n%d failures, %d passes. Failure%% = %f.  Control readback failures: %d",errcount,passcount,(double)errcount/(double)testcount*100.0, readbackerrcount);
 	}
 
-	printf("\n%d failures, %d passes. Failure%% = %f.  Control readback failures: %d",errcount,passcount,(double)errcount/(double)testcount*100.0, readbackerrcount);
 	
+
+
 	if (1)
 	{
 		printf("Demonstrating TIMER-DRIVEN (Advanced Sequencer) BACKGROUND-THREAD POLLING ACQUISITION\n");
@@ -420,7 +433,7 @@ int main (int argc, char **argv)
 		};
 	}
 
-	printf("Sample Done.\n"); // never prints due to CTRL-C abort
+	printf("\nSample Done.\n"); // never prints due to CTRL-C abort
 }
 
 

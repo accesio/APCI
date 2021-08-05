@@ -15,7 +15,7 @@
 
 #include "apcilib.h"
 
-#define DEVICEPATH "/dev/apci/mpcie_aio16_16f_0"
+#define DEVICEPATH "/dev/apci/mpcie_adio16_8e_0"
 #define DEV2PATH "/dev/apci/mpcie_adio16_8f_0"
 
 #define BAR_REGISTER 1
@@ -336,6 +336,12 @@ int main (void)
 	start_command &= ~(7 << 12);
 	start_command |= HIGH_CHANNEL << 12;
 	start_command |= ADC_START_MASK;
+	
+	time_t timerStart, timerEnd;
+    char buffer[26];
+    struct tm* tm_info;
+
+    timerStart = time(NULL);
 
 	apci_write32(fd, 1, BAR_REGISTER, ADCCONTROLOFFSET+4, start_command);
 	apci_write32(fd, 1, BAR_REGISTER, ADCCONTROLOFFSET, start_command);
@@ -366,6 +372,13 @@ err_out: //Once a start has been issued to the card we need to tell it to stop b
 	sem_post(&ring_sem);
 	printf("Done acquiring %3.2f second%c. Waiting for log file to flush.\n", (SECONDS_TO_LOG), (SECONDS_TO_LOG==1)?' ':'s');
 	pthread_join(logger_thread, NULL);
+
+    timerEnd = time(NULL);
+	time_t timeDelta = timerEnd-timerStart;
+    tm_info = localtime(&timeDelta);
+
+    strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);
+    puts(buffer);
 
 	printf("Done. Data logged to %s\n", LOG_FILE_NAME);
 }

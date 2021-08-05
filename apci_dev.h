@@ -101,6 +101,20 @@
 #define MPCIE_DIO_24  0x0C57
 #define PCIe_IDIO_12 0x0FC0
 #define PCIe_IDIO_24 0x0FD0
+
+#define PCIe_ADIO16_16F 0xC2EC
+#define PCIe_ADIO16_16A 0xC2ED
+#define PCIe_ADIO16_16E 0xC2EE
+#define PCIe_ADI16_16F  0x82EC
+#define PCIe_ADI16_16A  0x82ED
+#define PCIe_ADI16_16E  0x82EE
+#define PCIe_ADIO12_16A 0xC25C
+#define PCIe_ADIO12_16  0xC25D
+#define PCIe_ADIO12_16E 0xC25E
+#define PCIe_ADI12_16A  0x825C
+#define PCIe_ADI12_16   0x825D
+#define PCIe_ADI12_16E  0x825E
+
 #define mPCIe_AIO16_16F 0xC0E8
 #define mPCIe_AIO16_16A 0xC0E9
 #define mPCIe_AIO16_16E 0xC0EA
@@ -113,6 +127,7 @@
 #define mPCIe_AI12_16A 0x8058
 #define mPCIe_AI12_16 0x8059
 #define mPCIe_AI12_16E 0x805A
+
 #define mPCIe_AIO16_16F_proto 0xC2E8
 #define mPCIe_AIO16_16A_proto 0xC2E9
 #define mPCIe_AIO16_16E_proto 0xC2EA
@@ -218,6 +233,21 @@
 #define NAME_MPCIE_DIO_24S_R1           "mpcie_dio_24s"
 #define NAME_PCIe_IDIO_12				"pcie_idio_12"
 #define NAME_PCIe_IDIO_24				"pcie_idio_24"
+
+#define NAME_PCIe_ADIO16_16F "pcie_adio16_16f"
+#define NAME_PCIe_ADIO16_16A "pcie_adio16_16a"
+#define NAME_PCIe_ADIO16_16E "pcie_adio16_16e"
+#define NAME_PCIe_ADI16_16F  "pcie_adi16_16f"
+#define NAME_PCIe_ADI16_16A  "pcie_adi16_16a"
+#define NAME_PCIe_ADI16_16E  "pcie_adi16_16e"
+#define NAME_PCIe_ADIO12_16A "pcie_adio12_16a"
+#define NAME_PCIe_ADIO12_16  "pcie_adio12_16"
+#define NAME_PCIe_ADIO12_16E "pcie_adio12_16e"
+#define NAME_PCIe_ADI12_16A  "pcie_adi12_16a"
+#define NAME_PCIe_ADI12_16   "pcie_adi12_16"
+#define NAME_PCIe_ADI12_16E  "pcie_adi12_16e"
+
+
 #define NAME_mPCIe_AIO16_16F            "mpcie_aio16_16f"
 #define NAME_mPCIe_AIO16_16A            "mpcie_aio16_16a"
 #define NAME_mPCIe_AIO16_16E            "mpcie_aio16_16e"
