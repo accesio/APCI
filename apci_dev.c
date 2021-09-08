@@ -281,7 +281,7 @@ static struct apci_lookup_table_entry apci_driver_table[] = \
                          APCI_MAKE_ENTRY( MPCIE_QUAD_8 ),
                          APCI_MAKE_ENTRY( MPCIE_DIO_24 ),
                          APCI_MAKE_ENTRY( PCI_WDG_IMPAC ),
-                         APCI_MAKE_ENTRY( MPCIE_DIO_24S ),
+                         //APCI_MAKE_ENTRY( MPCIE_DIO_24S ),
                          APCI_MAKE_ENTRY( PCIe_IDIO_12 ),
                          APCI_MAKE_ENTRY( PCIe_IDIO_24 ),
 
@@ -523,6 +523,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id )
         apci_debug("plx_region.start = %08llx\n", ddata->plx_region.start );
         apci_debug("plx_region.end   = %08llx\n", ddata->plx_region.end );
         apci_debug("plx_region.length= %08x\n", ddata->plx_region.length );
+        apci_debug("plx_region.flags = %08lx\n", ddata->plx_region.flags);
 
         if (ddata->plx_region.flags & IORESOURCE_IO)
         {
