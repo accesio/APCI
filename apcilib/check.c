@@ -69,7 +69,7 @@ const double RangeScale[8] =
 };
 
 /* FORWARD REFERENCES */
-void BRD_Reset(int apci); 
+void BRD_Reset(int apci);
 int ParseADCRawData(uint32_t rawData, uint32_t *channel, double *volts, uint8_t *gainCode, uint16_t *digitalData, int *differential, int *bTemp, int *bAux, int *running );
 
 /* GLOBALS */
@@ -93,7 +93,7 @@ int apci;
 				/*
 					Assemble an ADC control register command uint32 piecemeal
 					all params except `channel_lastchannel` are bools, 0==false
-					channel is between 0 and 7 inclusive, 
+					channel is between 0 and 7 inclusive,
 					channel is either "the one channel to acquire" (when bSequencedMode is false)
 					or channel is "the last channel in the sequence to acquire" (when bSequencedMode is true)
 				*/
@@ -101,21 +101,21 @@ int apci;
 				{
 					int bTemp = 0; // temp readings are for factory use only
 					int bAux = 0;  // the aux inputs aren't connected to anything
-					
+
 					uint32_t controlValue = 0x00000000;
 					controlValue |= ADC_CFG_MASK;
-					if (bStartADC) 
+					if (bStartADC)
 						controlValue |= ADC_START_MASK;
 
-					if ((channel_lastchannel < 8) && (channel_lastchannel >= 0)) 
+					if ((channel_lastchannel < 8) && (channel_lastchannel >= 0))
 						controlValue |= channel_lastchannel << ADC_CHANNEL_SHIFT;
-					else 
+					else
 						return -1;	// invalid channel / last_channel
 
-					if (! bDifferential) 
+					if (! bDifferential)
 						controlValue |= ADC_NOT_DIFF_MASK;
 
-					if ((gainCode < 8) && (gainCode >= 0)) 
+					if ((gainCode < 8) && (gainCode >= 0))
 						controlValue |= gainCode << ADC_GAIN_SHIFT;
 					else return -2;	// invalid gain code
 
@@ -124,38 +124,38 @@ int apci;
 					if (bSequencedMode)
 					{
 						controlValue |= ADC_ADVANCED_SEQ_MASK;
-						if (! bAux) 
+						if (! bAux)
 							controlValue |= ADC_NOT_AUX_MASK;
 						if (! bTemp)
 							controlValue |= ADC_NOT_TEMP_MASK;
-						
+
 						// sequenced differential only accepts even channel#s
-						if (bDifferential) 
+						if (bDifferential)
 							controlValue &= ~(1 << ADC_CHANNEL_SHIFT);
 					}
 					else // "On Demand Conversion Mode" uses the AUX and TEMP bits differently:
 					{
 						if (bAux && bTemp) return -3;	// invalid to select both Aux and Temp inputs in Immediate mode (On Demand Conversion Mode)
 
-						if (!bAux && !bTemp) 
+						if (!bAux && !bTemp)
 							controlValue = controlValue | ADC_NOT_AUX_MASK | ADC_NOT_TEMP_MASK;
 
-						if (bAux || bTemp) 
+						if (bAux || bTemp)
 							controlValue = controlValue & ~(ADC_NOT_AUX_MASK | ADC_NOT_TEMP_MASK);
 
 						if (!bTemp)
 							controlValue |= ADC_NOT_TEMP_MASK; // select NOT temp thus AUX
 					}
 
-					if (! bFast) 
+					if (! bFast)
 						controlValue |= ADC_NOT_FAST_MASK;
 
-					if (bDiagnostic)						
+					if (bDiagnostic)
 						printf("  ADC Control Value %8X %s %s CH%2d%s%s\n", controlValue, bTemp?"TEMP":"", bAux?"AUX":"", channel_lastchannel,bSequencedMode?" SEQ":" Imm", bDifferential?" Diff":" S.E.");
 
 					return controlValue;
 				}
-				
+
 				/* print ADC data as Volts etc., and if bDiagnostic, in parsed-raw and raw-raw forms */
 				int pretty_print_ADC_raw_data(uint32_t AdcRawData, int bCompact)
 				{
@@ -189,7 +189,7 @@ int apci;
 							printf("CH %2d =% 8.4f", iChannel, ADCDataV);
 					}
 
-					if (bCompact) 
+					if (bCompact)
 						printf(", ");
 					else
 						printf("\n  ");
@@ -198,7 +198,7 @@ int apci;
 
 void BRD_Reset(int apci)
 {
-	apci_write32(apci, 1, BAR_REGISTER, RESETOFFSET, 0x1);	
+	apci_write32(apci, 1, BAR_REGISTER, RESETOFFSET, 0x1);
 }
 
 int ParseADCRawData(uint32_t rawData, uint32_t *channel, double *volts, uint8_t *gainCode, uint16_t *digitalData, int *differential, int *bTemp, int *bAux, int *bRunning )
@@ -240,7 +240,7 @@ int ParseADCRawData(uint32_t rawData, uint32_t *channel, double *volts, uint8_t 
 	return bInvalid;
 }
 
-/* Background thread to acquire and print data */ 
+/* Background thread to acquire and print data */
 void * worker_main(void *arg)
 {
 	int status;
@@ -255,7 +255,7 @@ void * worker_main(void *arg)
 		/* In all Timed and External ADC Start modes the FIFO holds data in pairs-of-conversions
 		 * so this code reads out TWO ADC conversions per ONE ADC FIFO Depth
 		 */
-		apci_read32(apci, 1, BAR_REGISTER, ADCFIFODepthOffset, &ADCFIFODepth);		
+		apci_read32(apci, 1, BAR_REGISTER, ADCFIFODepthOffset, &ADCFIFODepth);
 		if (ADCFIFODepth == 0)
 			continue;
 
@@ -295,7 +295,7 @@ int main (int argc, char **argv)
 {
 	printf("Control Value: %08X\n", ADC_BuildControlValue(1,6,1,1,1,0));
 	printf("Control Value: %08X\n", ADC_BuildControlValue(1,7,0,1,1,0));
-	
+
 	struct sigaction sigIntHandler;
 
 	sigIntHandler.sa_handler = abort_handler;
@@ -311,7 +311,7 @@ int main (int argc, char **argv)
 				// this code section is weak.  TODO: improve plug-and-play and device file detection / selection; enumerate /dev/apci/ and if >1 device have menu?
 				apci = -1;
 
-				if (argc > 1) 
+				if (argc > 1)
 				{
 					apci = open(argv[1], O_RDONLY);	// open device file from command line
 					if (apci < 0)
@@ -352,8 +352,8 @@ int main (int argc, char **argv)
 		apci_write32(apci, 1, BAR_REGISTER, ADCRATEDIVISOROFFSET, 0); // setting ADC Rate Divisor to zero selects software start ADC mode
 		for (ch=0; ch<8; ++ch)
 		{
-			uint32_t controlValue = ADC_BuildControlValue(1,ch,0,0,0,0);	
-			
+			uint32_t controlValue = ADC_BuildControlValue(1,ch,0,0,0,0);
+
 			apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset, controlValue );	// start one conversion on selected channel
 			usleep(10); // must not write to +38 faster than once every 10 microseconds in Software Start mode
 				apci_read32(apci,1, BAR_REGISTER, ADCControlOffset, &readControlValue);
@@ -361,13 +361,13 @@ int main (int argc, char **argv)
 				{
 					readbackerrcount++;
 					printf("%08X/%08X ", readControlValue, controlValue);
-				}			
+				}
 		}
 
 		if (CHANNEL_COUNT == 16)
 			for (ch=0; ch<8; ++ch)
 			{
-				uint32_t controlValue = ADC_BuildControlValue(1,ch,0,0,0,0);			
+				uint32_t controlValue = ADC_BuildControlValue(1,ch,0,0,0,0);
 				apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset + 4, controlValue );	// start one conversion on selected channel of second ADC
 				usleep(10); // must not write to +3C faster than once every 10 microseconds in Software Start mode
 				apci_read32(apci,1, BAR_REGISTER, ADCControlOffset + 4, &readControlValue);
@@ -381,13 +381,13 @@ int main (int argc, char **argv)
 
 		apci_read32(apci, 1, BAR_REGISTER, ADCFIFODepthOffset, &ADCFIFODepth);
 		printf("  ADC FIFO has %d entries\n", ADCFIFODepth); // debug/diagnostic; should match the number of ADC Control writes
-		if (ADCFIFODepth != CHANNEL_COUNT) 
+		if (ADCFIFODepth != CHANNEL_COUNT)
 			errcount++;
-		else 
+		else
 			passcount++;
 		testcount++;
 		int bTemp=0, bAux=0;
-		
+
 		for (ch=0; ch < ADCFIFODepth; ++ch)	// read and display data from FIFO
 		{
 			apci_read32(apci, 1, BAR_REGISTER, ADCDataRegisterOffset, &ADCDataRaw);
@@ -397,11 +397,11 @@ int main (int argc, char **argv)
 		}
 		printf("\n");
 		//printf("Done with one scan of software-started conversions.\n\n\n");
-		
+
 		printf("\n%d failures, %d passes. Failure%% = %f.  Control readback failures: %d",errcount,passcount,(double)errcount/(double)testcount*100.0, readbackerrcount);
 	}
 
-	
+
 
 
 	if (1)
@@ -409,7 +409,7 @@ int main (int argc, char **argv)
 		printf("Demonstrating TIMER-DRIVEN (Advanced Sequencer) BACKGROUND-THREAD POLLING ACQUISITION\n");
 		printf("Press CTRL-C to halt\nPRESS ENTER TO CONTINUE\n");
 		getchar();
-			
+
 		BRD_Reset(apci);
 		double Hz = 100.0;
 		set_acquisition_rate(apci, &Hz);
@@ -417,19 +417,19 @@ int main (int argc, char **argv)
 
 		// start collecting incoming data in background thread
 		pthread_create(&worker_thread, NULL, &worker_main, NULL);
-		
+
 		// start sequence of conversions
-		uint32_t AdcControlValue = ADC_BuildControlValue(1,7,0,0,1,0);		 
+		uint32_t AdcControlValue = ADC_BuildControlValue(1,7,0,0,1,0);
 
 		if (CHANNEL_COUNT == 16)
-			apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset + 4, AdcControlValue );	
-		apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset, AdcControlValue );	
+			apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset + 4, AdcControlValue );
+		apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset, AdcControlValue );
 
 		while (!terminate)
 		{
 			// do other work while data is collected and displayed by the worker thread.
 			// use CTRL-C to exit
-			
+
 		};
 	}
 

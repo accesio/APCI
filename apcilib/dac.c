@@ -22,12 +22,12 @@ int apci;
 //------------------------------------------------------------------------------------
 int main (int argc, char **argv)
 {
-	
+
 	uint32_t Version = 0;
 	apci_read32(apci, 1, BAR_REGISTER, 0x68, &Version);
 	printf("\nPCIe-DA16-6 Family ADC Sample 0\n");
 	apci = -1;
-	if (argc > 1) 
+	if (argc > 1)
 	{
 		apci = open(argv[1], O_RDONLY);	// open device file from command line
 		if (apci < 0)
