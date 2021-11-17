@@ -32,6 +32,7 @@
 #endif
 
 #define mPCIe_ADIO_IRQStatusAndClearOffset (0x40)
+#define mPCIe_ADIO_IRQEventMask (0xffff0000)
 #define bmADIO_FAFIRQStatus (1<<20)
 #define bmADIO_DMADoneStatus (1<<18)
 #define bmADIO_DMADoneEnable (1<<2)
@@ -1173,7 +1174,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
           //to write to the next buffer (and don't notify the user?)
           //else if it is a write done IRQ set last_valid_buffer and notify user
           irq_event = ioread32(ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // TODO: Upgrade to doRegisterAction("AmI?")
-          if (irq_event == 0) 
+          if (irq_event & mPCIe_ADIO_IRQEventMask)
           {
             apci_devel("ISR: not our IRQ\n");
             return IRQ_NONE;
