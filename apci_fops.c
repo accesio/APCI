@@ -425,11 +425,11 @@ int mmap_apci (struct file *filp, struct vm_area_struct *vma)
      struct apci_my_info *ddata = filp->private_data;
      int status;
 
-     status = remap_pfn_range(vma,
-                         vma->vm_start,
-                         ddata->dma_addr >> PAGE_SHIFT,
-                         vma->vm_end - vma->vm_start,
-                         vma->vm_page_prot);
+     status = dma_mmap_coherent(&(ddata->pci_dev->dev),
+		         vma,
+			 ddata->dma_virt_addr,
+			 ddata->dma_addr,
+			 vma->vm_end - vma->vm_start);
 
      return 0;
 }
