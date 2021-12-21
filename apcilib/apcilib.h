@@ -42,3 +42,4 @@ int apci_dma_transfer_size(int fd, unsigned long device_index, __u8 num_slots, s
 int apci_dma_data_ready(int fd, unsigned long device_index, int *start_index, int *slots, int *data_discarded);
 int apci_dma_data_done(int fd, unsigned long device_index, int num_slots);
 
+int apci_writebuf32(int fd, unsigned long device_index, int bar, int offset, __u32 *data, int length);

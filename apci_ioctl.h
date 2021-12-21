@@ -4,10 +4,6 @@
 #define ACCES_MAGIC_NUM 0xE0
 enum SIZE { BYTE = 0, WORD, DWORD};
 
-#ifndef __u32
-#define __u32 unsigned int
-#endif
-
 typedef struct {
         unsigned long device_index;
         int bar;
@@ -17,6 +13,17 @@ typedef struct {
 } iopack;
 
 typedef struct {
+        unsigned long device_index;
+        int bar;
+        unsigned int offset;
+        enum SIZE size;
+        __u32 length;
+        __UINT8_TYPE__ *data;
+} string_iopack;
+
+
+typedef struct
+{
         unsigned long device_index;
         int dev_id;
         /* Most likely only base_addresses[2] will be useful.
@@ -53,6 +60,8 @@ typedef struct {
 #define apci_set_dma_transfer_size  _IOW(ACCES_MAGIC_NUM, 9, dma_buffer_settings_t *)
 #define apci_data_ready             _IOR(ACCES_MAGIC_NUM, 10, data_ready_t *)
 #define apci_data_done              _IOW(ACCES_MAGIC_NUM, 11, unsigned long)
+#define apci_write_string_ioctl     _IOW(ACCES_MAGIC_NUM, 12, string_iopack *)
+#define apci_read_string_ioctl      _IOR(ACCES_MAGIC_NUM, 13, string_iopack *)
 
 
 

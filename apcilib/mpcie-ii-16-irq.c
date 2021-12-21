@@ -44,7 +44,7 @@ int main (int argc, char **argv)
   }
   else
   {
-    printf("IRQ did not occurr\n");
+    printf("IRQ did not occur\n");
   }
 
   //do a final read initial read of inputs

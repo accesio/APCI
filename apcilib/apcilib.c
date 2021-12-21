@@ -93,6 +93,19 @@ int apci_write32(int fd, unsigned long device_index, int bar, int offset, __u32 
 	return ioctl(fd, apci_write_ioctl, &io_pack);
 }
 
+
+int apci_writebuf32(int fd, unsigned long device_index, int bar, int offset, __u32 *data, int length)
+{
+	string_iopack string_pack;
+	string_pack.device_index = device_index;
+	string_pack.bar = bar;
+	string_pack.offset = offset;
+	string_pack.data = (char *)data;
+	string_pack.length = length;
+	string_pack.size = DWORD;
+
+	return ioctl(fd, apci_write_string_ioctl, &string_pack);
+}
 int apci_read8(int fd, unsigned long device_index, int bar, int offset, __u8 *data)
 {
 	iopack io_pack;

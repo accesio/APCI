@@ -63,6 +63,8 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
     struct apci_my_info *ddata = filp->private_data;
     info_struct info;
     iopack io_pack;
+    string_iopack string_pack;
+
     unsigned long device_index, flags;
 
     if( !ddata ) {
@@ -91,14 +93,16 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
           return count;
           break;
 
+
+
         case apci_get_device_info_ioctl:
           apci_debug("entering get_device_info \n");
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
-          status = access_ok( arg, sizeof(info_struct));
-#else
-          status = access_ok(VERIFY_WRITE, arg,
-                             sizeof(info_struct));
-#endif
+          #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
+                    status = access_ok( arg, sizeof(info_struct));
+          #else
+                    status = access_ok(VERIFY_WRITE, arg,
+                                   sizeof(info_struct));
+          #endif
 
           if (status == 0) return -EACCES;
 
@@ -112,22 +116,25 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
           }
 
           status = copy_to_user((info_struct *) arg, &info, sizeof(info_struct));
+          apci_debug("exiting get_device_info_ioctl\n");
           break;
 
+
+
+
         case apci_write_ioctl:
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
-          status = access_ok (arg, sizeof(iopack));
-#else
-          status = access_ok (VERIFY_WRITE, arg, sizeof(iopack));
-#endif
+          #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
+                    status = access_ok (arg, sizeof(iopack));
+          #else
+                    status = access_ok (VERIFY_WRITE, arg, sizeof(iopack));
+          #endif
 
           if (status == 0) {
                apci_error("access_ok failed\n");
                return -EACCES; /* TODO: FIND appropriate return value */
           }
 
-          status = copy_from_user(&io_pack, (iopack *) arg,
-                                  sizeof(iopack));
+          status = copy_from_user(&io_pack, (iopack *) arg, sizeof(iopack));
           count = 0;
           /* while (count < io_pack.device_index) { */
           /*      if (ddata != NULL) { */
@@ -138,116 +145,127 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
           /* if (ddata == NULL) return -ENXIO; /\* invalid device index *\/ */
 
           switch(is_valid_addr(ddata, io_pack.bar,io_pack.offset)) {
-            case IO:
-              apci_info("performing I/O write to %llX\n",
-                        ddata->regions[io_pack.bar].start + io_pack.offset);
+               case IO:
+                    apci_info("performing I/O write to %llX\n",
+                         ddata->regions[io_pack.bar].start + io_pack.offset);
 
-              switch (io_pack.size) {
-                case BYTE:
-                  apci_devel("writing byte %02X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
-                  outb(io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
-                  break;
+                    switch (io_pack.size) {
+                         case BYTE:
+                         apci_devel("writing byte %02X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
+                         outb(io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
+                         break;
 
-                case WORD:
-                  apci_devel("writing word %04X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
-                  outw(io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
-                  break;
+                         case WORD:
+                         apci_devel("writing word %04X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
+                         outw(io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
+                         break;
 
-                case DWORD:
-                  apci_devel("writing dword %08X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
-                  outl(io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
-                  break;
-              };
-              break;
+                         case DWORD:
+                         apci_devel("writing dword %08X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
+                         outl(io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
+                         break;
+                    };
+               break;
 
-            case MEM:
-              switch(io_pack.size) {
-                case BYTE:
-                  apci_devel("writing byte %02X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);               
-                  iowrite8(io_pack.data, ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
-                  break;
+               case MEM:
+                    switch(io_pack.size) {
+                         case BYTE:
+                         apci_devel("writing byte %02X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);               
+                         iowrite8(io_pack.data, ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
+                         break;
+          
+                         case WORD:
+                         apci_devel("writing word %04X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
+                         iowrite16(io_pack.data, ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
+                         break;
+          
+                         case DWORD:
+                         iowrite32(io_pack.data, ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
+                         apci_devel("writing dword %08X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
+                         break;
+                    };
+               break;
 
-                case WORD:
-                  apci_devel("writing word %04X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
-                  iowrite16(io_pack.data, ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
-                  break;
-
-                case DWORD:
-                  iowrite32(io_pack.data, ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
-                  apci_devel("writing dword %08X to %llX\n", io_pack.data, ddata->regions[io_pack.bar].start + io_pack.offset);
-                  break;
-              };
-              break;
-
-            case INVALID:
-              return -EFAULT;
-              break;
+               case INVALID:
+                    return -EFAULT;
+               break;
           };
           break;
 
-        case apci_read_ioctl:
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
-             status = access_ok(arg, sizeof(iopack));
-#else
-             status = access_ok(VERIFY_WRITE, arg, sizeof(iopack));
-#endif
 
-             if (status == 0) return -EACCES; /* TODO: Find a better return code */
 
-             status = copy_from_user(&io_pack, (iopack *) arg, sizeof(iopack));
-             count = 0;
 
-             if (ddata == NULL) return -ENXIO; /* invalid device index */
 
-             switch (is_valid_addr(ddata, io_pack.bar, io_pack.offset)) {
-             case IO:
-                  switch (io_pack.size) {
-                  case BYTE:
-                       io_pack.data = inb(ddata->regions[io_pack.bar].start + io_pack.offset);
-                       apci_devel("performed read from %llX, got %02X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
-                       break;
+          case apci_read_ioctl:
+               #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
+                         status = access_ok(arg, sizeof(iopack));
+               #else
+                         status = access_ok(VERIFY_WRITE, arg, sizeof(iopack));
+               #endif
 
-                  case WORD:
-                       io_pack.data = inw(ddata->regions[io_pack.bar].start + io_pack.offset);
-                       apci_devel("performed read from %llX, got %04X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
-                       break;
+               if (status == 0) return -EACCES; /* TODO: Find a better return code */
+  
+               status = copy_from_user(&io_pack, (iopack *) arg, sizeof(iopack));
+               count = 0;
+  
+               if (ddata == NULL) 
+                    return -ENXIO; /* invalid device index */
+  
+               switch (is_valid_addr(ddata, io_pack.bar, io_pack.offset)) {
+                    case IO:
+                         switch (io_pack.size) {
+                         case BYTE:
+                              io_pack.data = inb(ddata->regions[io_pack.bar].start + io_pack.offset);
+                              apci_devel("performed byte read from %llX, got %02X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
+                              break;
 
-                  case DWORD:
-                       io_pack.data = inl(ddata->regions[io_pack.bar].start + io_pack.offset);
-                       apci_devel("performed read from %llX, got %08X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
-                       break;
-                  };
-                  break;
+                         case WORD:
+                              io_pack.data = inw(ddata->regions[io_pack.bar].start + io_pack.offset);
+                              apci_devel("performed word read from %llX, got %04X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
+                              break;
 
-             case MEM:
-                  switch (io_pack.size) {
-                  case BYTE:
-                       io_pack.data = ioread8(ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
-                       apci_devel("performed read from %llX, got %02X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
-                       break;
+                         case DWORD:
+                              io_pack.data = inl(ddata->regions[io_pack.bar].start + io_pack.offset);
+                              apci_devel("performed dword read from %llX, got %08X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
+                              break;
+                         };
+                         break;
 
-                  case WORD:
-                       io_pack.data = ioread16(ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
-                       apci_devel("performed read from %llX, got %04X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
-                       break;
+                    case MEM:
+                         switch (io_pack.size) {
+                         case BYTE:
+                              io_pack.data = ioread8(ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
+                              apci_devel("performed read from %llX, got %02X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
+                              break;
+     
+                         case WORD:
+                              io_pack.data = ioread16(ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
+                              apci_devel("performed read from %llX, got %04X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
+                              break;
+     
+                         case DWORD:
+                              io_pack.data = ioread32(ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
+                              apci_devel("performed read from %llX, got %08X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
+                              break;
+                         };
+                    break;
+     
+                    case INVALID:
+                         return -EFAULT;
+                         break;
+               };
+                            
 
-                  case DWORD:
-                       io_pack.data = ioread32(ddata->regions[io_pack.bar].mapped_address + io_pack.offset);
-                       apci_devel("performed read from %llX, got %08X\n", ddata->regions[io_pack.bar].start + io_pack.offset, io_pack.data);
-                       break;
-                  };
-                  break;
+               status = copy_to_user((iopack *)arg, &io_pack, sizeof(iopack));
+               break;
 
-             case INVALID:
-                  return -EFAULT;
-                  break;
-             };
 
-             
 
-             status = copy_to_user((iopack *)arg, &io_pack,
-                                   sizeof(iopack));
-             break;
+
+     case apci_read_string_ioctl:
+          
+          return -EFAULT;
+          break;
 
     case apci_wait_for_irq_ioctl:
          apci_info("enter wait_for_IRQ.\n");
@@ -400,6 +418,7 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
                                    sizeof(data_ready_t));
           }
           break;
+          
      case apci_data_done:
           {
                unsigned long flags;
@@ -413,6 +432,89 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
           }
           break;
 
+     case apci_write_string_ioctl:
+          #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
+               status = access_ok (arg, sizeof(string_iopack));
+          #else
+               status = access_ok (VERIFY_WRITE, arg, sizeof(string_iopack));
+          #endif
+          if (status == 0) {
+               apci_error("access_ok failed\n");
+               return -EACCES; /* TODO: FIND appropriate return value */
+          }
+
+          status = copy_from_user(&string_pack, (string_iopack *) arg, sizeof(string_iopack));
+          switch(is_valid_addr(ddata, string_pack.bar,string_pack.offset)) {
+               case IO:
+                    apci_info("performing buffered I/O write %d times to %llX\n",
+                         string_pack.length,
+                         ddata->regions[string_pack.bar].start + string_pack.offset
+                    );
+
+                    switch (string_pack.size) {
+                         case BYTE:
+                              for (count = 0; count < string_pack.length; count++) {
+                                   __u8 *pdata = (__u8 *) string_pack.data;
+                                   apci_devel("writing byte %02X to %llX\n", pdata[count], ddata->regions[string_pack.bar].start + string_pack.offset);
+                                   outb(pdata[count], ddata->regions[string_pack.bar].start + string_pack.offset);
+                              }
+                         break;
+
+                         case WORD:
+                              for (count = 0; count < string_pack.length; count++) {
+                                   __u16 *pdata = (__u16 *) string_pack.data;
+                                   apci_devel("writing word %04X to %llX\n", pdata[count], ddata->regions[string_pack.bar].start + string_pack.offset);
+                                   outw(pdata[count], ddata->regions[string_pack.bar].start + string_pack.offset);
+                              }
+                         break;
+
+                         case DWORD:
+                              for (count = 0; count < string_pack.length; count++) {
+                                   __u32 *pdata = (__u32 *) string_pack.data;
+                                   apci_devel("writing dword %08X to %llX\n", pdata[count], ddata->regions[string_pack.bar].start + string_pack.offset);
+                                   outl(pdata[count], ddata->regions[string_pack.bar].start + string_pack.offset);
+                              }
+                         break;
+                    };
+               break;
+
+               case MEM:
+                    switch(string_pack.size) {
+                         case BYTE:
+                              for (count = 0; count < string_pack.length; count++) {
+                                   __u8 *pdata = (__u8 *) string_pack.data;
+                                   apci_devel("writing byte %02X to %llX\n", pdata[count], ddata->regions[string_pack.bar].start + string_pack.offset);
+                                   iowrite8(pdata[count], ddata->regions[string_pack.bar].mapped_address + string_pack.offset);
+                              }
+                         break;
+          
+                         case WORD:
+                              for(count = 0; count < string_pack.length; count++) {
+                                   __u16 *pdata = (__u16 *) string_pack.data;
+                                   apci_devel("writing word %04X to %llX\n", pdata[count], ddata->regions[string_pack.bar].start + string_pack.offset);
+                                   iowrite16(pdata[count], ddata->regions[string_pack.bar].mapped_address + string_pack.offset);
+                              }
+                         break;
+          
+                         case DWORD:
+                              for(count = 0; count < string_pack.length; count++) {
+                                   __u32 *pdata = (__u32 *) string_pack.data;
+                                   apci_devel("writing dword %08X to %llX\n", pdata[count], ddata->regions[string_pack.bar].start + string_pack.offset);
+                                   iowrite32(pdata[count], ddata->regions[string_pack.bar].mapped_address + string_pack.offset);
+                              }
+                         break;
+                    };
+               break;
+
+               case INVALID:
+                    return -EFAULT;
+               break;
+          };
+          return -EFAULT;
+          break;
+
+
+
     };
 
     return 0;
@@ -424,11 +526,11 @@ int mmap_apci (struct file *filp, struct vm_area_struct *vma)
      struct apci_my_info *ddata = filp->private_data;
      int status;
 
-     status = remap_pfn_range(vma,
-                         vma->vm_start,
-                         ddata->dma_addr >> PAGE_SHIFT,
-                         vma->vm_end - vma->vm_start,
-                         vma->vm_page_prot);
+     status = dma_mmap_coherent(&(ddata->pci_dev->dev),
+		         vma,
+			 ddata->dma_virt_addr,
+			 ddata->dma_addr,
+			 vma->vm_end - vma->vm_start);
 
      return 0;
 }
