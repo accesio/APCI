@@ -225,6 +225,9 @@ static struct pci_device_id ids[] = {
         PCI_DEVICE(A_VENDOR_ID, PCIe_IDIO_24),
     },
     {
+        PCI_DEVICE(A_VENDOR_ID, PCIe_ADIO16_16FDS),
+    },
+    {
         PCI_DEVICE(A_VENDOR_ID, PCIe_ADIO16_16F),
     },
 
@@ -262,6 +265,9 @@ static struct pci_device_id ids[] = {
         PCI_DEVICE(A_VENDOR_ID, PCIe_ADI12_16E),
     },
 
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16FDS),
+    },
     {
         PCI_DEVICE(A_VENDOR_ID, mPCIe_AIO16_16F),
     },
@@ -333,6 +339,9 @@ static struct pci_device_id ids[] = {
     },
     {
         PCI_DEVICE(A_VENDOR_ID, mPCIe_AI12_16E_proto),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_ADIO16_8FDS),
     },
     {
         PCI_DEVICE(A_VENDOR_ID, mPCIe_ADIO16_8F),
@@ -517,6 +526,7 @@ static struct apci_lookup_table_entry apci_driver_table[] =
         APCI_MAKE_ENTRY(PCIe_IDIO_12),
         APCI_MAKE_ENTRY(PCIe_IDIO_24),
 
+        APCI_MAKE_ENTRY(PCIe_ADIO16_16FDS),
         APCI_MAKE_ENTRY(PCIe_ADIO16_16F),
         APCI_MAKE_ENTRY(PCIe_ADIO16_16A),
         APCI_MAKE_ENTRY(PCIe_ADIO16_16E),
@@ -530,6 +540,7 @@ static struct apci_lookup_table_entry apci_driver_table[] =
         APCI_MAKE_ENTRY(PCIe_ADI12_16),
         APCI_MAKE_ENTRY(PCIe_ADI12_16E),
 
+        APCI_MAKE_ENTRY(mPCIe_AIO16_16FDS),
         APCI_MAKE_ENTRY(mPCIe_AIO16_16F),
         APCI_MAKE_ENTRY(mPCIe_AIO16_16A),
         APCI_MAKE_ENTRY(mPCIe_AIO16_16E),
@@ -554,6 +565,7 @@ static struct apci_lookup_table_entry apci_driver_table[] =
         APCI_MAKE_ENTRY(mPCIe_AI12_16A_proto),
         APCI_MAKE_ENTRY(mPCIe_AI12_16_proto),
         APCI_MAKE_ENTRY(mPCIe_AI12_16E_proto),
+        APCI_MAKE_ENTRY(mPCIe_ADIO16_8FDS),
         APCI_MAKE_ENTRY(mPCIe_ADIO16_8F),
         APCI_MAKE_ENTRY(mPCIe_ADIO16_8A),
         APCI_MAKE_ENTRY(mPCIe_ADIO16_8E),
@@ -662,6 +674,8 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   if (!ddata)
     return NULL;
 
+  ddata->dac_fifo_buffer = NULL;
+
   /* Initialize with defaults, fill in specifics later */
   ddata->irq = 0;
   ddata->irq_capable = 0;
@@ -689,40 +703,43 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
 
   switch (ddata->dev_id)
   {
-  case mPCIe_AIO16_16F:
-  case mPCIe_AIO16_16A:
-  case mPCIe_AIO16_16E:
-  case mPCIe_AI16_16F:
-  case mPCIe_AI16_16A:
-  case mPCIe_AI16_16E:
-  case mPCIe_AIO12_16A:
-  case mPCIe_AIO12_16:
-  case mPCIe_AIO12_16E:
-  case mPCIe_AI12_16A:
-  case mPCIe_AI12_16:
-  case mPCIe_AI12_16E:
-  case mPCIe_ADIO16_8F:
-  case mPCIe_ADI16_8F:
-  case mPCIe_ADI16_8A:
-  case mPCIe_ADI16_8E:
-  case mPCIe_ADIO12_8A:
-  case mPCIe_ADIO12_8:
-  case mPCIe_ADIO12_8E:
-  case mPCIe_ADI12_8A:
-  case mPCIe_ADI12_8:
-  case mPCIe_ADI12_8E:
-  case PCIe_ADIO16_16F:
-  case PCIe_ADIO16_16A:
-  case PCIe_ADIO16_16E:
-  case PCIe_ADI16_16F:
-  case PCIe_ADI16_16A:
-  case PCIe_ADI16_16E:
-  case PCIe_ADIO12_16A:
-  case PCIe_ADIO12_16:
-  case PCIe_ADIO12_16E:
-  case PCIe_ADI12_16A:
-  case PCIe_ADI12_16:
-  case PCIe_ADI12_16E:
+    case mPCIe_AIO16_16FDS:
+    case mPCIe_AIO16_16F:
+    case mPCIe_AIO16_16A:
+    case mPCIe_AIO16_16E:
+    case mPCIe_AI16_16F:
+    case mPCIe_AI16_16A:
+    case mPCIe_AI16_16E:
+    case mPCIe_AIO12_16A:
+    case mPCIe_AIO12_16:
+    case mPCIe_AIO12_16E:
+    case mPCIe_AI12_16A:
+    case mPCIe_AI12_16:
+    case mPCIe_AI12_16E:
+    case mPCIe_ADIO16_8FDS:
+    case mPCIe_ADIO16_8F:
+    case mPCIe_ADI16_8F:
+    case mPCIe_ADI16_8A:
+    case mPCIe_ADI16_8E:
+    case mPCIe_ADIO12_8A:
+    case mPCIe_ADIO12_8:
+    case mPCIe_ADIO12_8E:
+    case mPCIe_ADI12_8A:
+    case mPCIe_ADI12_8:
+    case mPCIe_ADI12_8E:
+    case PCIe_ADIO16_16FDS:
+    case PCIe_ADIO16_16F:
+    case PCIe_ADIO16_16A:
+    case PCIe_ADIO16_16E:
+    case PCIe_ADI16_16F:
+    case PCIe_ADI16_16A:
+    case PCIe_ADI16_16E:
+    case PCIe_ADIO12_16A:
+    case PCIe_ADIO12_16:
+    case PCIe_ADIO12_16E:
+    case PCIe_ADI12_16A:
+    case PCIe_ADI12_16:
+    case PCIe_ADI12_16E:
     break;
 
   default:
@@ -850,6 +867,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
     apci_debug("NO irq\n");
     break;
 
+  case mPCIe_AIO16_16FDS:
   case mPCIe_AIO16_16F:
   case mPCIe_AIO16_16A:
   case mPCIe_AIO16_16E:
@@ -862,6 +880,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_AI12_16A:
   case mPCIe_AI12_16:
   case mPCIe_AI12_16E:
+  case mPCIe_ADIO16_8FDS:
   case mPCIe_ADIO16_8F:
   case mPCIe_ADIO16_8A:
   case mPCIe_ADIO16_8E:
@@ -874,6 +893,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_ADI12_8A:
   case mPCIe_ADI12_8:
   case mPCIe_ADI12_8E:
+  case PCIe_ADIO16_16FDS:
   case PCIe_ADIO16_16F:
   case PCIe_ADIO16_16A:
   case PCIe_ADIO16_16E:
@@ -998,6 +1018,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_AI12_16_proto:
   case mPCIe_AI12_16E_proto:
 
+  case PCIe_ADIO16_16FDS:
   case PCIe_ADIO16_16F:
   case PCIe_ADIO16_16A:
   case PCIe_ADIO16_16E:
@@ -1010,6 +1031,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case PCIe_ADI12_16A:
   case PCIe_ADI12_16:
   case PCIe_ADI12_16E:
+  case mPCIe_AIO16_16FDS:
   case mPCIe_AIO16_16F:
   case mPCIe_AIO16_16A:
   case mPCIe_AIO16_16E:
@@ -1022,6 +1044,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_AI12_16A:
   case mPCIe_AI12_16:
   case mPCIe_AI12_16E:
+  case mPCIe_ADIO16_8FDS:
   case mPCIe_ADIO16_8F:
   case mPCIe_ADIO16_8A:
   case mPCIe_ADIO16_8E:
@@ -1113,6 +1136,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_AI12_16_proto:
   case mPCIe_AI12_16E_proto:
 
+  case PCIe_ADIO16_16FDS:
   case PCIe_ADIO16_16F:
   case PCIe_ADIO16_16A:
   case PCIe_ADIO16_16E:
@@ -1125,6 +1149,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case PCIe_ADI12_16A:
   case PCIe_ADI12_16:
   case PCIe_ADI12_16E:
+  case mPCIe_AIO16_16FDS:
   case mPCIe_AIO16_16F:
   case mPCIe_AIO16_16A:
   case mPCIe_AIO16_16E:
@@ -1137,6 +1162,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_AI12_16A:
   case mPCIe_AI12_16:
   case mPCIe_AI12_16E:
+  case mPCIe_ADIO16_8FDS:
   case mPCIe_ADIO16_8F:
   case mPCIe_ADIO16_8A:
   case mPCIe_ADIO16_8E:
@@ -1201,6 +1227,10 @@ void apci_free_driver(struct pci_dev *pdev)
     }
   }
 
+  if (NULL != ddata->dac_fifo_buffer)
+  {
+    kfree(ddata->dac_fifo_buffer);
+  }
   kfree(ddata);
   apci_debug("Completed freeing driver.\n");
 }
@@ -1257,42 +1287,45 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
   ddata = (struct apci_my_info *)dev_id;
   switch (ddata->dev_id)
   {
-  case PCIe_ADIO16_16F:
-  case PCIe_ADIO16_16A:
-  case PCIe_ADIO16_16E:
-  case PCIe_ADI16_16F:
-  case PCIe_ADI16_16A:
-  case PCIe_ADI16_16E:
-  case PCIe_ADIO12_16A:
-  case PCIe_ADIO12_16:
-  case PCIe_ADIO12_16E:
-  case PCIe_ADI12_16A:
-  case PCIe_ADI12_16:
-  case PCIe_ADI12_16E:
-  case mPCIe_AIO16_16F:
-  case mPCIe_AIO16_16A:
-  case mPCIe_AIO16_16E:
-  case mPCIe_AI16_16F:
-  case mPCIe_AI16_16A:
-  case mPCIe_AI16_16E:
-  case mPCIe_AIO12_16A:
-  case mPCIe_AIO12_16:
-  case mPCIe_AIO12_16E:
-  case mPCIe_AI12_16A:
-  case mPCIe_AI12_16:
-  case mPCIe_AI12_16E:
-  case mPCIe_ADIO16_8F:
-  case mPCIe_ADIO16_8A:
-  case mPCIe_ADIO16_8E:
-  case mPCIe_ADI16_8F:
-  case mPCIe_ADI16_8A:
-  case mPCIe_ADI16_8E:
-  case mPCIe_ADIO12_8A:
-  case mPCIe_ADIO12_8:
-  case mPCIe_ADIO12_8E:
-  case mPCIe_ADI12_8A:
-  case mPCIe_ADI12_8:
-  case mPCIe_ADI12_8E:
+    case PCIe_ADIO16_16FDS:
+    case PCIe_ADIO16_16F:
+    case PCIe_ADIO16_16A:
+    case PCIe_ADIO16_16E:
+    case PCIe_ADI16_16F:
+    case PCIe_ADI16_16A:
+    case PCIe_ADI16_16E:
+    case PCIe_ADIO12_16A:
+    case PCIe_ADIO12_16:
+    case PCIe_ADIO12_16E:
+    case PCIe_ADI12_16A:
+    case PCIe_ADI12_16:
+    case PCIe_ADI12_16E:
+    case mPCIe_AIO16_16FDS:
+    case mPCIe_AIO16_16F:
+    case mPCIe_AIO16_16A:
+    case mPCIe_AIO16_16E:
+    case mPCIe_AI16_16F:
+    case mPCIe_AI16_16A:
+    case mPCIe_AI16_16E:
+    case mPCIe_AIO12_16A:
+    case mPCIe_AIO12_16:
+    case mPCIe_AIO12_16E:
+    case mPCIe_AI12_16A:
+    case mPCIe_AI12_16:
+    case mPCIe_AI12_16E:
+    case mPCIe_ADIO16_8FDS:
+    case mPCIe_ADIO16_8F:
+    case mPCIe_ADIO16_8A:
+    case mPCIe_ADIO16_8E:
+    case mPCIe_ADI16_8F:
+    case mPCIe_ADI16_8A:
+    case mPCIe_ADI16_8E:
+    case mPCIe_ADIO12_8A:
+    case mPCIe_ADIO12_8:
+    case mPCIe_ADIO12_8E:
+    case mPCIe_ADI12_8A:
+    case mPCIe_ADI12_8:
+    case mPCIe_ADI12_8E:
     break;
 
   default:
@@ -1501,6 +1534,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
       break;
     }
 
+    case PCIe_ADIO16_16FDS:
     case PCIe_ADIO16_16F:
     case PCIe_ADIO16_16A:
     case PCIe_ADIO16_16E:
@@ -1513,6 +1547,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
     case PCIe_ADI12_16A:
     case PCIe_ADI12_16:
     case PCIe_ADI12_16E:
+    case mPCIe_AIO16_16FDS:
     case mPCIe_AIO16_16F:
     case mPCIe_AIO16_16A:
     case mPCIe_AIO16_16E:
@@ -1525,6 +1560,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
     case mPCIe_AI12_16A:
     case mPCIe_AI12_16:
     case mPCIe_AI12_16E:
+    case mPCIe_ADIO16_8FDS:
     case mPCIe_ADIO16_8F:
     case mPCIe_ADIO16_8A:
     case mPCIe_ADIO16_8E:
@@ -1543,7 +1579,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
       // to write to the next buffer (and don't notify the user)
       // else if it is a write done IRQ set last_valid_buffer and notify user
       irq_event = ioread32(ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // TODO: Upgrade to doRegisterAction("AmI?")
-      
+
       if ((irq_event & mPCIe_ADIO_IRQEventMask) == 0)
       {
         apci_devel("ISR: not our IRQ\n");

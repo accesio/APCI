@@ -2,7 +2,7 @@
 #ifndef APCI_COMMON_H
 #define APCI_COMMON_H
 
-#define A_PCI_DEBUG 0 // feel free to change this value
+#define A_PCI_DEBUG 0 /*feel free to change this value*/
 
 /* ACCES does not recommend changing anything _else_ in this file. */
 

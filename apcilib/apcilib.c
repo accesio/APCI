@@ -94,18 +94,46 @@ int apci_write32(int fd, unsigned long device_index, int bar, int offset, __u32 
 }
 
 
-int apci_writebuf32(int fd, unsigned long device_index, int bar, int offset, __u32 *data, int length)
+int apci_writebuf32(int fd, unsigned long device_index, int bar, int bar_offset, unsigned int mmap_offset, int length)
 {
-	string_iopack string_pack;
-	string_pack.device_index = device_index;
-	string_pack.bar = bar;
-	string_pack.offset = offset;
-	string_pack.data = (char *)data;
-	string_pack.length = length;
-	string_pack.size = DWORD;
+	buff_iopack buff_pack;
+	buff_pack.device_index = device_index;
+	buff_pack.bar = bar;
+	buff_pack.bar_offset = bar_offset;
+	buff_pack.mmap_offset = mmap_offset;
+	buff_pack.length = length;
+	buff_pack.size = DWORD;
 
-	return ioctl(fd, apci_write_string_ioctl, &string_pack);
+	return ioctl(fd, apci_write_buff_ioctl, &buff_pack);
 }
+
+int apci_writebuf16(int fd, unsigned long device_index, int bar, int bar_offset, unsigned int mmap_offset, int length)
+{
+	buff_iopack buff_pack;
+	buff_pack.device_index = device_index;
+	buff_pack.bar = bar;
+	buff_pack.bar_offset = bar_offset;
+	buff_pack.mmap_offset = mmap_offset;
+	buff_pack.length = length;
+	buff_pack.size = WORD;
+
+	return ioctl(fd, apci_write_buff_ioctl, &buff_pack);
+}
+
+int apci_writebuf8(int fd, unsigned long device_index, int bar, int bar_offset, unsigned int mmap_offset, int length)
+{
+	buff_iopack buff_pack;
+	buff_pack.device_index = device_index;
+	buff_pack.bar = bar;
+	buff_pack.bar_offset = bar_offset;
+	buff_pack.mmap_offset = mmap_offset;
+	buff_pack.length = length;
+	buff_pack.size = BYTE;
+
+	return ioctl(fd, apci_write_buff_ioctl, &buff_pack);
+}
+
+
 int apci_read8(int fd, unsigned long device_index, int bar, int offset, __u8 *data)
 {
 	iopack io_pack;
@@ -193,4 +221,9 @@ int apci_dma_data_ready(int fd, unsigned long device_index, int *start_index, in
 int apci_dma_data_done(int fd, unsigned long device_index, int num_slots)
 {
 	return ioctl(fd, apci_data_done, num_slots);
+}
+
+int apci_dac_buffer_size (int fd, unsigned long size)
+{
+	return ioctl(fd, apci_set_dac_buff_size, size);
 }
