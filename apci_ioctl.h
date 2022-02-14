@@ -3,10 +3,7 @@
 #define APCI_IOCTL_H
 #define ACCES_MAGIC_NUM 0xE0
 enum SIZE { BYTE = 0, WORD, DWORD};
-
-#ifndef __u32
-#define __u32 unsigned int
-#endif
+#define DAC_BUFF_LEN 65536 * 4
 
 typedef struct {
         unsigned long device_index;
@@ -17,6 +14,17 @@ typedef struct {
 } iopack;
 
 typedef struct {
+        unsigned long device_index;
+        int bar;
+        unsigned int bar_offset;
+        unsigned int mmap_offset; //offset in bytes into mmaped dac fifo buffer
+        enum SIZE size;
+        __u32 length;
+} buff_iopack;
+
+
+typedef struct
+{
         unsigned long device_index;
         int dev_id;
         /* Most likely only base_addresses[2] will be useful.
@@ -53,6 +61,8 @@ typedef struct {
 #define apci_set_dma_transfer_size  _IOW(ACCES_MAGIC_NUM, 9, dma_buffer_settings_t *)
 #define apci_data_ready             _IOR(ACCES_MAGIC_NUM, 10, data_ready_t *)
 #define apci_data_done              _IOW(ACCES_MAGIC_NUM, 11, unsigned long)
+#define apci_write_buff_ioctl       _IOW(ACCES_MAGIC_NUM, 12, buff_iopack *)
+#define apci_set_dac_buff_size     _IOW(ACCES_MAGIC_NUM, 13, unsigned long)
 
 
 

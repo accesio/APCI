@@ -286,6 +286,7 @@ void set_acquisition_rate (int fd, double *Hz)
 	printf("divisor (%d) = ", divisor);
 
 	apci_write32(fd, 1, BAR_REGISTER, ADCRATEDIVISOROFFSET, divisor);
+	printf("DAC Waveform Playback Rate: (%lf Hz)\n", *Hz);
 }
 
 

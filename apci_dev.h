@@ -102,6 +102,7 @@
 #define PCIe_IDIO_12 0x0FC0
 #define PCIe_IDIO_24 0x0FD0
 
+#define PCIe_ADIO16_16FDS 0xC2EF
 #define PCIe_ADIO16_16F 0xC2EC
 #define PCIe_ADIO16_16A 0xC2ED
 #define PCIe_ADIO16_16E 0xC2EE
@@ -115,6 +116,7 @@
 #define PCIe_ADI12_16   0x825D
 #define PCIe_ADI12_16E  0x825E
 
+#define mPCIe_AIO16_16FDS 0xC0EB
 #define mPCIe_AIO16_16F 0xC0E8
 #define mPCIe_AIO16_16A 0xC0E9
 #define mPCIe_AIO16_16E 0xC0EA
@@ -140,6 +142,8 @@
 #define mPCIe_AI12_16A_proto 0x8258
 #define mPCIe_AI12_16_proto 0x8259
 #define mPCIe_AI12_16E_proto 0x825A
+
+#define mPCIe_ADIO16_8FDS 0xC0EF
 #define mPCIe_ADIO16_8F 0xC0EC
 #define mPCIe_ADIO16_8A 0xC0ED
 #define mPCIe_ADIO16_8E 0xC0EE
@@ -234,6 +238,7 @@
 #define NAME_PCIe_IDIO_12				"pcie_idio_12"
 #define NAME_PCIe_IDIO_24				"pcie_idio_24"
 
+#define NAME_PCIe_ADIO16_16FDS          "pcie_adio16_16fds"
 #define NAME_PCIe_ADIO16_16F            "pcie_adio16_16f"
 #define NAME_PCIe_ADIO16_16A            "pcie_adio16_16a"
 #define NAME_PCIe_ADIO16_16E            "pcie_adio16_16e"
@@ -247,7 +252,7 @@
 #define NAME_PCIe_ADI12_16              "pcie_adi12_16"
 #define NAME_PCIe_ADI12_16E             "pcie_adi12_16e"
 
-
+#define NAME_mPCIe_AIO16_16FDS          "mpcie_aio16_16fds"
 #define NAME_mPCIe_AIO16_16F            "mpcie_aio16_16f"
 #define NAME_mPCIe_AIO16_16A            "mpcie_aio16_16a"
 #define NAME_mPCIe_AIO16_16E            "mpcie_aio16_16e"
@@ -272,6 +277,8 @@
 #define NAME_mPCIe_AI12_16A_proto       "mPCIe_AI12_16A_proto"
 #define NAME_mPCIe_AI12_16_proto        "mPCIe_AI12_16_proto"
 #define NAME_mPCIe_AI12_16E_proto       "mPCIe_AI12_16E_proto"
+
+#define NAME_mPCIe_ADIO16_8FDS          "mpcie_adio16_8fds"
 #define NAME_mPCIe_ADIO16_8F            "mpcie_adio16_8f"
 #define NAME_mPCIe_ADIO16_8A            "mpcie_adio16_8a"
 #define NAME_mPCIe_ADIO16_8E            "mpcie_adio16_8e"
@@ -340,6 +347,7 @@ struct apci_my_info {
      int dma_data_discarded;
      spinlock_t dma_data_lock;
 
+     void *dac_fifo_buffer;
 };
 
 int probe(struct pci_dev *dev, const struct pci_device_id *id);
