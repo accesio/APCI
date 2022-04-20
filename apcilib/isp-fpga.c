@@ -123,6 +123,11 @@ int VerifyErase()
 			Result = 0;
 			break;
 		}
+
+		if (iByte % (FileBytesRead / 8) == 0)
+		{
+			printf("Verified erasure of %d/%d of the flash\n", iByte, FileBytesRead);
+		}
 	}
 	if (Result)
 		printf("\nVerification of flash erasure succeeded.\n");
