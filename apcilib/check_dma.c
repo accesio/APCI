@@ -18,11 +18,11 @@
 
 #include "apcilib.h"
 
-#define DEVICEPATH "/dev/apci/mpcie_aio16_16f_0"
+#define DEVICEPATH "/dev/apci/pcie_adio16_16f_0"
 //#define DEVICEPATH "/dev/apci/mpcie_adio16_8e_0"
 #define DEV2PATH "/dev/apci/mpcie_adio16_8f_0"
 
-#define BAR_REGISTER 1
+#define BAR_REGISTER 0
 // Note: This is the overall sample rate, sample rate of each channel is SAMPLE_RATE / CHANNEL_COUNT
 //#define SAMPLE_RATE 1000000.0 /* Hz */
 #define SAMPLE_RATE 100000.0 /* Hz */
@@ -45,10 +45,11 @@ uint8_t CHANNEL_COUNT = 1;             /* For single ended inputs, maximum CHANN
 
 /* Hardware registers */
 #define RESETOFFSET				0x00
-#define DACOFFSET				0x04
-#define BASECLOCKOFFSET			0x0C
-#define DIVISOROFFSET			0x10
-#define ADCRANGEOFFSET			0x18
+//#define DACOFFSET				0x04
+//#define BASECLOCKOFFSET			0x0C
+#define BASECLOCKRATE 				10000000
+#define DIVISOROFFSET			0x18
+#define ADCFIRSTCONFIGOFFSET		0x01
 #define FAFIRQTHRESHOLDOFFSET	0x20
 #define FIFOLEVELOFFSET			0x28
 #define ADCCONTROLOFFSET		0x38
@@ -77,7 +78,7 @@ int fd;
 pthread_t logger_thread;
 pthread_t worker_thread;
 
-			/* diagnostic data dump function; unused */ 
+			/* diagnostic data dump function; unused */
 			void diag_dump_buffer_half (volatile void *mmap_addr, int half)
 			{
 				int i;
@@ -100,9 +101,9 @@ void abort_handler(int s){
 	exit(1);
 }
 
-/* background thread to save acquired data to disk.  
- * Note this has to keep up or the current static-length ring buffer would overwrite data 
- * Launched from Worker Thread 
+/* background thread to save acquired data to disk.
+ * Note this has to keep up or the current static-length ring buffer would overwrite data
+ * Launched from Worker Thread
  */
 void * log_main(void *arg)
 {
@@ -156,7 +157,7 @@ void * log_main(void *arg)
 	 printf("Duration: %f\n", (CHANNEL_COUNT/SAMPLE_RATE) * samples);
 }
 
-/* Background thread to acquire data and queue to logger_thread */ 
+/* Background thread to acquire data and queue to logger_thread */
 void * worker_main(void *arg)
 {
 	int status;
@@ -173,8 +174,8 @@ void * worker_main(void *arg)
 		printf("  Worker Thread: Unable to init semaphore\n");
 		return NULL; // was -1
 	}
-	
-	pthread_create(&logger_thread, NULL, &log_main, NULL); 
+
+	pthread_create(&logger_thread, NULL, &log_main, NULL);
 	printf("  Worker Thread: launched Logging Thread\n");
 
 	int transfer_count = 0;
@@ -187,7 +188,7 @@ void * worker_main(void *arg)
 	{
 		if (0) printf("  Worker Thread: About to call apci_dma_data_ready()\n");
 		fflush(stdout);
-		status = apci_dma_data_ready(fd, 1, &first_slot, &num_slots, &data_discarded);      
+		status = apci_dma_data_ready(fd, 1, &first_slot, &num_slots, &data_discarded);
 
 		if (data_discarded != 0)
 		{
@@ -207,8 +208,8 @@ void * worker_main(void *arg)
 		}
 
 		if (0) printf("  Worker Thread: data [%d slots] in slot %d\n", num_slots, first_slot);
-		
-		
+
+
 		//if ((num_slots >0) && (first_slot + num_slots <= RING_BUFFER_SLOTS)) // J2H version
 		if (first_slot + num_slots <= RING_BUFFER_SLOTS)
 		{
@@ -251,14 +252,10 @@ void * worker_main(void *arg)
 
 void set_acquisition_rate (int fd, double *Hz)
 {
-	uint32_t base_clock;
 	uint32_t divisor;
 
-	apci_read32(fd, 1, BAR_REGISTER, BASECLOCKOFFSET, &base_clock);
-	printf("  set_acquisition_rate: base_clock (%d) / ", base_clock);
-
-	divisor = round(base_clock / *Hz);
-	*Hz = base_clock / divisor; /* actual Hz selected, based on the limitation caused by integer divisors */
+	divisor = round(BASECLOCKRATE / *Hz);
+	*Hz = BASECLOCKRATE / divisor; /* actual Hz selected, based on the limitation caused by integer divisors */
 	printf("divisor (%d) = ", divisor);
 
 	apci_write32(fd, 1, BAR_REGISTER, DIVISOROFFSET, divisor);
@@ -324,7 +321,7 @@ int main (void)
 
 	//reset everything
 	apci_write32(fd, 1,BAR_REGISTER, RESETOFFSET, 0x1);
-	
+
 	//set depth of FIFO to generate IRQ
 	apci_write32(fd, 1, BAR_REGISTER, FAFIRQTHRESHOLDOFFSET, FIFO_SIZE);
 	apci_read32(fd, 1, BAR_REGISTER, FAFIRQTHRESHOLDOFFSET, &depth_readback);
@@ -334,18 +331,20 @@ int main (void)
 	printf("ADC Rate: (%lf Hz)\n", rate);
 
 	//set ranges
-	apci_write32(fd, 1, BAR_REGISTER, ADCRANGEOFFSET, 0);
+	for (int i = 0 ; i < 16 ; i++) {
+		apci_write32(fd, 1, BAR_REGISTER, ADCFIRSTCONFIGOFFSET + i, 0);
+	}
 
 	//enable ADC Trigger IRQ
 	apci_write32(fd, 1, BAR_REGISTER, IRQENABLEOFFSET, bmADIO_ADCTRIGGEREnable|bmADIO_DMADoneEnable);
 
 	// start_command = 0xf4ee; // differential //note: logger thread would need refactoring to handle differential well, it will currently report "0"
 	start_command = 0xfcee; // single-ended
-	
+
 	start_command &= ~(7 << 12);
 	start_command |= HIGH_CHANNEL << 12;
 	start_command |= ADC_START_MASK;
-	
+
 	time_t timerStart, timerEnd;
     char buffer[30];
     struct tm tm_info;
@@ -358,9 +357,9 @@ int main (void)
 	printf("start_command = 0x%05x\n", start_command);
 
 	//diag_dump_buffer_half(mmap_addr, 0);
-	
+
 	do {	} while (! terminate);
-	
+
 	printf("Terminating\n");
 
 	{ // wait for log data to spool to disk
