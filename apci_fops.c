@@ -97,14 +97,6 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 
         case apci_get_device_info_ioctl:
           apci_debug("entering get_device_info \n");
-          #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
-                    status = access_ok( arg, sizeof(info_struct));
-          #else
-                    status = access_ok(VERIFY_WRITE, arg,
-                                   sizeof(info_struct));
-          #endif
-
-          if (status == 0) return -EACCES;
 
           status = copy_from_user(&info, (info_struct *) arg, sizeof(info_struct));
 
@@ -123,16 +115,6 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 
 
         case apci_write_ioctl:
-          #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
-                    status = access_ok (arg, sizeof(iopack));
-          #else
-                    status = access_ok (VERIFY_WRITE, arg, sizeof(iopack));
-          #endif
-
-          if (status == 0) {
-               apci_error("access_ok failed\n");
-               return -EACCES; /* TODO: FIND appropriate return value */
-          }
 
           status = copy_from_user(&io_pack, (iopack *) arg, sizeof(iopack));
           count = 0;
@@ -197,13 +179,6 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 
 
           case apci_read_ioctl:
-               #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
-                         status = access_ok(arg, sizeof(iopack));
-               #else
-                         status = access_ok(VERIFY_WRITE, arg, sizeof(iopack));
-               #endif
-
-               if (status == 0) return -EACCES; /* TODO: Find a better return code */
 
                status = copy_from_user(&io_pack, (iopack *) arg, sizeof(iopack));
                count = 0;
@@ -317,12 +292,6 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
          break;
 
      case apci_set_dma_transfer_size:
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
-          status = access_ok(arg, sizeof(dma_buffer_settings_t));
-#else
-          status = access_ok(VERIFY_WRITE, arg, sizeof(dma_buffer_settings_t));
-#endif
-          if (status == 0) return -EACCES;
           {
                dma_buffer_settings_t settings = {0};
                status = copy_from_user(&settings,
@@ -360,12 +329,6 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
      case apci_data_ready:
          apci_info("Getting data ready\n");
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
-          status = access_ok(arg, sizeof(dma_buffer_settings_t));
-#else
-          status = access_ok(VERIFY_WRITE, arg, sizeof(dma_buffer_settings_t));
-#endif
-          if (status == 0) return -EACCES;
           {
                unsigned long flags;
                int last_valid;
@@ -428,7 +391,7 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
      case apci_write_buff_ioctl:
           status = copy_from_user(&buff_pack, (buff_iopack *) arg, sizeof(buff_iopack));
           if (status != 0) {
-               apci_error("access_ok failed\n");
+               apci_error("copy_from_user failed\n");
                return status;
           }
 
