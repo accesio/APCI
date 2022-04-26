@@ -31,13 +31,19 @@
 #define __devinitdata
 #endif
 
-#define mPCIe_ADIO_IRQStatusAndClearOffset (0x40)
-#define mPCIe_ADIO_IRQEventMask (0xffff0000)
-#define bmADIO_FAFIRQStatus (1 << 20)
-#define bmADIO_DMADoneStatus (1 << 18)
+//#define mPCIe_ADIO_IRQStatusAndClearOffset (0x40)
+//#define mPCIe_ADIO_IRQEventMask (0xffff0000)
+//#define bmADIO_FAFIRQStatus (1 << 20)
+//#define bmADIO_DMADoneStatus (1 << 18)
 #define bmADIO_DMADoneEnable (1 << 2)
 #define bmADIO_ADCTRIGGERStatus (1 << 16)
 #define bmADIO_ADCTRIGGEREnable (1 << 0)
+
+#define mPCIe_ADIO_IRQStatusAndClearOffset (0x2C)
+#define mPCIe_ADIO_IRQEventMask (0x0000000F)
+#define bmADIO_DMADoneStatus (1 << 0)
+#define bmADIO_FAFIRQStatus (1 << 1)
+
 
 /* PCI table construction */
 static struct pci_device_id ids[] = {
@@ -1278,6 +1284,9 @@ apci_class_dev_register(struct apci_my_info *ddata)
 
 irqreturn_t apci_interrupt(int irq, void *dev_id)
 {
+  printk("paras I am here theta\n");
+   apci_devel("I am in ISR\n");
+
   struct apci_my_info *ddata;
   __u8 byte;
   __u32 dword;
@@ -1361,6 +1370,8 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
   } // handle 9052 & 8311 "IAm" IRQ Flags
 
   apci_devel("ISR called.\n");
+
+  printk("paras I am here 4\n");
 
   /* Handle interrupt based on the device ID for the board. */
   switch (ddata->dev_id)
@@ -1449,6 +1460,8 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
     case P104_DIO_96:  /* unknown at this time 6-FEB-2007 */
     case P104_DIO_48S: /* unknown at this time 6-FEB-2007 */
       break;
+
+    printk("paras I am here 3\n");
     case MPCIE_IDIO_8:
     case MPCIE_IIRO_8:
     case MPCIE_IDIO_4:
@@ -1470,6 +1483,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
       outl(dword, ddata->regions[2].start + 0x8);
       break;
 
+    printk("paras I am here 0\n");
     case mPCIe_AIO16_16F_proto:
     case mPCIe_AIO16_16A_proto:
     case mPCIe_AIO16_16E_proto:
@@ -1487,7 +1501,10 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
       // If this is a FIFO near full IRQ then tell the card
       // to write to the next buffer (and don't notify the user?)
       // else if it is a write done IRQ set last_valid_buffer and notify user
-      irq_event = ioread8(ddata->regions[2].mapped_address + 0x2);
+      //irq_event = ioread8(ddata->regions[2].mapped_address + 0x2);
+
+      irq_event = ioread32(ddata->regions[2].mapped_address + 0x2C);
+
       if (irq_event == 0)
       {
         apci_devel("ISR: not our IRQ\n");
@@ -1578,15 +1595,15 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
       // If this is a FIFO near full IRQ then tell the card
       // to write to the next buffer (and don't notify the user)
       // else if it is a write done IRQ set last_valid_buffer and notify user
-      irq_event = ioread32(ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // TODO: Upgrade to doRegisterAction("AmI?")
+      irq_event = ioread32(ddata->regions[1].mapped_address + 0x2C); // TODO: Upgrade to doRegisterAction("AmI?")
 
-      if ((irq_event & mPCIe_ADIO_IRQEventMask) == 0)
+      if ((irq_event & 0x0000000F) == 0)
       {
         apci_devel("ISR: not our IRQ\n");
         return IRQ_NONE;
       }
 
-      if (irq_event & (bmADIO_ADCTRIGGERStatus | bmADIO_DMADoneStatus))
+      if (irq_event & (0x02 | 0x01))
       {
         dma_addr_t base = ddata->dma_addr;
         spin_lock(&(ddata->dma_data_lock));
@@ -1619,10 +1636,21 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
         iowrite32(ddata->dma_slot_size, ddata->regions[0].mapped_address + 8 + 0x10);
         iowrite32(4, ddata->regions[0].mapped_address + 12 + 0x10);
         udelay(5); // ?
+
+        printk("paras I am here 2\n");
+        apci_debug("Here 5\n");
+        //apci_debug("paras--> apci <<--0x%x\n", ioread32(ddata->regions[0].mapped_address +4+ 0x10));
+        //apci_debug("paras--> apci <<--0x%x\n", ioread32(ddata->regions[0].mapped_address +8+ 0x10));
+
+        //apci_debug("paras--> apci <<--0x%x\n", ioread32(ddata->regions[0].mapped_address +12+ 0x10));
+
+
       }
 
-      iowrite32(irq_event, ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // clear whatever IRQ occurred and retain enabled IRQ sources // TODO: Upgrade to doRegisterAction("Clear&Enable")
-      apci_debug("ISR: irq_event = 0x%x, depth = 0x%x, IRQStatus = 0x%x\n", irq_event, ioread32(ddata->regions[1].mapped_address + 0x28), ioread32(ddata->regions[1].mapped_address + 0x40));
+      iowrite32(irq_event, ddata->regions[1].mapped_address + 0x2C); // clear whatever IRQ occurred and retain enabled IRQ sources // TODO: Upgrade to doRegisterAction("Clear&Enable")
+      apci_debug("ISR: irq_event = 0x%x, depth = 0x%x, IRQStatus = 0x%x\n", irq_event, ioread32(ddata->regions[1].mapped_address + 0x24), ioread32(ddata->regions[1].mapped_address + 0x2C));
+
+
       break;
     }
   };// end card-specific switch

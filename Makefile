@@ -1,7 +1,7 @@
 obj-m += apci.o
 CC		:= aarch64-none-linux-gnu-gcc
 KVERSION        := $(shell uname -r)
-KDIR		:= /usr/src/linux
+KDIR		:= /home/parasbhanot/SDK_v21/board-support/linux-5.10.41+gitAUTOINC+4c2eade9f7-g4c2eade9f7/
 
 apci-objs :=      \
     apci_fops.o   \
