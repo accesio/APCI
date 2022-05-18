@@ -395,6 +395,15 @@ static struct pci_device_id ids[] = {
         PCI_DEVICE(A_VENDOR_ID, PCI_A12_16A),
     },
     {
+        PCI_DEVICE(A_VENDOR_ID, PCIe_DIO_72),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, PCIe_DIO_96),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, PCIe_DIO_120),
+    },
+    {
         0,
     }};
 MODULE_DEVICE_TABLE(pci, ids);
@@ -578,7 +587,10 @@ static struct apci_lookup_table_entry apci_driver_table[] =
         APCI_MAKE_ENTRY(mPCIe_ADI12_8A),
         APCI_MAKE_ENTRY(mPCIe_ADI12_8),
         APCI_MAKE_ENTRY(mPCIe_ADI12_8E),
-        APCI_MAKE_ENTRY(PCIe_DIO_24HC), );
+        APCI_MAKE_ENTRY(PCIe_DIO_24HC),
+        APCI_MAKE_ENTRY(PCIe_DIO_72),
+        APCI_MAKE_ENTRY(PCIe_DIO_96),
+        APCI_MAKE_ENTRY(PCIe_DIO_120), );
 
 #define APCI_TABLE_SIZE sizeof(apci_driver_table) / sizeof(struct apci_lookup_table_entry)
 #define APCI_TABLE_ENTRY_SIZE sizeof(struct apci_lookup_table_entry)
@@ -1394,6 +1406,9 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
     case PCI_DIO_96CT:
     case PCI_DIO_96C3:
     case PCI_DIO_120:
+    case PCIe_DIO_72:
+    case PCIe_DIO_96:
+    case PCIe_DIO_120:
       outb(0, ddata->regions[2].start + 0x1e);
       outb(0, ddata->regions[2].start + 0x1f);
       break;
