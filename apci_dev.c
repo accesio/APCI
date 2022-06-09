@@ -854,6 +854,9 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case PCIe_IDIO_12:
   case PCIe_IDIO_24:
   case PCIe_DIO_24HC:
+  case PCIe_DIO_72:
+  case PCIe_DIO_96:
+  case PCIe_DIO_120:
     ddata->regions[2].start = pci_resource_start(pdev, 2);
     ddata->regions[2].end = pci_resource_end(pdev, 2);
     ddata->regions[2].flags = pci_resource_flags(pdev, 2);
