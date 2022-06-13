@@ -1,2 +1,17 @@
 .vscode
 **/.csv
+.apci.ko.cmd
+.apci.mod.cmd
+.apci.mod.o.cmd
+.apci.o.cmd
+.apci_dev.o.cmd
+.apci_fops.o.cmd
+Module.symvers
+apci.ko
+apci.mod
+apci.mod.c
+apci.mod.o
+apci.o
+apci_dev.o
+apci_fops.o
+modules.order

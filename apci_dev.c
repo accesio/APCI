@@ -216,6 +216,12 @@ static struct pci_device_id ids[] = {
         PCI_DEVICE(A_VENDOR_ID, MPCIE_QUAD_8),
     },
     {
+        PCI_DEVICE(A_VENDOR_ID, PCI_QUAD_8),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, PCI_QUAD_4),
+    },
+    {
         PCI_DEVICE(A_VENDOR_ID, MPCIE_DIO_24),
     },
     {
@@ -529,6 +535,11 @@ static struct apci_lookup_table_entry apci_driver_table[] =
         APCI_MAKE_ENTRY(MPCIE_II_4),
         APCI_MAKE_ENTRY(MPCIE_QUAD_4),
         APCI_MAKE_ENTRY(MPCIE_QUAD_8),
+
+        APCI_MAKE_ENTRY(PCI_QUAD_8),
+        APCI_MAKE_ENTRY(PCI_QUAD_4),
+
+
         APCI_MAKE_ENTRY(MPCIE_DIO_24),
         APCI_MAKE_ENTRY(PCI_WDG_IMPAC),
         // APCI_MAKE_ENTRY( MPCIE_DIO_24S ),
@@ -715,43 +726,43 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
 
   switch (ddata->dev_id)
   {
-    case mPCIe_AIO16_16FDS:
-    case mPCIe_AIO16_16F:
-    case mPCIe_AIO16_16A:
-    case mPCIe_AIO16_16E:
-    case mPCIe_AI16_16F:
-    case mPCIe_AI16_16A:
-    case mPCIe_AI16_16E:
-    case mPCIe_AIO12_16A:
-    case mPCIe_AIO12_16:
-    case mPCIe_AIO12_16E:
-    case mPCIe_AI12_16A:
-    case mPCIe_AI12_16:
-    case mPCIe_AI12_16E:
-    case mPCIe_ADIO16_8FDS:
-    case mPCIe_ADIO16_8F:
-    case mPCIe_ADI16_8F:
-    case mPCIe_ADI16_8A:
-    case mPCIe_ADI16_8E:
-    case mPCIe_ADIO12_8A:
-    case mPCIe_ADIO12_8:
-    case mPCIe_ADIO12_8E:
-    case mPCIe_ADI12_8A:
-    case mPCIe_ADI12_8:
-    case mPCIe_ADI12_8E:
-    case PCIe_ADIO16_16FDS:
-    case PCIe_ADIO16_16F:
-    case PCIe_ADIO16_16A:
-    case PCIe_ADIO16_16E:
-    case PCIe_ADI16_16F:
-    case PCIe_ADI16_16A:
-    case PCIe_ADI16_16E:
-    case PCIe_ADIO12_16A:
-    case PCIe_ADIO12_16:
-    case PCIe_ADIO12_16E:
-    case PCIe_ADI12_16A:
-    case PCIe_ADI12_16:
-    case PCIe_ADI12_16E:
+  case mPCIe_AIO16_16FDS:
+  case mPCIe_AIO16_16F:
+  case mPCIe_AIO16_16A:
+  case mPCIe_AIO16_16E:
+  case mPCIe_AI16_16F:
+  case mPCIe_AI16_16A:
+  case mPCIe_AI16_16E:
+  case mPCIe_AIO12_16A:
+  case mPCIe_AIO12_16:
+  case mPCIe_AIO12_16E:
+  case mPCIe_AI12_16A:
+  case mPCIe_AI12_16:
+  case mPCIe_AI12_16E:
+  case mPCIe_ADIO16_8FDS:
+  case mPCIe_ADIO16_8F:
+  case mPCIe_ADI16_8F:
+  case mPCIe_ADI16_8A:
+  case mPCIe_ADI16_8E:
+  case mPCIe_ADIO12_8A:
+  case mPCIe_ADIO12_8:
+  case mPCIe_ADIO12_8E:
+  case mPCIe_ADI12_8A:
+  case mPCIe_ADI12_8:
+  case mPCIe_ADI12_8E:
+  case PCIe_ADIO16_16FDS:
+  case PCIe_ADIO16_16F:
+  case PCIe_ADIO16_16A:
+  case PCIe_ADIO16_16E:
+  case PCIe_ADI16_16F:
+  case PCIe_ADI16_16A:
+  case PCIe_ADI16_16E:
+  case PCIe_ADIO12_16A:
+  case PCIe_ADIO12_16:
+  case PCIe_ADIO12_16E:
+  case PCIe_ADI12_16A:
+  case PCIe_ADI12_16:
+  case PCIe_ADI12_16E:
     break;
 
   default:
@@ -822,6 +833,8 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case MPCIE_II_4:
   case MPCIE_QUAD_4:
   case MPCIE_QUAD_8:
+  case PCI_QUAD_8:
+  case PCI_QUAD_4:
   case MPCIE_DIO_24:
   case PCIe_DIO_24DS:
   case PCIe_DIO_24DC:
@@ -1302,45 +1315,45 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
   ddata = (struct apci_my_info *)dev_id;
   switch (ddata->dev_id)
   {
-    case PCIe_ADIO16_16FDS:
-    case PCIe_ADIO16_16F:
-    case PCIe_ADIO16_16A:
-    case PCIe_ADIO16_16E:
-    case PCIe_ADI16_16F:
-    case PCIe_ADI16_16A:
-    case PCIe_ADI16_16E:
-    case PCIe_ADIO12_16A:
-    case PCIe_ADIO12_16:
-    case PCIe_ADIO12_16E:
-    case PCIe_ADI12_16A:
-    case PCIe_ADI12_16:
-    case PCIe_ADI12_16E:
-    case mPCIe_AIO16_16FDS:
-    case mPCIe_AIO16_16F:
-    case mPCIe_AIO16_16A:
-    case mPCIe_AIO16_16E:
-    case mPCIe_AI16_16F:
-    case mPCIe_AI16_16A:
-    case mPCIe_AI16_16E:
-    case mPCIe_AIO12_16A:
-    case mPCIe_AIO12_16:
-    case mPCIe_AIO12_16E:
-    case mPCIe_AI12_16A:
-    case mPCIe_AI12_16:
-    case mPCIe_AI12_16E:
-    case mPCIe_ADIO16_8FDS:
-    case mPCIe_ADIO16_8F:
-    case mPCIe_ADIO16_8A:
-    case mPCIe_ADIO16_8E:
-    case mPCIe_ADI16_8F:
-    case mPCIe_ADI16_8A:
-    case mPCIe_ADI16_8E:
-    case mPCIe_ADIO12_8A:
-    case mPCIe_ADIO12_8:
-    case mPCIe_ADIO12_8E:
-    case mPCIe_ADI12_8A:
-    case mPCIe_ADI12_8:
-    case mPCIe_ADI12_8E:
+  case PCIe_ADIO16_16FDS:
+  case PCIe_ADIO16_16F:
+  case PCIe_ADIO16_16A:
+  case PCIe_ADIO16_16E:
+  case PCIe_ADI16_16F:
+  case PCIe_ADI16_16A:
+  case PCIe_ADI16_16E:
+  case PCIe_ADIO12_16A:
+  case PCIe_ADIO12_16:
+  case PCIe_ADIO12_16E:
+  case PCIe_ADI12_16A:
+  case PCIe_ADI12_16:
+  case PCIe_ADI12_16E:
+  case mPCIe_AIO16_16FDS:
+  case mPCIe_AIO16_16F:
+  case mPCIe_AIO16_16A:
+  case mPCIe_AIO16_16E:
+  case mPCIe_AI16_16F:
+  case mPCIe_AI16_16A:
+  case mPCIe_AI16_16E:
+  case mPCIe_AIO12_16A:
+  case mPCIe_AIO12_16:
+  case mPCIe_AIO12_16E:
+  case mPCIe_AI12_16A:
+  case mPCIe_AI12_16:
+  case mPCIe_AI12_16E:
+  case mPCIe_ADIO16_8FDS:
+  case mPCIe_ADIO16_8F:
+  case mPCIe_ADIO16_8A:
+  case mPCIe_ADIO16_8E:
+  case mPCIe_ADI16_8F:
+  case mPCIe_ADI16_8A:
+  case mPCIe_ADI16_8E:
+  case mPCIe_ADIO12_8A:
+  case mPCIe_ADIO12_8:
+  case mPCIe_ADIO12_8E:
+  case mPCIe_ADI12_8A:
+  case mPCIe_ADI12_8:
+  case mPCIe_ADI12_8E:
     break;
 
   default:
@@ -1380,270 +1393,300 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
   /* Handle interrupt based on the device ID for the board. */
   switch (ddata->dev_id)
   {
-    case PCIe_DIO_24:
-    case PCIe_DIO_24D:
-    case PCIe_DIO_24S:
-    case PCIe_DIO_24DS:
-    case PCIe_DIO_24DC:
-    case PCIe_DIO_24DCS:
-    case PCIe_DIO_48:
-    case PCIe_DIO_48S:
-    case PCI_DIO_24H:
-    case PCI_DIO_24D:
-    case PCI_DIO_24H_C:
-    case PCI_DIO_24D_C:
-    case PCI_DIO_24S:
-    case PCI_DIO_48:
-    case PCI_DIO_48S:
-    case MPCIE_DIO_24:
-    case MPCIE_DIO_24S:
-    case MPCIE_DIO_24S_R1:
-      outb(0, ddata->regions[2].start + 0x0f);
-      break;
+  case PCIe_DIO_24:
+  case PCIe_DIO_24D:
+  case PCIe_DIO_24S:
+  case PCIe_DIO_24DS:
+  case PCIe_DIO_24DC:
+  case PCIe_DIO_24DCS:
+  case PCIe_DIO_48:
+  case PCIe_DIO_48S:
+  case PCI_DIO_24H:
+  case PCI_DIO_24D:
+  case PCI_DIO_24H_C:
+  case PCI_DIO_24D_C:
+  case PCI_DIO_24S:
+  case PCI_DIO_48:
+  case PCI_DIO_48S:
+  case MPCIE_DIO_24:
+  case MPCIE_DIO_24S:
+  case MPCIE_DIO_24S_R1:
+    outb(0, ddata->regions[2].start + 0x0f);
+    break;
 
-      /* These cards don't have the IRQ simply "Cleared",
-      * it must be disabled then re-enabled.
-      */
-    case PCI_DIO_72:
-    case PCI_DIO_96:
-    case PCI_DIO_96CT:
-    case PCI_DIO_96C3:
-    case PCI_DIO_120:
-    case PCIe_DIO_72:
-    case PCIe_DIO_96:
-    case PCIe_DIO_120:
-      outb(0, ddata->regions[2].start + 0x1e);
-      outb(0, ddata->regions[2].start + 0x1f);
-      break;
+    /* These cards don't have the IRQ simply "Cleared",
+     * it must be disabled then re-enabled.
+     */
+  case PCI_DIO_72:
+  case PCI_DIO_96:
+  case PCI_DIO_96CT:
+  case PCI_DIO_96C3:
+  case PCI_DIO_120:
+  case PCIe_DIO_72:
+  case PCIe_DIO_96:
+  case PCIe_DIO_120:
+    outb(0, ddata->regions[2].start + 0x1e);
+    outb(0, ddata->regions[2].start + 0x1f);
+    break;
 
-    case PCI_DA12_16:
-    case PCI_DA12_8:
-    case PCIe_DA16_16:
-    case PCIe_DA16_8:
-    case PCIe_DA12_16:
-    case PCIe_DA12_8:
-      byte = inb(ddata->regions[2].start + 0xC);
-      break;
+  case PCI_DA12_16:
+  case PCI_DA12_8:
+  case PCIe_DA16_16:
+  case PCIe_DA16_8:
+  case PCIe_DA12_16:
+  case PCIe_DA12_8:
+    byte = inb(ddata->regions[2].start + 0xC);
+    break;
 
-    case PCI_WDG_CSM:
-      outb(0, ddata->regions[2].start + 0x9);
-      outb(0, ddata->regions[2].start + 0x4);
-      break;
+  case PCI_WDG_CSM:
+    outb(0, ddata->regions[2].start + 0x9);
+    outb(0, ddata->regions[2].start + 0x4);
+    break;
 
-    case PCIe_IIRO_8:
-    case PCIe_IIRO_16:
-    case PCI_IIRO_8:
-    case PCI_IIRO_16:
-    case PCI_IDIO_16:
-    case LPCI_IIRO_8:
-      apci_devel("Interrupt for PCIe_IIRO_8");
-      outb(0, ddata->regions[2].start + 0x1);
-      break;
+  case PCIe_IIRO_8:
+  case PCIe_IIRO_16:
+  case PCI_IIRO_8:
+  case PCI_IIRO_16:
+  case PCI_IDIO_16:
+  case LPCI_IIRO_8:
+    apci_devel("Interrupt for PCIe_IIRO_8");
+    outb(0, ddata->regions[2].start + 0x1);
+    break;
 
-    case PCI_IDI_48:
-      byte = inb(ddata->regions[2].start + 0x7);
-      break;
+  case PCI_IDI_48:
+    byte = inb(ddata->regions[2].start + 0x7);
+    break;
 
-    case PCI_AI12_16:
-    case PCI_AI12_16_:
-    case PCI_AI12_16A:
-    case PCI_AIO12_16:
-    case PCI_A12_16A:
-      /* Clear the FIFO interrupt enable bits, but leave
-      * the counter enabled.  Otherwise the IRQ will not
-      * go away and user code will never run as the machine
-      * will hang in a never-ending IRQ loop. The userland
-      * irq routine must re-enable the interrupts if desired.
-      */
-      outb(0x01, ddata->regions[2].start + 0x4);
-      byte = inb(ddata->regions[2].start + 0x4);
-      break;
+  case PCI_AI12_16:
+  case PCI_AI12_16_:
+  case PCI_AI12_16A:
+  case PCI_AIO12_16:
+  case PCI_A12_16A:
+    /* Clear the FIFO interrupt enable bits, but leave
+     * the counter enabled.  Otherwise the IRQ will not
+     * go away and user code will never run as the machine
+     * will hang in a never-ending IRQ loop. The userland
+     * irq routine must re-enable the interrupts if desired.
+     */
+    outb(0x01, ddata->regions[2].start + 0x4);
+    byte = inb(ddata->regions[2].start + 0x4);
+    break;
 
-    case LPCI_A16_16A:
-      outb(0, ddata->regions[2].start + 0xc);
-      outb(0x10, ddata->regions[2].start + 0xc);
-      break;
+  case LPCI_A16_16A:
+    outb(0, ddata->regions[2].start + 0xc);
+    outb(0x10, ddata->regions[2].start + 0xc);
+    break;
 
-    case P104_DIO_96:  /* unknown at this time 6-FEB-2007 */
-    case P104_DIO_48S: /* unknown at this time 6-FEB-2007 */
-      break;
-    case MPCIE_IDIO_8:
-    case MPCIE_IIRO_8:
-    case MPCIE_IDIO_4:
-    case MPCIE_IIRO_4:
-    case MPCIE_IDO_8:
-    case MPCIE_RO_8:
-    case MPCIE_II_16:
-    case MPCIE_II_8:
-    case MPCIE_II_4:
-    case MPCIE_QUAD_4:
-    case MPCIE_QUAD_8:
-      outb(0xff, ddata->regions[2].start + 41);
-      break;
+  case P104_DIO_96:  /* unknown at this time 6-FEB-2007 */
+  case P104_DIO_48S: /* unknown at this time 6-FEB-2007 */
+    break;
+  case MPCIE_IDIO_8:
+  case MPCIE_IIRO_8:
+  case MPCIE_IDIO_4:
+  case MPCIE_IIRO_4:
+  case MPCIE_IDO_8:
+  case MPCIE_RO_8:
+  case MPCIE_II_16:
+  case MPCIE_II_8:
+  case MPCIE_II_4:
+    outb(0xff, ddata->regions[2].start + 41);
+    break;
 
-    case PCIe_IDIO_12:
-    case PCIe_IDIO_24:
-      /* read 32 bits from +8 to determine which specific bits have generated a CoS IRQ then write the same value back to +8 to clear those CoS latches */
-      dword = inl(ddata->regions[2].start + 0x8);
-      outl(dword, ddata->regions[2].start + 0x8);
-      break;
-
-    case mPCIe_AIO16_16F_proto:
-    case mPCIe_AIO16_16A_proto:
-    case mPCIe_AIO16_16E_proto:
-    case mPCIe_AI16_16F_proto:
-    case mPCIe_AI16_16A_proto:
-    case mPCIe_AI16_16E_proto:
-    case mPCIe_AIO12_16A_proto:
-    case mPCIe_AIO12_16_proto:
-    case mPCIe_AIO12_16E_proto:
-    case mPCIe_AI12_16A_proto:
-    case mPCIe_AI12_16_proto:
-    case mPCIe_AI12_16E_proto: // DMA capable cards
+  case MPCIE_QUAD_4:
+  case PCI_QUAD_4:
     {
-      apci_devel("ISR: mPCIe-AI irq_event\n");
-      // If this is a FIFO near full IRQ then tell the card
-      // to write to the next buffer (and don't notify the user?)
-      // else if it is a write done IRQ set last_valid_buffer and notify user
-      irq_event = ioread8(ddata->regions[2].mapped_address + 0x2);
-      if (irq_event == 0)
+      int i;
+      for (i = 0; i < 4; i++)
       {
-        apci_devel("ISR: not our IRQ\n");
-        return IRQ_NONE;
-      }
+        byte = inb(ddata->regions[2].start + 0x8 * i + 7);
+        if (0 ==( byte & 0x80))
+          break;
 
-      if (irq_event & 0x1) // FIFO almost full
+        if (byte & 0x08)
+          outb(0x08, ddata->regions[2].start + 0x8 * i + 6);
+      }
+    }
+    break;
+
+  case MPCIE_QUAD_8:
+  case PCI_QUAD_8:
+    {
+      int i;
+      for (i = 0; i < 8; i++)
       {
-        dma_addr_t base = ddata->dma_addr;
-        spin_lock(&(ddata->dma_data_lock));
-        if (ddata->dma_last_buffer == -1)
-        {
-          notify_user = false;
-          apci_debug("ISR First IRQ");
-        }
-        else if (ddata->dma_first_valid == -1)
-        {
-          ddata->dma_first_valid = 0;
-        }
+        byte = inb(ddata->regions[2].start + 0x8 * i + 7);
+        if (0 == (byte & 0x80))
+          break;
 
-        ddata->dma_last_buffer++;
-        ddata->dma_last_buffer %= ddata->dma_num_slots;
-
-        if (ddata->dma_last_buffer == ddata->dma_first_valid)
-        {
-          apci_error("ISR: data discarded");
-          ddata->dma_last_buffer--;
-          if (ddata->dma_last_buffer < 0)
-            ddata->dma_last_buffer = ddata->dma_num_slots - 1;
-          ddata->dma_data_discarded++;
-        }
-        spin_unlock(&(ddata->dma_data_lock));
-        base += ddata->dma_slot_size * ddata->dma_last_buffer;
-
-        iowrite32(base & 0xffffffff, ddata->regions[0].mapped_address);
-        iowrite32(base >> 32, ddata->regions[0].mapped_address + 4);
-        iowrite32(ddata->dma_slot_size, ddata->regions[0].mapped_address + 8);
-        iowrite32(4, ddata->regions[0].mapped_address + 12);
-        udelay(5);
+        if (byte & 0x08)
+          outb(0x08, ddata->regions[2].start + 0x8 * i + 6);
       }
+    }
+    break;
 
-      iowrite8(irq_event, ddata->regions[2].mapped_address + 0x2);
-      apci_debug("ISR: irq_event = 0x%x, depth = 0x%x\n", irq_event, ioread32(ddata->regions[2].mapped_address + 0x28));
-      break;
+  case PCIe_IDIO_12:
+  case PCIe_IDIO_24:
+    /* read 32 bits from +8 to determine which specific bits have generated a CoS IRQ then write the same value back to +8 to clear those CoS latches */
+    dword = inl(ddata->regions[2].start + 0x8);
+    outl(dword, ddata->regions[2].start + 0x8);
+    break;
+
+  case mPCIe_AIO16_16F_proto:
+  case mPCIe_AIO16_16A_proto:
+  case mPCIe_AIO16_16E_proto:
+  case mPCIe_AI16_16F_proto:
+  case mPCIe_AI16_16A_proto:
+  case mPCIe_AI16_16E_proto:
+  case mPCIe_AIO12_16A_proto:
+  case mPCIe_AIO12_16_proto:
+  case mPCIe_AIO12_16E_proto:
+  case mPCIe_AI12_16A_proto:
+  case mPCIe_AI12_16_proto:
+  case mPCIe_AI12_16E_proto: // DMA capable cards
+  {
+    apci_devel("ISR: mPCIe-AI irq_event\n");
+    // If this is a FIFO near full IRQ then tell the card
+    // to write to the next buffer (and don't notify the user?)
+    // else if it is a write done IRQ set last_valid_buffer and notify user
+    irq_event = ioread8(ddata->regions[2].mapped_address + 0x2);
+    if (irq_event == 0)
+    {
+      apci_devel("ISR: not our IRQ\n");
+      return IRQ_NONE;
     }
 
-    case PCIe_ADIO16_16FDS:
-    case PCIe_ADIO16_16F:
-    case PCIe_ADIO16_16A:
-    case PCIe_ADIO16_16E:
-    case PCIe_ADI16_16F:
-    case PCIe_ADI16_16A:
-    case PCIe_ADI16_16E:
-    case PCIe_ADIO12_16A:
-    case PCIe_ADIO12_16:
-    case PCIe_ADIO12_16E:
-    case PCIe_ADI12_16A:
-    case PCIe_ADI12_16:
-    case PCIe_ADI12_16E:
-    case mPCIe_AIO16_16FDS:
-    case mPCIe_AIO16_16F:
-    case mPCIe_AIO16_16A:
-    case mPCIe_AIO16_16E:
-    case mPCIe_AI16_16F:
-    case mPCIe_AI16_16A:
-    case mPCIe_AI16_16E:
-    case mPCIe_AIO12_16A:
-    case mPCIe_AIO12_16:
-    case mPCIe_AIO12_16E:
-    case mPCIe_AI12_16A:
-    case mPCIe_AI12_16:
-    case mPCIe_AI12_16E:
-    case mPCIe_ADIO16_8FDS:
-    case mPCIe_ADIO16_8F:
-    case mPCIe_ADIO16_8A:
-    case mPCIe_ADIO16_8E:
-    case mPCIe_ADI16_8F:
-    case mPCIe_ADI16_8A:
-    case mPCIe_ADI16_8E:
-    case mPCIe_ADIO12_8A:
-    case mPCIe_ADIO12_8:
-    case mPCIe_ADIO12_8E:
-    case mPCIe_ADI12_8A:
-    case mPCIe_ADI12_8:
-    case mPCIe_ADI12_8E:
+    if (irq_event & 0x1) // FIFO almost full
     {
-      apci_devel("ISR: mPCIe-AxIO irq_event\n");
-      // If this is a FIFO near full IRQ then tell the card
-      // to write to the next buffer (and don't notify the user)
-      // else if it is a write done IRQ set last_valid_buffer and notify user
-      irq_event = ioread32(ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // TODO: Upgrade to doRegisterAction("AmI?")
-
-      if ((irq_event & mPCIe_ADIO_IRQEventMask) == 0)
+      dma_addr_t base = ddata->dma_addr;
+      spin_lock(&(ddata->dma_data_lock));
+      if (ddata->dma_last_buffer == -1)
       {
-        apci_devel("ISR: not our IRQ\n");
-        return IRQ_NONE;
+        notify_user = false;
+        apci_debug("ISR First IRQ");
+      }
+      else if (ddata->dma_first_valid == -1)
+      {
+        ddata->dma_first_valid = 0;
       }
 
-      if (irq_event & (bmADIO_ADCTRIGGERStatus | bmADIO_DMADoneStatus))
+      ddata->dma_last_buffer++;
+      ddata->dma_last_buffer %= ddata->dma_num_slots;
+
+      if (ddata->dma_last_buffer == ddata->dma_first_valid)
       {
-        dma_addr_t base = ddata->dma_addr;
-        spin_lock(&(ddata->dma_data_lock));
-        if (ddata->dma_last_buffer == -1)
-        {
-          notify_user = false;
-          apci_debug("ISR First IRQ");
-        }
-        else if (ddata->dma_first_valid == -1)
-        {
-          ddata->dma_first_valid = 0;
-        }
-
-        ddata->dma_last_buffer++;
-        ddata->dma_last_buffer %= ddata->dma_num_slots;
-
-        if (ddata->dma_last_buffer == ddata->dma_first_valid)
-        {
-          apci_error("ISR: data discarded");
-          ddata->dma_last_buffer--;
-          if (ddata->dma_last_buffer < 0)
-            ddata->dma_last_buffer = ddata->dma_num_slots - 1;
-          ddata->dma_data_discarded++;
-        }
-        spin_unlock(&(ddata->dma_data_lock));
-        base += ddata->dma_slot_size * ddata->dma_last_buffer;
-
-        iowrite32(base & 0xffffffff, ddata->regions[0].mapped_address + 0x10);
-        iowrite32(base >> 32, ddata->regions[0].mapped_address + 4 + 0x10);
-        iowrite32(ddata->dma_slot_size, ddata->regions[0].mapped_address + 8 + 0x10);
-        iowrite32(4, ddata->regions[0].mapped_address + 12 + 0x10);
-        udelay(5); // ?
+        apci_error("ISR: data discarded");
+        ddata->dma_last_buffer--;
+        if (ddata->dma_last_buffer < 0)
+          ddata->dma_last_buffer = ddata->dma_num_slots - 1;
+        ddata->dma_data_discarded++;
       }
+      spin_unlock(&(ddata->dma_data_lock));
+      base += ddata->dma_slot_size * ddata->dma_last_buffer;
 
-      iowrite32(irq_event, ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // clear whatever IRQ occurred and retain enabled IRQ sources // TODO: Upgrade to doRegisterAction("Clear&Enable")
-      apci_debug("ISR: irq_event = 0x%x, depth = 0x%x, IRQStatus = 0x%x\n", irq_event, ioread32(ddata->regions[1].mapped_address + 0x28), ioread32(ddata->regions[1].mapped_address + 0x40));
-      break;
+      iowrite32(base & 0xffffffff, ddata->regions[0].mapped_address);
+      iowrite32(base >> 32, ddata->regions[0].mapped_address + 4);
+      iowrite32(ddata->dma_slot_size, ddata->regions[0].mapped_address + 8);
+      iowrite32(4, ddata->regions[0].mapped_address + 12);
+      udelay(5);
     }
-  };// end card-specific switch
+
+    iowrite8(irq_event, ddata->regions[2].mapped_address + 0x2);
+    apci_debug("ISR: irq_event = 0x%x, depth = 0x%x\n", irq_event, ioread32(ddata->regions[2].mapped_address + 0x28));
+    break;
+  }
+
+  case PCIe_ADIO16_16FDS:
+  case PCIe_ADIO16_16F:
+  case PCIe_ADIO16_16A:
+  case PCIe_ADIO16_16E:
+  case PCIe_ADI16_16F:
+  case PCIe_ADI16_16A:
+  case PCIe_ADI16_16E:
+  case PCIe_ADIO12_16A:
+  case PCIe_ADIO12_16:
+  case PCIe_ADIO12_16E:
+  case PCIe_ADI12_16A:
+  case PCIe_ADI12_16:
+  case PCIe_ADI12_16E:
+  case mPCIe_AIO16_16FDS:
+  case mPCIe_AIO16_16F:
+  case mPCIe_AIO16_16A:
+  case mPCIe_AIO16_16E:
+  case mPCIe_AI16_16F:
+  case mPCIe_AI16_16A:
+  case mPCIe_AI16_16E:
+  case mPCIe_AIO12_16A:
+  case mPCIe_AIO12_16:
+  case mPCIe_AIO12_16E:
+  case mPCIe_AI12_16A:
+  case mPCIe_AI12_16:
+  case mPCIe_AI12_16E:
+  case mPCIe_ADIO16_8FDS:
+  case mPCIe_ADIO16_8F:
+  case mPCIe_ADIO16_8A:
+  case mPCIe_ADIO16_8E:
+  case mPCIe_ADI16_8F:
+  case mPCIe_ADI16_8A:
+  case mPCIe_ADI16_8E:
+  case mPCIe_ADIO12_8A:
+  case mPCIe_ADIO12_8:
+  case mPCIe_ADIO12_8E:
+  case mPCIe_ADI12_8A:
+  case mPCIe_ADI12_8:
+  case mPCIe_ADI12_8E:
+  {
+    apci_devel("ISR: mPCIe-AxIO irq_event\n");
+    // If this is a FIFO near full IRQ then tell the card
+    // to write to the next buffer (and don't notify the user)
+    // else if it is a write done IRQ set last_valid_buffer and notify user
+    irq_event = ioread32(ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // TODO: Upgrade to doRegisterAction("AmI?")
+
+    if ((irq_event & mPCIe_ADIO_IRQEventMask) == 0)
+    {
+      apci_devel("ISR: not our IRQ\n");
+      return IRQ_NONE;
+    }
+
+    if (irq_event & (bmADIO_ADCTRIGGERStatus | bmADIO_DMADoneStatus))
+    {
+      dma_addr_t base = ddata->dma_addr;
+      spin_lock(&(ddata->dma_data_lock));
+      if (ddata->dma_last_buffer == -1)
+      {
+        notify_user = false;
+        apci_debug("ISR First IRQ");
+      }
+      else if (ddata->dma_first_valid == -1)
+      {
+        ddata->dma_first_valid = 0;
+      }
+
+      ddata->dma_last_buffer++;
+      ddata->dma_last_buffer %= ddata->dma_num_slots;
+
+      if (ddata->dma_last_buffer == ddata->dma_first_valid)
+      {
+        apci_error("ISR: data discarded");
+        ddata->dma_last_buffer--;
+        if (ddata->dma_last_buffer < 0)
+          ddata->dma_last_buffer = ddata->dma_num_slots - 1;
+        ddata->dma_data_discarded++;
+      }
+      spin_unlock(&(ddata->dma_data_lock));
+      base += ddata->dma_slot_size * ddata->dma_last_buffer;
+
+      iowrite32(base & 0xffffffff, ddata->regions[0].mapped_address + 0x10);
+      iowrite32(base >> 32, ddata->regions[0].mapped_address + 4 + 0x10);
+      iowrite32(ddata->dma_slot_size, ddata->regions[0].mapped_address + 8 + 0x10);
+      iowrite32(4, ddata->regions[0].mapped_address + 12 + 0x10);
+      udelay(5); // ?
+    }
+
+    iowrite32(irq_event, ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // clear whatever IRQ occurred and retain enabled IRQ sources // TODO: Upgrade to doRegisterAction("Clear&Enable")
+    apci_debug("ISR: irq_event = 0x%x, depth = 0x%x, IRQStatus = 0x%x\n", irq_event, ioread32(ddata->regions[1].mapped_address + 0x28), ioread32(ddata->regions[1].mapped_address + 0x40));
+    break;
+  }
+  }; // end card-specific switch
 
   /* Check to see if we were actually waiting for an IRQ. If we were
    * then we need to wake the queue associated with this device.

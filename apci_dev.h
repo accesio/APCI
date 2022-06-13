@@ -98,6 +98,10 @@
 #define MPCIE_II_4    0x0109
 #define MPCIE_QUAD_8 0x010A
 #define MPCIE_QUAD_4 0x010B
+
+#define PCI_QUAD_8 0x2230
+#define PCI_QUAD_4 0x2231
+
 #define MPCIE_DIO_24  0x0C57
 #define PCIe_IDIO_12 0x0FC0
 #define PCIe_IDIO_24 0x0FD0
@@ -233,6 +237,10 @@
 #define NAME_MPCIE_QUAD_8               "mpcie_quad_8"
 #define NAME_MPCIE_QUAD_4               "mpcie_quad_4"
 #define NAME_MPCIE_DIO_24               "mpcie_dio_24"
+
+#define NAME_PCI_QUAD_8                 "pci_quad_8"
+#define NAME_PCI_QUAD_4                 "pci_quad_4"
+
 //#define NAME_MPCIE_DIO_24S              "mpcie_dio_24s"
 #define NAME_MPCIE_DIO_24S_R1           "mpcie_dio_24s"
 #define NAME_PCIe_IDIO_12				"pcie_idio_12"
