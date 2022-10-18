@@ -87,6 +87,7 @@
 #define PCI_WDG_IMPAC	0x12D0
 #define MPCIE_DIO_24S_R1   0x0e57
 #define MPCIE_DIO_24S   0x0100
+#define MPCIE_DIO_24A 0x2E50
 #define MPCIE_IDIO_8  0x0101
 #define MPCIE_IIRO_8  0x0102
 #define MPCIE_IDIO_4  0x0103
@@ -225,6 +226,7 @@
 #define NAME_PCI_WDG_CSM                "pci_wdg_csm"
 #define NAME_PCI_WDG_IMPAC              "pci_wdg_impac"
 #define NAME_MPCIE_DIO_24S              "mpcie_dio_24s"
+#define NAME_MPCIE_DIO_24A              "mpcie_dio_24a"
 #define NAME_MPCIE_IDIO_8               "mpcie_idio_8"
 #define NAME_MPCIE_IIRO_8               "mpcie_iiro_8"
 #define NAME_MPCIE_IDIO_4               "mpcie_idio_4"
