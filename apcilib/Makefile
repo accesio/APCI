@@ -1,4 +1,5 @@
-# Detect RHEL7 special flags (kept from your file)
+all: mpcie-dio-24a-irq axiodac axiodac_irq pcie_dio_48s mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f_dma mpcie_aio16_16f pcie_iiro_16_irq irq check check_dma dac
+
 ifneq ("$(wildcard /etc/redhat-release)","")
     REDHAT_VERSION := $(shell sed -n 's/.* \([0-9]\+\).*/\1/p' /etc/redhat-release | head -1)
 else
@@ -21,13 +22,11 @@ endif
 LDFLAGS :=
 LDLIBS  := -lpthread -lm
 
-# Objects
-APCI_OBJS := apcilib.o
+pcie_dio_48s: pcie-dio-48s-irq.c apcilib.c apcilib.h
+	$(GCC) -o pcie-dio-48s-irq pcie-dio-48s-irq.c apcilib.c
 
-all: dio_8255_output axiodac axiodac_irq pcie_dio_48s mpcie_quad_8 \
-     mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq pcie-iiro-16 \
-     irq check check_dma dac isp-fpga mpcie-dio-24x-irq \
-     mpcie_aio16_16f mpcie_aio16_16f_dma
+mpcie_quad_4: mpcie_quad_8.c apcilib.c apcilib.h
+	$(GCC) -o mpcie_quad_8 mpcie_quad_8.c apcilib.c
 
 # Pattern rules
 %.o: %.c apcilib.h
@@ -49,8 +48,11 @@ pcie_dio_48s: pcie-dio-48s-irq.o $(APCI_OBJS)
 mpcie_quad_8: mpcie_quad_8.o $(APCI_OBJS)
 	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-pcie-ii-16-irq: mpcie-ii-16-irq.o $(APCI_OBJS)
-	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+mpcie-dio-24a-irq: mpcie-dio-24a-irq.c apcilib.h apcilib.c
+	$(GCC) -o mpcie-dio-24a-irq mpcie-dio-24a-irq.c apcilib.c -lpthread -O3 -lm
+
+mpcie_aio16_16f_dma: mpcie_aio16_16f_dma.c apcilib.h apcilib.c
+	$(GCC) -o mpcie_aio16_16f_dma mpcie_aio16_16f_dma.c apcilib.c -lm -lpthread -O3
 
 pcie-idio-24-irq: pcie-idio-24-irq.o $(APCI_OBJS)
 	$(CC) $(LDFLAGS) -o $@ $^ -lpthread -O3
@@ -88,8 +90,5 @@ isp-fpga: isp-fpga.cpp $(APCI_OBJS)
 
 .PHONY: all clean
 clean:
-	rm -f *.o \
-	      dio_8255_output axiodac axiodac_irq pcie-dio-48s-irq pcie-iiro-16 \
-	      mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq \
-	      mpcie-dio-24x-irq check check_dma irq dac isp-fpga \
-	      mpcie_aio16_16f mpcie_aio16_16f_dma
+	rm -f mpcie-dio-24a-irq axiodac axiodac_irq pcie-dio-48s-irq pcie-iiro-16 mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f mpcie_aio16_16f_dma check check_dma irq dac
+

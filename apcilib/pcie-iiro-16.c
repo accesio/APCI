@@ -12,12 +12,12 @@ int fd;
 pthread_t worker_thread;
 int terminated = 0;
 
-void *worker(void *arg)
+
+void * worker(void *arg)
 {
     int status;
     __u8 inputs = 0;
-    do
-    {
+    do {
         status = apci_wait_for_irq(fd, 1);
         if (0 == status)
         {
@@ -51,6 +51,7 @@ void abort_handler(int s)
 int main(int argc, char **argv)
 {
     time_t the_time;
+    int status = 0;
     __u8 relayData;
     __u8 inputData;
     struct sigaction sigIntHandler;
@@ -83,6 +84,7 @@ int main(int argc, char **argv)
 
     apci_read8(fd, 1, 2, 5, &inputData);
     printf(" read of input bits 8-15= %04hhX\n", inputData);
+
 
     pthread_create(&worker_thread, NULL, &worker, NULL);
 
