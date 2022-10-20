@@ -1711,9 +1711,13 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
       iowrite32(4, ddata->regions[0].mapped_address + 12 + 0x10);
       udelay(5); // ?
     }
+    break;
   case MPCIE_DIO_24A:
-    iowrite32(irq_event, ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // clear whatever IRQ occurred and retain enabled IRQ sources // TODO: Upgrade to doRegisterAction("Clear&Enable")
-    apci_debug("ISR: irq_event = 0x%x, depth = 0x%x, IRQStatus = 0x%x\n", irq_event, ioread32(ddata->regions[1].mapped_address + 0x28), ioread32(ddata->regions[1].mapped_address + 0x40));
+    notify_user = true;
+    irq_event = ioread32(ddata->regions[1].mapped_address + 0x40);
+    apci_debug("ISR: mPCIe-DIO-24A irq_event: %08x, +30: %08x, +40: %08x\n", irq_event, ioread32(ddata->regions[1].mapped_address + 0x30), ioread32(ddata->regions[1].mapped_address + 0x40));
+    iowrite32(irq_event, ddata->regions[1].mapped_address + 0x40);
+    iowrite8(0xff, ddata->regions[1].mapped_address + 0x29); // clear whatever IRQ occurred and retain enabled IRQ sources // TODO: Upgrade to doRegisterAction("Clear&Enable")
     break;
   }
   }; // end card-specific switch
