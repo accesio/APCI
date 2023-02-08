@@ -46,6 +46,12 @@ MODULE_PARM_DESC(irq_disabled, "Don't register an IRQ/ISR. IRSRC register must b
 /* PCI table construction */
 static struct pci_device_id ids[] = {
     {
+        PCI_DEVICE(A_VENDOR_ID, ROB_MATRIX_8X16),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, MPCIE_DIO_24A),
+    },
+    {
         PCI_DEVICE(A_VENDOR_ID, PCIe_IIRO_8),
     },
     {
@@ -182,12 +188,6 @@ static struct pci_device_id ids[] = {
     },
     {
         PCI_DEVICE(A_VENDOR_ID, MPCIE_DIO_24S),
-    },
-    {
-        PCI_DEVICE(A_VENDOR_ID, ROB_Matrix_8x16),
-    },
-    {
-        PCI_DEVICE(A_VENDOR_ID, mPCIe_DIO_24SRL),
     },
     {
         PCI_DEVICE(A_VENDOR_ID, MPCIE_DIO_24S_R1),
@@ -474,6 +474,8 @@ int APCI_LOOKUP_ENTRY(int x ) {
 #else
 static struct apci_lookup_table_entry apci_driver_table[] =
     APCI_MAKE_DRIVER_TABLE(
+        APCI_MAKE_ENTRY(ROB_MATRIX_8X16),
+        APCI_MAKE_ENTRY(MPCIE_DIO_24A),
         APCI_MAKE_ENTRY(PCIe_DIO_24),
         APCI_MAKE_ENTRY(PCIe_DIO_24D),
         APCI_MAKE_ENTRY(PCIe_DIO_24S),
@@ -532,8 +534,6 @@ static struct apci_lookup_table_entry apci_driver_table[] =
         APCI_MAKE_ENTRY(PCI_WDG_2S),
         APCI_MAKE_ENTRY(PCI_WDG_CSM),
         APCI_MAKE_ENTRY(PCI_WDG_IMPAC),
-        APCI_MAKE_ENTRY(ROB_Matrix_8x16),
-        APCI_MAKE_ENTRY(mPCIe_DIO_24SRL),
         APCI_MAKE_ENTRY(MPCIE_DIO_24S),
         APCI_MAKE_ENTRY(MPCIE_DIO_24S_R1),
         APCI_MAKE_ENTRY(MPCIE_IDIO_8),
@@ -614,8 +614,8 @@ static struct apci_lookup_table_entry apci_driver_table[] =
         APCI_MAKE_ENTRY(PCIe_DIO_96),
         APCI_MAKE_ENTRY(PCIe_DIO_120), );
 
-#define APCI_TABLE_SIZE sizeof(apci_driver_table) / sizeof(struct apci_lookup_table_entry)
 #define APCI_TABLE_ENTRY_SIZE sizeof(struct apci_lookup_table_entry)
+#define APCI_TABLE_SIZE sizeof(apci_driver_table) / APCI_TABLE_ENTRY_SIZE
 
 void *bsearch(const void *key, const void *base, size_t num, size_t size,
               int (*cmp)(const void *key, const void *elt))
@@ -652,6 +652,7 @@ int APCI_LOOKUP_ENTRY(int fx)
 
   if (!driver_num)
   {
+    apci_debug("did not find driver in table for %04x", fx);
     return -1;
   }
   else
@@ -700,11 +701,11 @@ static dev_t apci_first_dev = MKDEV(APCI_MAJOR, 0);
 void *
 apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
 {
-
   struct apci_my_info *ddata = kmalloc(sizeof(struct apci_my_info), GFP_KERNEL);
   int count, plx_bar;
   struct resource *presource;
 
+  apci_debug("apci_alloc_driver, devid=%04x", id->device);
   if (!ddata)
     return NULL;
 
@@ -737,8 +738,8 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
 
   switch (ddata->dev_id)
   {
-  case mPCIe_DIO_24SRL:     // do not allocate PLX BAR
-  case ROB_Matrix_8x16:
+  case MPCIE_DIO_24A:     // do not allocate PLX BAR
+  case ROB_MATRIX_8X16:
   case mPCIe_AIO16_16FDS:
   case mPCIe_AIO16_16F:
   case mPCIe_AIO16_16A:
@@ -1828,12 +1829,14 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
   if (pci_enable_device(pdev))
   {
+    apci_debug("pci_enable_device returned fail\n");
     return -ENODEV;
   }
 
   ddata = (struct apci_my_info *)apci_alloc_driver(pdev, id);
   if (ddata == NULL)
   {
+    apci_debug("apci_alloc_driver returned null\n");
     return -ENOMEM;
   }
   /* Setup actual device driver items */
@@ -1974,7 +1977,7 @@ apci_init(void)
   ret = alloc_chrdev_region(&apci_first_dev, 0, MAX_APCI_CARDS, APCI);
   if (ret)
   {
-    apci_error("Unable to allocate device numbers");
+    apci_error("Unable to allocate device numbers\n");
     return ret;
   }
 
@@ -2002,13 +2005,13 @@ apci_init(void)
 
   if (result < 0)
   {
-    apci_error("cdev_add failed in apci_init");
+    apci_error("cdev_add failed in apci_init\n");
     goto err;
   }
 
   /* needed to get the probe and remove to be called */
   result = pci_register_driver(&pci_driver);
-
+  apci_error("register driver returned: %d\n", result);
   return 0;
 err:
 
