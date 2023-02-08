@@ -22,8 +22,8 @@
 
 
 /* The device IDs for all the PCI/PCIe/mPCIe/etc cards this driver will support. */
-#define ROB_Matrix_8x16 0x0180
-#define mPCIe_DIO_24SRL 0x2E50
+#define ROB_MATRIX_8X16 0x0180
+#define MPCIE_DIO_24A 0x2E50
 
 #define PCIe_DIO_24	0x0C52
 #define PCIe_DIO_24D	0x0C53
@@ -256,8 +256,8 @@
 #define NAME_MPCIE_DIO_24A              "mpcie_dio_24a"
 #define NAME_MPCIE_DIO_24X              "mpcie_dio_24x"
 #define NAME_MPCIE_DIO_24S              "mpcie_dio_24s"
-#define NAME_ROB_Matrix_8x16            "rob_matrix_8x16"
-#define NAME_mPCIe_DIO_24SRL            "rob_matrix_8x16"
+#define NAME_ROB_MATRIX_8X16            "rob_matrix_8x16"
+#define NAME_MPCIE_DIO_24A            "mpcie_dio_24a"
 
 #define NAME_MPCIE_IDIO_8               "mpcie_idio_8"
 #define NAME_MPCIE_IIRO_8               "mpcie_iiro_8"
