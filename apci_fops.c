@@ -2,7 +2,7 @@
 #include "apci_dev.h"
 
 
-address_type is_valid_addr(struct apci_my_info *driver_data, int bar, int addr)
+address_type is_valid_addr(struct apci_my_info *driver_data, int bar, u64 addr)
 {
     /* if it is a valid bar */
     if (driver_data->regions[bar].start != 0) {
@@ -19,10 +19,10 @@ address_type is_valid_addr(struct apci_my_info *driver_data, int bar, int addr)
         }
       } else
       {
-           apci_error("register address to large for region[%d]\n", bar);
+           apci_error("register address to large for region[%d], %lld > %d\n", bar, addr, driver_data->regions[bar].length);
       }
     }
-    apci_error("Invalid addr: bar[%d]+0x%04x.\n", bar, addr);
+    apci_error("Invalid addr: bar[%d]+0x%04llx.\n", bar, addr);
 
     return INVALID;
 }
@@ -97,7 +97,9 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 
         case apci_get_device_info_ioctl:
           apci_debug("entering get_device_info \n");
-          #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
+          #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0))
+                    status = access_ok((const void *) arg, sizeof(info_struct));
+          #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
                     status = access_ok( arg, sizeof(info_struct));
           #else
                     status = access_ok(VERIFY_WRITE, arg,
@@ -123,7 +125,9 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 
 
         case apci_write_ioctl:
-          #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
+          #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0))
+                    status = access_ok ((const void *)arg, sizeof(iopack));
+          #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
                     status = access_ok (arg, sizeof(iopack));
           #else
                     status = access_ok (VERIFY_WRITE, arg, sizeof(iopack));
@@ -197,7 +201,9 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 
 
           case apci_read_ioctl:
-               #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
+               #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0))
+                         status = access_ok((const void *)arg, sizeof(iopack));
+               #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
                          status = access_ok(arg, sizeof(iopack));
                #else
                          status = access_ok(VERIFY_WRITE, arg, sizeof(iopack));
@@ -317,7 +323,9 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
          break;
 
      case apci_set_dma_transfer_size:
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0))
+          status = access_ok((const void *)arg, sizeof(dma_buffer_settings_t));
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
           status = access_ok(arg, sizeof(dma_buffer_settings_t));
 #else
           status = access_ok(VERIFY_WRITE, arg, sizeof(dma_buffer_settings_t));
@@ -359,8 +367,9 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 
      case apci_data_ready:
          apci_info("Getting data ready\n");
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0))
+          status = access_ok((const void *)arg, sizeof(dma_buffer_settings_t));
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
           status = access_ok(arg, sizeof(dma_buffer_settings_t));
 #else
           status = access_ok(VERIFY_WRITE, arg, sizeof(dma_buffer_settings_t));

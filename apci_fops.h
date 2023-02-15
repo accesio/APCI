@@ -1,5 +1,4 @@
-#ifndef APCI_FOPS_H
-#define APCI_FOPS_H
+#pragma once
 
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -23,6 +22,6 @@ int ioctl_apci(struct inode *inode, struct file *filp, unsigned int cmd, unsigne
 #else
 long ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg);
 #endif
-#endif
+
 
 int mmap_apci (struct file *filp, struct vm_area_struct *);

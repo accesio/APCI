@@ -81,19 +81,19 @@ int main(int argc, char **argv)
 
     // TODO: allow user to specify rate and number of DACs as parameters on the command line
 
-    //need to set the dac buffer size before mmap. setting it again will cause
-    //the kernel buffer to be freed underneath the map.
+    // need to set the dac buffer size before mmap. setting it again will cause
+    // the kernel buffer to be freed underneath the map.
     apci_dac_buffer_size(apci, DACBufferLength * sizeof(uint32_t));
 
-    //send PAGE_SIZE * 1 as last paramater to map the DAC buffer. 
-    mmap_ptr = (void *) mmap(NULL, DACBufferLength * sizeof(uint32_t), PROT_READ | PROT_WRITE, MAP_SHARED, apci, getpagesize());
+    // send PAGE_SIZE * 1 as last paramater to map the DAC buffer.
+    mmap_ptr = (void *)mmap(NULL, DACBufferLength * sizeof(uint32_t), PROT_READ | PROT_WRITE, MAP_SHARED, apci, getpagesize());
     if (MAP_FAILED == mmap_ptr)
     {
         printf("mmap_failed\n");
         return -1;
     }
 
-    data = (uint32_t *) mmap_ptr;
+    data = (uint32_t *)mmap_ptr;
 
     printf("Generating Waveform Data (32-bit) on %d DACs for playback at %2fHz\n", DacsPerPoint, DacWaveformPPS);
     for (int i = 0; i < DACBufferLength; i++)
@@ -102,7 +102,7 @@ int main(int argc, char **argv)
         {
         case 0:
             data[i] = 0x000000 | (uint16_t)(cos(2 * M_PI * i / DACBufferLength) * 0x7FFF + 0x8000); // cosine wave;
-            //data[i] = 65535 * ((i/DacsPerPoint) & 1); // diagnostic version fastest possible square wave. note: DAC output slew rate is 5V/µSec
+            // data[i] = 65535 * ((i/DacsPerPoint) & 1); // diagnostic version fastest possible square wave. note: DAC output slew rate is 5V/µSec
             break;
         case 1:
             data[i] = 0x010000 | ((i >> 2) % 0x10000);
@@ -158,7 +158,6 @@ int main(int argc, char **argv)
         if (regvalue & bmDacWaveformPlaying)
         {
             printf("\nDAC FIFO is empty -- ABORTING\n");
-            uint32_t roomInFIFO_Samples = 0;
             terminate = 1;
         }
         else
@@ -186,10 +185,9 @@ int main(int argc, char **argv)
     apci_write32(apci, 1, BAR_REGISTER, ofsReset, 1);
 
     printf("\nSample Done.\n");
+    (void)argc;
+    (void)argv;
 }
-
-
-
 
 /* Background thread to transmit data to DAC Waveform FIFO */
 void *worker_main(void *arg)
@@ -225,10 +223,11 @@ void *worker_main(void *arg)
         }
         SamplesUploaded += roomInFIFO_Samples;
 
-
     } while (!terminate);
 
     printf("  Worker Thread: exiting; Waveform Playback ended.\n");
+    return 0;
+    (void)arg;
 }
 
 /* configure DAC "Point" output rate */
@@ -251,4 +250,5 @@ void set_DACWaveform_rate(int fd, double *Hz)
 void abort_handler(int s)
 {
     terminate = 1;
+    (void)s;
 }

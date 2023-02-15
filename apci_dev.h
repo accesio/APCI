@@ -1,6 +1,4 @@
-#ifndef APCI_DEV_H
-#define APCI_DEV_H
-
+#pragma once
 
 #include <linux/cdev.h>
 #include <linux/delay.h>
@@ -84,7 +82,10 @@
 #define PCI_IDIO_16	0x0DC8
 #define PCI_WDG_2S	0x1250 //TODO: Find out if the Watch Dog Cards should really be here
 #define PCI_WDG_CSM	0x22C0
+
 #define PCI_WDG_IMPAC	0x12D0
+#define MPCIE_DIO_24A   0x2E50
+#define MPCIE_DIO_24X   0x2E51
 #define MPCIE_DIO_24S_R1   0x0e57
 #define MPCIE_DIO_24S   0x0100
 #define MPCIE_IDIO_8  0x0101
@@ -92,6 +93,7 @@
 #define MPCIE_IDIO_4  0x0103
 #define MPCIE_IIRO_4  0x0104
 #define MPCIE_IDO_8   0x0105
+#define MPCIE_ISODIO_16 0x0DC9
 #define MPCIE_RO_8    0x0106
 #define MPCIE_II_16   0x0107
 #define MPCIE_II_8    0x0108
@@ -160,6 +162,30 @@
 #define mPCIe_ADI12_8A 0x805C
 #define mPCIe_ADI12_8 0x805D
 #define mPCIe_ADI12_8E 0x805E
+
+#define mPCIe_ADIODF16_8FDS 0xC0C0
+#define mPCIe_ADIODF16_8F   0xC0C1
+#define mPCIe_ADIODF16_8A   0xC0C2
+#define mPCIe_ADIODF16_8E   0xC0C3
+#define mPCIe_ADIOFD12_8A   0xC050
+#define mPCIe_ADIOFD12_8    0xC051
+#define mPCIe_ADIOFD12_8E   0xC052
+
+#define mPCIe_DAAI16_8F     0xCEE8
+#define mPCIe_DAAI16_8A     0xCEE9
+#define mPCIe_DAAI16_8E     0xCEEA
+#define mPCIe_DAAI12_8      0xCE50
+#define mPCIe_DAAI12_8E     0xCE51
+#define mPCIe_DAAI12_8A     0xCE52
+#define mPCIe_DAAI16_4F     0xCED8
+#define mPCIe_DAAI16_4A     0xCED9
+#define mPCIe_DAAI16_4E     0xCEDA
+#define mPCIe_DAAI12_4A     0xCE98
+#define mPCIe_DAAI12_4      0xCE9A
+#define mPCIe_DAAI12_4E     0xCE9B
+#define mPCIe_DA16_8        0x4CE8
+#define mPCIe_DA16_4        0x4CD8
+
 #define PCIe_DIO_24HC 0x0C54
 
 /* names for the drivers we create */
@@ -224,12 +250,15 @@
 #define NAME_PCI_WDG_2S                 "pci_wdg_2s"
 #define NAME_PCI_WDG_CSM                "pci_wdg_csm"
 #define NAME_PCI_WDG_IMPAC              "pci_wdg_impac"
+#define NAME_MPCIE_DIO_24A              "mpcie_dio_24a"
+#define NAME_MPCIE_DIO_24X              "mpcie_dio_24x"
 #define NAME_MPCIE_DIO_24S              "mpcie_dio_24s"
 #define NAME_MPCIE_IDIO_8               "mpcie_idio_8"
 #define NAME_MPCIE_IIRO_8               "mpcie_iiro_8"
 #define NAME_MPCIE_IDIO_4               "mpcie_idio_4"
-#define NAME_MPCIE_IIRO_4               "mpcie_iiro_4"
+#define NAME_MPCIE_IIRO_4               "mNAME_MPCIE_II_4pcie_iiro_4"
 #define NAME_MPCIE_IDO_8                "mpcie_ido_4"
+#define NAME_MPCIE_ISODIO_16            "mpcie_isodio_16"
 #define NAME_MPCIE_RO_8                 "mpcie_ro_8"
 #define NAME_MPCIE_II_16                "mpcie_ii_16"
 #define NAME_MPCIE_II_8                 "mpcie_ii_8"
@@ -241,7 +270,6 @@
 #define NAME_PCI_QUAD_8                 "pci_quad_8"
 #define NAME_PCI_QUAD_4                 "pci_quad_4"
 
-//#define NAME_MPCIE_DIO_24S              "mpcie_dio_24s"
 #define NAME_MPCIE_DIO_24S_R1           "mpcie_dio_24s"
 #define NAME_PCIe_IDIO_12				"pcie_idio_12"
 #define NAME_PCIe_IDIO_24				"pcie_idio_24"
@@ -299,6 +327,31 @@
 #define NAME_mPCIe_ADI12_8A             "mpcie_adi12_8a"
 #define NAME_mPCIe_ADI12_8              "mpcie_adi12_8"
 #define NAME_mPCIe_ADI12_8E             "mpcie_adi12_8e"
+
+#define NAME_mPCIe_ADIODF16_8FDS        "mpcie_adiodf16_8fds"
+#define NAME_mPCIe_ADIODF16_8F          "mpcie_adiodf16_8f"
+#define NAME_mPCIe_ADIODF16_8A          "mpcie_adiodf16_8a"
+#define NAME_mPCIe_ADIODF16_8E          "mpcie_adiodf16_8e"
+#define NAME_mPCIe_ADIOFD12_8A          "mpcie_adiodf12_8a"
+#define NAME_mPCIe_ADIOFD12_8           "mpcie_adiodf12_8"
+#define NAME_mPCIe_ADIOFD12_8E          "mpcie_adiodf12_8e"
+
+#define NAME_mPCIe_DAAI16_8F            "mpcie_daai16_8f"
+#define NAME_mPCIe_DAAI16_8A            "mpcie_daai16_8a"
+#define NAME_mPCIe_DAAI16_8E            "mpcie_daai16_8e"
+#define NAME_mPCIe_DAAI12_8             "mpcie_daai12_8"
+#define NAME_mPCIe_DAAI12_8E            "mpcie_daai12_8e"
+#define NAME_mPCIe_DAAI12_8A            "mpcie_daai12_8a"
+#define NAME_mPCIe_DAAI16_4F            "mpcie_daai16_4f"
+#define NAME_mPCIe_DAAI16_4A            "mpcie_daai16_4a"
+#define NAME_mPCIe_DAAI16_4E            "mpcie_daai16_4e"
+#define NAME_mPCIe_DAAI12_4A            "mpcie_daai12_4a"
+#define NAME_mPCIe_DAAI12_4             "mpcie_daai12_4"
+#define NAME_mPCIe_DAAI12_4E            "mpcie_daai12_4e"
+#define NAME_mPCIe_DA16_8               "mpcie_da16_8"
+#define NAME_mPCIe_DA16_4               "mpcie_da16_4"
+
+
 #define NAME_PCIe_DIO_24HC              "PCIe_DIO_24HC"
 
 enum ADDRESS_TYPE {INVALID = 0, IO, MEM};
@@ -361,7 +414,3 @@ struct apci_my_info {
 int probe(struct pci_dev *dev, const struct pci_device_id *id);
 void remove(struct pci_dev *dev);
 void delete_driver(struct pci_dev *dev);
-
-
-
-#endif

@@ -1,6 +1,5 @@
-#ifndef APCI_IOCTL_H
+#pragma once
 
-#define APCI_IOCTL_H
 #define ACCES_MAGIC_NUM 0xE0
 enum SIZE { BYTE = 0, WORD, DWORD};
 #define DAC_BUFF_LEN 65536 * 4
@@ -63,7 +62,3 @@ typedef struct {
 #define apci_data_done              _IOW(ACCES_MAGIC_NUM, 11, unsigned long)
 #define apci_write_buff_ioctl       _IOW(ACCES_MAGIC_NUM, 12, buff_iopack *)
 #define apci_set_dac_buff_size     _IOW(ACCES_MAGIC_NUM, 13, unsigned long)
-
-
-
-#endif

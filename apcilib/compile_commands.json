@@ -1,0 +1,33 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-c",
+      "-o",
+      "apcilib.o",
+      "apcilib.c"
+    ],
+    "directory": "/home/jhentges/dev/apci/apcilib",
+    "file": "/home/jhentges/dev/apci/apcilib/apcilib.c",
+    "output": "/home/jhentges/dev/apci/apcilib/apcilib.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-c",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "apcilib.o",
+      "-o",
+      "isp-fpga",
+      "isp-fpga.cpp"
+    ],
+    "directory": "/home/jhentges/dev/apci/apcilib",
+    "file": "/home/jhentges/dev/apci/apcilib/isp-fpga.cpp",
+    "output": "/home/jhentges/dev/apci/apcilib/isp-fpga"
+  }
+]

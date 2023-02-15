@@ -87,6 +87,19 @@ Below is a snipet of the output from the compiled mpcie-dio-24s-irq.c sample cod
 
 The kernel should now load the apci.ko driver module at boot time if there is a supported ACCES PCI device present in the system.
 
+## Setting device permissions on module load
+By default the device file requires root permissions to access. To change the default permissions for the device pass `dev_mode` to the module as a parameter. The mode can be passed in octal similar to `chmod` command
+* To set using insmod
+```sh
+insmod apci.ko dev_mode=0666
+```
+
+* To set for boot
+  * Create a file /etc/modprobe.d/accesio-pci.conf
+ ```
+  options apci dev_mode=0666
+ ```
+
 # Basic Documentation for APCILIB functions
 `apci` provides register-level access to ACCES‘ Data Acquisition and Control cards on PCI and PCI Express (and all related busses), and an interface for IRQ handling, from userland applications, via IOCTL calls into the `apci.ko` module.
 

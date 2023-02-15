@@ -1,27 +1,27 @@
+#pragma once
 /*
-This software is a driver for ACCES I/O Products, Inc. PCI cards.
-Copyright (C) 2007  ACCES I/O Products, Inc.
+This software is a driver for ACCES I/O Products, Inc. PCI and other plug-and-play cards.
+Copyright (C) 2007-2024 ACCES I/O Products, Inc.
 
 This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation. This software is released under
-version 2 of the GPL.
+modify it at will.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 In addition ACCES provides other licenses with its software at customer request.
 For more information please contact the ACCES software department at
 (800)-326-1649 or visit www.accesio.com
 */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <linux/types.h>
+#include <stddef.h>        // for size_t
+
 
 int apci_get_devices(int fd);
 
@@ -47,3 +47,7 @@ int apci_writebuf16(int fd, unsigned long device_index, int bar, int bar_offset,
 int apci_writebuf32(int fd, unsigned long device_index, int bar, int bar_offset, unsigned int mmap_offset, int length);
 
 int apci_dac_buffer_size (int fd, unsigned long size);
+
+#ifdef __cplusplus
+}
+#endif

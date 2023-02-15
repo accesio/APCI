@@ -1,7 +1,17 @@
 obj-m += apci.o
-CC		:= "gcc"
-KVERSION        := $(shell uname -r)
-KDIR		:= /lib/modules/$(KVERSION)/build
+CC		?= "gcc"
+KVERSION        ?= $(shell uname -r)
+KDIR		?= /lib/modules/$(KVERSION)/build
+NPROC := $(shell nproc 2>/dev/null || echo 1)
+ifeq (,$(filter -j%,$(MAKEFLAGS)))
+  MAKEFLAGS += -j$(NPROC)
+endif
+
+ifneq ("$(wildcard /etc/redhat-release)","")
+CFLAGS_apci_dev.o := -DRULES_DONT_APPLY_TO_RH=1
+else
+CFLAGS_apci_dev.o := -DRULES_DONT_APPLY_TO_RH=0
+endif
 
 apci-objs :=      \
     apci_fops.o   \

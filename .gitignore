@@ -15,3 +15,12 @@ apci.o
 apci_dev.o
 apci_fops.o
 modules.order
+.Module.symvers.cmd
+.modules.order.cmd
+apcilib/axiodac
+apcilib/axiodac_irq
+apcilib/mpcie-dio-24s-irq
+apcilib/mpcie-ii-16-irq
+apcilib/mpcie_quad_8
+apcilib/pcie-dio-48s-irq
+apcilib/pcie-idio-24-irq

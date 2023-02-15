@@ -1,20 +1,13 @@
 /*
-This software is a driver for ACCES I/O Products, Inc. PCI cards.
-Copyright (C) 2007  ACCES I/O Products, Inc.
+This software is a driver for ACCES I/O Products, Inc. PCI and other plug-and-play cards.
+Copyright (C) 2007-2024 ACCES I/O Products, Inc.
 
 This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation. This software is released under
-version 2 of the GPL.
+modify it at will.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
 
 In addition ACCES provides other licenses with its software at customer request.
 For more information please contact the ACCES software department at
@@ -22,9 +15,7 @@ For more information please contact the ACCES software department at
 */
 
 #include <sys/ioctl.h>
-#include <linux/errno.h>
 #include <stddef.h>
-#include <stdint.h>
 
 #include "apcilib.h"
 #include "apci_ioctl.h"
@@ -50,7 +41,6 @@ int apci_get_device_info(int fd, unsigned long device_index, unsigned int *dev_i
 	for (count = 0; count < 6; count ++) base_addresses[count] = dev_info.base_addresses[count];
 
 	return status;
-
 }
 
 int apci_write8(int fd, unsigned long device_index, int bar, int offset, __u8 data)
@@ -203,6 +193,7 @@ int apci_dma_transfer_size(int fd, unsigned long device_index, __u8 num_slots, s
 	settings.num_slots = num_slots;
 	settings.slot_size = slot_size;
 	return ioctl(fd, apci_set_dma_transfer_size, &settings);
+	(void)device_index;
 }
 
 int apci_dma_data_ready(int fd, unsigned long device_index, int *start_index, int *slots, int *data_discarded)
@@ -216,11 +207,13 @@ int apci_dma_data_ready(int fd, unsigned long device_index, int *start_index, in
 	*data_discarded = ready.data_discarded;
 
 	return status;
+	(void)device_index;
 }
 
 int apci_dma_data_done(int fd, unsigned long device_index, int num_slots)
 {
 	return ioctl(fd, apci_data_done, num_slots);
+	(void)device_index;
 }
 
 int apci_dac_buffer_size (int fd, unsigned long size)
