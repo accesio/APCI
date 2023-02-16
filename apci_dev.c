@@ -1883,7 +1883,11 @@ exit_free:
 }
 
 /* Configure the default /dev/{devicename} permissions */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 2, 0)
 static char *apci_devnode(struct device *dev, umode_t *mode)
+#else
+static char *apci_devnode(const struct device *dev, umode_t *mode)
+#endif
 {
   if (!mode)
     return NULL;
