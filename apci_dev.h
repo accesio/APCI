@@ -21,7 +21,8 @@
 
 #include "apci_common.h"
 
-/* The device IDs for all the PCI/PCIe/mPCIe/etc cards this driver will support. */
+/* The device IDs for all the PCI/PCIe/mPCIe/etc cards this driver will support.
+ */
 #define PCIe_DIO_24 0x0C52
 #define PCIe_DIO_24D 0x0C53
 #define PCIe_DIO_24S 0x0E53
@@ -81,7 +82,7 @@
 #define PCI_IDO_48 0x0520
 #define PCI_IDIO_16 0x0DC8
 #define PCI_WDG_2S \
-	0x1250 //TODO: Find out if the Watch Dog Cards should really be here
+	0x1250 // TODO: Find out if the Watch Dog Cards should really be here
 #define PCI_WDG_CSM 0x22C0
 #define PCI_WDG_IMPAC 0x12D0
 #define MPCIE_DIO_24S_R1 0x0e57
@@ -240,7 +241,7 @@
 #define NAME_PCI_QUAD_8 "pci_quad_8"
 #define NAME_PCI_QUAD_4 "pci_quad_4"
 
-//#define NAME_MPCIE_DIO_24S              "mpcie_dio_24s"
+// #define NAME_MPCIE_DIO_24S              "mpcie_dio_24s"
 #define NAME_MPCIE_DIO_24S_R1 "mpcie_dio_24s"
 #define NAME_PCIe_IDIO_12 "pcie_idio_12"
 #define NAME_PCIe_IDIO_24 "pcie_idio_24"
@@ -344,14 +345,24 @@ struct apci_my_info {
 
 	dma_addr_t dma_addr;
 	void *dma_virt_addr;
-	int dma_last_buffer; //last dma started to fill
-	int dma_first_valid; //first buffer containing valid data
+	int dma_last_buffer; // last dma started to fill
+	int dma_first_valid; // first buffer containing valid data
 	int dma_num_slots;
 	size_t dma_slot_size;
 	int dma_data_discarded;
 	spinlock_t dma_data_lock;
 
 	void *dac_fifo_buffer;
+};
+
+enum apci_child_device_type { RELAY, INPUT };
+// Structure for the child device information
+struct apci_child_info {
+	enum apci_child_device_type type;
+	struct device *dev;
+	struct cdev cdev;
+	int group_num;
+	struct apci_my_info *ddata;
 };
 
 int probe(struct pci_dev *dev, const struct pci_device_id *id);

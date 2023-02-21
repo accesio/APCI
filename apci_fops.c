@@ -25,7 +25,29 @@ address_type is_valid_addr(struct apci_my_info *driver_data, int bar, int addr)
 	return INVALID;
 }
 
-int open_apci(pInode inode, pFile filp)
+ssize_t read_child_apci(struct file *filp, char __user *buf, size_t len,
+			loff_t *off)
+{
+	return -EFAULT;
+
+	// struct apci_my_info *ddata = filp->private_data;
+	// int status;
+	// unsigned int value = inb(ddata->regions[2].start + 0x1);
+	// status = copy_to_user(buf, &value, 1);
+	// return (status ? -EFAULT : 1);
+}
+
+int open_child_apci(struct inode *inode, struct file *filp)
+{
+	struct apci_child_info *cdata;
+	apci_debug("Opening child device\n");
+	cdata = container_of(inode->i_cdev, struct apci_child_info, cdev);
+
+	filp->private_data = cdata;
+	return 0;
+}
+
+int open_apci(struct inode *inode, struct file *filp)
 {
 	struct apci_my_info *ddata;
 	apci_debug("Opening device\n");
@@ -38,7 +60,7 @@ int open_apci(pInode inode, pFile filp)
 	return 0;
 }
 
-int release_apci(pInode inode, pFile filp)
+int release_apci(struct inode *inode, struct file *filp)
 {
 	return 0;
 }
@@ -133,7 +155,8 @@ long ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		if (status == 0) {
 			apci_error("access_ok failed\n");
-			return -EACCES; /* TODO: FIND appropriate return value */
+			return -EACCES; /* TODO: FIND appropriate return value
+					 */
 		}
 
 		status =
@@ -145,7 +168,8 @@ long ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 		/*      } */
 		/*      count++; */
 		/* } */
-		/* if (ddata == NULL) return -ENXIO; /\* invalid device index *\/ */
+		/* if (ddata == NULL) return -ENXIO; /\* invalid device index
+		 * *\/ */
 
 		switch (is_valid_addr(ddata, io_pack.bar, io_pack.offset)) {
 		case IO:
@@ -345,8 +369,8 @@ long ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		if (ddata->waiting_for_irq == 1) {
 			/* if we are already waiting for an IRQ on
-               * this device.
-               */
+			 * this device.
+			 */
 			spin_unlock_irqrestore(&(ddata->irq_lock), flags);
 			return -EALREADY; /* TODO: find a better return code */
 		} else {
@@ -386,7 +410,8 @@ long ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 	case apci_get_base_address:
 		apci_debug("Getting base address");
 
-		/* status = copy_from_user(&info, (info_struct *) arg, sizeof(info_struct)); */
+		/* status = copy_from_user(&info, (info_struct *) arg,
+		 * sizeof(info_struct)); */
 		info.dev_id = ddata->dev_id;
 
 		break;
@@ -650,23 +675,23 @@ int mmap_apci(struct file *filp, struct vm_area_struct *vma)
 	int status;
 	unsigned long pfn_start;
 
-	//vma->vm_pgoff will be offset/PAGE_SIZE where offset is the last parameter
-	//sent to mmap() in userspace
+	// vma->vm_pgoff will be offset/PAGE_SIZE where offset is the last
+	// parameter sent to mmap() in userspace
 	switch (vma->vm_pgoff) {
-	case 0: //default for DMA
+	case 0: // default for DMA
 		status = dma_mmap_coherent(&(ddata->pci_dev->dev), vma,
 					   ddata->dma_virt_addr,
 					   ddata->dma_addr,
 					   vma->vm_end - vma->vm_start);
 		break;
-	case 1: //buffer for buff_write ioctl (or string if you rename)
+	case 1: // buffer for buff_write ioctl (or string if you rename)
 		pfn_start = virt_to_phys(ddata->dac_fifo_buffer) >> PAGE_SHIFT;
 		status = remap_pfn_range(vma, vma->vm_start, pfn_start,
 					 vma->vm_end - vma->vm_start,
 					 vma->vm_page_prot);
 		break;
 	default:
-		//complain and return error
+		// complain and return error
 		break;
 	}
 

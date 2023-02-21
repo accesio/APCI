@@ -662,17 +662,20 @@ static struct pci_driver pci_driver = {
 	.remove = remove,
 };
 
+static struct file_operations apci_child_ops = { .owner = THIS_MODULE,
+						 .open = open_child_apci,
+						 .read = read_child_apci };
 /* File Operations */
-static struct file_operations apci_fops = { .owner = THIS_MODULE,
-					    .read = read_apci,
-					    .open = open_apci,
+static struct file_operations apci_root_fops = { .owner = THIS_MODULE,
+						 .read = read_apci,
+						 .open = open_apci,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 39)
-					    .ioctl = ioctl_apci,
+						 .ioctl = ioctl_apci,
 #else
-					    .unlocked_ioctl = ioctl_apci,
+						 .unlocked_ioctl = ioctl_apci,
 #endif
-					    .mmap = mmap_apci,
-					    .release = release_apci };
+						 .mmap = mmap_apci,
+						 .release = release_apci };
 
 static const int NUM_DEVICES = 4;
 static const char APCI_CLASS_NAME[] = "apci";
@@ -1305,7 +1308,11 @@ void apci_free_driver(struct pci_dev *pdev)
 
 int destroy_child_devices(struct device *dev, void *data)
 {
+	struct apci_child_info *child_info = dev_get_drvdata(dev);
+	cdev_del(&child_info->cdev);
+
 	device_destroy(class_apci, dev->devt);
+
 	return 0;
 }
 
@@ -1331,7 +1338,54 @@ static void apci_class_dev_unregister(struct apci_my_info *ddata)
 	apci_devel("leaving apci_class_dev_unregister.\n");
 }
 
-static int __devinit apci_class_dev_register(struct apci_my_info *ddata)
+static int __devinit apci_class_child_dev_register(
+	struct apci_my_info *ddata, const char *dev_type_name,
+	enum apci_child_device_type dev_type, int num_devs)
+{
+	int ret = 0;
+	struct apci_lookup_table_entry *obj =
+		&apci_driver_table[APCI_LOOKUP_ENTRY((int)ddata->id->device)];
+	// Create child relay devices
+	for (int i = 0; i < num_devs; ++i) {
+		struct apci_child_info *cdata =
+			(struct apci_child_info *)kmalloc(
+				sizeof(struct apci_child_info), GFP_KERNEL);
+		cdata->type = dev_type;
+		cdata->ddata = ddata;
+		cdata->group_num = i;
+		cdata->dev = device_create(class_apci, ddata->dev,
+					   apci_first_dev + dev_counter, cdata,
+					   "apci/%s_%d_%s%d", obj->name,
+					   obj->counter, dev_type_name, i);
+		if (IS_ERR(cdata->dev)) {
+			apci_error(
+				"Error creating child %s dev_t device %d for dev %d",
+				dev_type_name, i, dev_counter);
+			ret = PTR_ERR(cdata->dev);
+			kfree(cdata);
+			return ret;
+		}
+		cdev_init(&cdata->cdev, &apci_child_ops);
+		cdata->cdev.owner = THIS_MODULE;
+		cdev_set_parent(&cdata->cdev, &cdata->dev->kobj);
+		ret = cdev_add(&cdata->cdev, apci_first_dev + dev_counter, 1);
+		if (ret) {
+			apci_error(
+				"Error creating child %s character device %d for dev %d",
+				dev_type_name, i, dev_counter);
+			device_destroy(class_apci,
+				       apci_first_dev + dev_counter);
+			ret = PTR_ERR(cdata->dev);
+			kfree(cdata);
+
+			return ret;
+		}
+
+		dev_counter++;
+	}
+	return 0;
+}
+static int __devinit apci_class_root_dev_register(struct apci_my_info *ddata)
 {
 	int ret;
 	struct apci_lookup_table_entry *obj =
@@ -1353,31 +1407,10 @@ static int __devinit apci_class_dev_register(struct apci_my_info *ddata)
 
 	dev_counter++;
 
-	for (int i = 0; i < obj->relay_bytes; ++i) {
-		struct device *child_dev = device_create(
-			class_apci, ddata->dev, apci_first_dev + dev_counter,
-			NULL, "apci/%s_%d_relay%d", obj->name, obj->counter, i);
-		if (IS_ERR(child_dev)) {
-			apci_error("Error creating child relay device");
-			ret = PTR_ERR(child_dev);
-			child_dev = NULL;
-			return ret;
-		}
-		dev_counter++;
-	}
+	apci_class_child_dev_register(ddata, "relay", RELAY, obj->relay_bytes);
 
-	for (int i = 0; i < obj->input_bytes; ++i) {
-		struct device *child_dev = device_create(
-			class_apci, ddata->dev, apci_first_dev + dev_counter,
-			NULL, "apci/%s_%d_input%d", obj->name, obj->counter, i);
-		if (IS_ERR(child_dev)) {
-			apci_error("Error creating child relay device");
-			ret = PTR_ERR(child_dev);
-			child_dev = NULL;
-			return ret;
-		}
-		dev_counter++;
-	}
+	apci_class_child_dev_register(ddata, "input", INPUT, obj->input_bytes);
+
 	// Object counter increment happens after child devices created
 	// so that they share same prefix.
 	obj->counter++;
@@ -1916,7 +1949,7 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	/* add to sysfs */
 
-	cdev_init(&ddata->cdev, &apci_fops);
+	cdev_init(&ddata->cdev, &apci_root_fops);
 	ddata->cdev.owner = THIS_MODULE;
 
 	ret = cdev_add(&ddata->cdev, apci_first_dev + dev_counter, 1);
@@ -1931,7 +1964,7 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	spin_unlock(&head.driver_list_lock);
 
 	pci_set_drvdata(pdev, ddata);
-	ret = apci_class_dev_register(ddata);
+	ret = apci_class_root_dev_register(ddata);
 
 	if (ret)
 		goto exit_pci_setdrv;
@@ -1985,7 +2018,7 @@ int __init apci_init(void)
 	sort(apci_driver_table, APCI_TABLE_SIZE, APCI_TABLE_ENTRY_SIZE, te_sort,
 	     NULL);
 
-	ret = alloc_chrdev_region(&apci_first_dev, 0, MAX_APCI_CARDS, APCI);
+	ret = alloc_chrdev_region(&apci_first_dev, 0, MAX_APCI_DEVICES, APCI);
 	if (ret) {
 		apci_error("Unable to allocate device numbers");
 		return ret;
@@ -1997,9 +2030,8 @@ int __init apci_init(void)
 		goto err;
 	class_apci->devnode = apci_devnode; // set device file permissions
 
-	cdev_init(&apci_cdev, &apci_fops);
+	cdev_init(&apci_cdev, &apci_root_fops);
 	apci_cdev.owner = THIS_MODULE;
-	apci_cdev.ops = &apci_fops;
 
 	result = cdev_add(&apci_cdev, dev, 1);
 
@@ -2025,7 +2057,7 @@ err:
 
 	apci_error("Unregistering chrdev_region.\n");
 
-	unregister_chrdev_region(MKDEV(APCI_MAJOR, 0), 1);
+	unregister_chrdev_region(MKDEV(APCI_MAJOR, 0), MAX_APCI_DEVICES);
 
 	class_destroy(class_apci);
 	return PTR_ERR(ptr_err);
@@ -2036,7 +2068,7 @@ static void __exit apci_exit(void)
 	apci_debug("performing exit duties\n");
 	pci_unregister_driver(&pci_driver);
 	cdev_del(&apci_cdev);
-	unregister_chrdev_region(MKDEV(APCI_MAJOR, 0), 1);
+	unregister_chrdev_region(MKDEV(APCI_MAJOR, 0), MAX_APCI_DEVICES);
 	class_destroy(class_apci);
 }
 
