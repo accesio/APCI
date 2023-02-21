@@ -319,11 +319,11 @@ struct apci_my_info {
 	__u32 dev_id;
 	io_region regions[6], plx_region;
 	const struct pci_device_id *id;
-	int is_pcie;
+	bool is_pcie;
 	int irq;
-	int irq_capable; /* is the card even able to generate irqs? */
-	int waiting_for_irq; /* boolean for if the user has requested an IRQ */
-	int irq_cancelled; /* boolean for if the user has cancelled the wait */
+	bool irq_capable; /* is the card even able to generate irqs? */
+	bool waiting_for_irq; /* boolean for if the user has requested an IRQ */
+	bool irq_cancelled; /* boolean for if the user has cancelled the wait */
 
 	/* List of drivers */
 	struct list_head driver_list;

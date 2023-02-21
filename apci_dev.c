@@ -663,7 +663,8 @@ static struct pci_driver pci_driver = {
 };
 
 /* File Operations */
-static struct file_operations apci_fops = { .read = read_apci,
+static struct file_operations apci_fops = { .owner = THIS_MODULE,
+					    .read = read_apci,
 					    .open = open_apci,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 39)
 					    .ioctl = ioctl_apci,
@@ -801,9 +802,10 @@ void *apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
 						   ddata->plx_region.length,
 						   "apci");
 			if (presource == NULL) {
-				/* We couldn't get the region.  We have only allocated
-         * ddata so release it and return an error.
-         */
+				/* We couldn't get the region.  We have only
+				 * allocated ddata so release it and return an
+				 * error.
+				 */
 				apci_error("Unable to request region.\n");
 				goto out_alloc_driver;
 			}
@@ -1276,7 +1278,8 @@ void apci_free_driver(struct pci_dev *pdev)
 			       ddata->plx_region.length);
 	} else {
 		// iounmap(ddata->plx_region.mapped_address);
-		// release_mem_region(ddata->plx_region.start, ddata->plx_region.length);
+		// release_mem_region(ddata->plx_region.start,
+		// ddata->plx_region.length);
 	}
 
 	for (count = 0; count < 6; count++) {
@@ -1300,18 +1303,28 @@ void apci_free_driver(struct pci_dev *pdev)
 	apci_debug("Completed freeing driver.\n");
 }
 
+int destroy_child_devices(struct device *dev, void *data)
+{
+	device_destroy(class_apci, dev->devt);
+	return 0;
+}
+
 static void apci_class_dev_unregister(struct apci_my_info *ddata)
 {
 	struct apci_lookup_table_entry *obj =
 		&apci_driver_table[APCI_LOOKUP_ENTRY((int)ddata->id->device)];
 	apci_devel("entering apci_class_dev_unregister\n");
-	/* ddata->dev = device_create(class_apci, &ddata->pci_dev->dev , apci_first_dev + id, NULL, "apci/%s_%d", obj->name, obj->counter ++ ); */
+	/* ddata->dev = device_create(class_apci, &ddata->pci_dev->dev ,
+	 * apci_first_dev + id, NULL, "apci/%s_%d", obj->name, obj->counter ++
+	 * ); */
 
 	apci_devel("entering apci_class_dev_unregister.\n");
 	if (ddata->dev == NULL)
 		return;
 
-	device_unregister(ddata->dev);
+	device_for_each_child_reverse(ddata->dev, NULL, destroy_child_devices);
+
+	device_destroy(class_apci, ddata->dev->devt);
 	obj->counter--;
 	dev_counter--;
 
@@ -1337,8 +1350,38 @@ static int __devinit apci_class_dev_register(struct apci_my_info *ddata)
 		ddata->dev = NULL;
 		return ret;
 	}
-	obj->counter++;
+
 	dev_counter++;
+
+	for (int i = 0; i < obj->relay_bytes; ++i) {
+		struct device *child_dev = device_create(
+			class_apci, ddata->dev, apci_first_dev + dev_counter,
+			NULL, "apci/%s_%d_relay%d", obj->name, obj->counter, i);
+		if (IS_ERR(child_dev)) {
+			apci_error("Error creating child relay device");
+			ret = PTR_ERR(child_dev);
+			child_dev = NULL;
+			return ret;
+		}
+		dev_counter++;
+	}
+
+	for (int i = 0; i < obj->input_bytes; ++i) {
+		struct device *child_dev = device_create(
+			class_apci, ddata->dev, apci_first_dev + dev_counter,
+			NULL, "apci/%s_%d_input%d", obj->name, obj->counter, i);
+		if (IS_ERR(child_dev)) {
+			apci_error("Error creating child relay device");
+			ret = PTR_ERR(child_dev);
+			child_dev = NULL;
+			return ret;
+		}
+		dev_counter++;
+	}
+	// Object counter increment happens after child devices created
+	// so that they share same prefix.
+	obj->counter++;
+
 	apci_devel("leaving apci_class_dev_register\n");
 	return 0;
 }
@@ -1395,10 +1438,10 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
 		break;
 
 	default:
-		/* The first thing we do is check to see if the card is causing an IRQ.
-     * If it is then we can proceed to clear the IRQ. Otherwise let
-     * Linux know that it wasn't us.
-     */
+		/* The first thing we do is check to see if the card is causing
+		 * an IRQ. If it is then we can proceed to clear the IRQ.
+		 * Otherwise let Linux know that it wasn't us.
+		 */
 		if (!ddata->is_pcie) {
 			byte = inb(ddata->plx_region.start + 0x4C);
 
@@ -1446,8 +1489,8 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
 		break;
 
 		/* These cards don't have the IRQ simply "Cleared",
-     * it must be disabled then re-enabled.
-     */
+		 * it must be disabled then re-enabled.
+		 */
 	case PCI_DIO_72:
 	case PCI_DIO_96:
 	case PCI_DIO_96CT:
@@ -1494,11 +1537,11 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
 	case PCI_AIO12_16:
 	case PCI_A12_16A:
 		/* Clear the FIFO interrupt enable bits, but leave
-     * the counter enabled.  Otherwise the IRQ will not
-     * go away and user code will never run as the machine
-     * will hang in a never-ending IRQ loop. The userland
-     * irq routine must re-enable the interrupts if desired.
-     */
+		 * the counter enabled.  Otherwise the IRQ will not
+		 * go away and user code will never run as the machine
+		 * will hang in a never-ending IRQ loop. The userland
+		 * irq routine must re-enable the interrupts if desired.
+		 */
 		outb(0x01, ddata->regions[2].start + 0x4);
 		byte = inb(ddata->regions[2].start + 0x4);
 		break;
@@ -1553,7 +1596,9 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
 
 	case PCIe_IDIO_12:
 	case PCIe_IDIO_24:
-		/* read 32 bits from +8 to determine which specific bits have generated a CoS IRQ then write the same value back to +8 to clear those CoS latches */
+		/* read 32 bits from +8 to determine which specific bits have
+		 * generated a CoS IRQ then write the same value back to +8 to
+		 * clear those CoS latches */
 		dword = inl(ddata->regions[2].start + 0x8);
 		outl(dword, ddata->regions[2].start + 0x8);
 		break;
@@ -1574,7 +1619,8 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
 		apci_devel("ISR: mPCIe-AI irq_event\n");
 		// If this is a FIFO near full IRQ then tell the card
 		// to write to the next buffer (and don't notify the user?)
-		// else if it is a write done IRQ set last_valid_buffer and notify user
+		// else if it is a write done IRQ set last_valid_buffer and
+		// notify user
 		irq_event = ioread8(ddata->regions[2].mapped_address + 0x2);
 		if (irq_event == 0) {
 			apci_devel("ISR: not our IRQ\n");
@@ -1664,10 +1710,12 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
 		apci_devel("ISR: mPCIe-AxIO irq_event\n");
 		// If this is a FIFO near full IRQ then tell the card
 		// to write to the next buffer (and don't notify the user)
-		// else if it is a write done IRQ set last_valid_buffer and notify user
+		// else if it is a write done IRQ set last_valid_buffer and
+		// notify user
 		irq_event = ioread32(
 			ddata->regions[1].mapped_address +
-			mPCIe_ADIO_IRQStatusAndClearOffset); // TODO: Upgrade to doRegisterAction("AmI?")
+			mPCIe_ADIO_IRQStatusAndClearOffset); // TODO: Upgrade to
+							     // doRegisterAction("AmI?")
 
 		if ((irq_event & mPCIe_ADIO_IRQEventMask) == 0) {
 			apci_devel("ISR: not our IRQ\n");
@@ -1713,7 +1761,19 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
 		iowrite32(
 			irq_event,
 			ddata->regions[1].mapped_address +
-				mPCIe_ADIO_IRQStatusAndClearOffset); // clear whatever IRQ occurred and retain enabled IRQ sources // TODO: Upgrade to doRegisterAction("Clear&Enable")
+				mPCIe_ADIO_IRQStatusAndClearOffset); // clear
+								     // whatever
+								     // IRQ
+								     // occurred
+								     // and
+								     // retain
+								     // enabled
+								     // IRQ
+								     // sources
+								     // // TODO:
+								     // Upgrade
+								     // to
+								     // doRegisterAction("Clear&Enable")
 		apci_debug(
 			"ISR: irq_event = 0x%x, depth = 0x%x, IRQStatus = 0x%x\n",
 			irq_event,
@@ -1724,10 +1784,10 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
 	}; // end card-specific switch
 
 	/* Check to see if we were actually waiting for an IRQ. If we were
-   * then we need to wake the queue associated with this device.
-   * Right now it is not possible for any other code sections that access
-   * the critical data to interrupt us so we won't disable other IRQs.
-   */
+	 * then we need to wake the queue associated with this device.
+	 * Right now it is not possible for any other code sections that access
+	 * the critical data to interrupt us so we won't disable other IRQs.
+	 */
 	if (notify_user) {
 		spin_lock(&(ddata->irq_lock));
 
@@ -1750,13 +1810,13 @@ void remove(struct pci_dev *pdev)
 	struct apci_my_info *_temp;
 	apci_devel("entering remove\n");
 
-	spin_lock(&(ddata->irq_lock));
+	// Don't spinlock around free irq as it will already wait for irqs to
+	// finish, and disabling the irq will ensure nothing new happens
+	if (ddata->irq_capable) {
+		disable_irq(pdev->irq);
 
-	if (ddata->irq_capable)
 		free_irq(pdev->irq, ddata);
-
-	spin_unlock(&(ddata->irq_lock));
-
+	}
 	if (ddata->dma_virt_addr != NULL) {
 		dma_free_coherent(&(ddata->pci_dev->dev),
 				  ddata->dma_num_slots * ddata->dma_slot_size,
