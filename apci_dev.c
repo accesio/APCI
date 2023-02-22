@@ -678,7 +678,8 @@ static struct pci_driver pci_driver = {
 static struct file_operations apci_child_ops = { .owner = THIS_MODULE,
 						 .open = open_child_apci,
 						 .read = read_child_apci,
-						 .write = write_child_apci };
+						 .write = write_child_apci,
+						 .llseek = seek_child_apci };
 /* File Operations */
 static struct file_operations apci_root_fops = { .owner = THIS_MODULE,
 						 .read = read_apci,

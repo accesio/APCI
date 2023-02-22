@@ -18,7 +18,6 @@ ssize_t read_child_apci(struct file *f, char __user *buf, size_t len,
 int open_child_apci(struct inode *inode, struct file *filp);
 loff_t seek_child_apci(struct file *, loff_t, int);
 ssize_t write_child_apci(struct file *, const char *, size_t, loff_t *);
-
 ssize_t read_apci(struct file *f, char __user *buf, size_t len, loff_t *off);
 int open_apci(struct inode *inode, struct file *filp);
 int release_apci(struct inode *inode, struct file *filp);

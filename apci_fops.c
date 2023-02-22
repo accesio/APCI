@@ -25,6 +25,12 @@ address_type is_valid_addr(struct apci_my_info *driver_data, int bar, int addr)
 	return INVALID;
 }
 
+loff_t seek_child_apci(struct file *filp, loff_t offset, int whence)
+{
+	apci_error("Seeking!");
+	return fixed_size_llseek(filp, offset, whence, 1);
+}
+
 ssize_t write_child_apci(struct file *filp, const char __user *buffer,
 			 size_t len, loff_t *off)
 {
@@ -33,15 +39,15 @@ ssize_t write_child_apci(struct file *filp, const char __user *buffer,
 	const int bar = 2;
 	const int bar_offset = cdata->bar_offset;
 	u8 write_data = 0;
-	*off = 0;
-	if (len == 0)
+	if (len <= 0)
+		return -EINVAL;
+
+	if (*off > 0)
 		return 0;
 	// Can't write to input
 	if (len == 0 || cdata->type == APCI_CHILD_INPUT)
 		return -EINVAL;
 	get_user(write_data, buffer);
-
-	*off = 0;
 
 	if (is_valid_addr(cdata->ddata, bar, bar_offset) != IO) {
 		apci_error("Invalid address, bar %x, bar offset %x", bar,
@@ -49,6 +55,7 @@ ssize_t write_child_apci(struct file *filp, const char __user *buffer,
 		return -EFAULT;
 	}
 	outb(write_data, cdata->ddata->regions[bar].start + bar_offset);
+	*off += 1;
 	return 1;
 }
 
@@ -60,10 +67,10 @@ ssize_t read_child_apci(struct file *filp, char __user *buffer, size_t len,
 	const int bar = 2;
 	const int bar_offset = cdata->bar_offset;
 	u8 result = 0;
-	if (len == 0)
+	if (len <= 0)
+		return -EINVAL;
+	if (*off > 0)
 		return 0;
-
-	*off = 0;
 
 	if (is_valid_addr(cdata->ddata, bar, bar_offset) != IO) {
 		apci_error("Invalid address, bar %x, bar offset %x", bar,
@@ -72,6 +79,8 @@ ssize_t read_child_apci(struct file *filp, char __user *buffer, size_t len,
 	}
 	result = inb(cdata->ddata->regions[bar].start + bar_offset);
 	put_user(result, buffer);
+
+	*off = 1;
 
 	return 1;
 }
@@ -91,8 +100,7 @@ int open_apci(struct inode *inode, struct file *filp)
 	struct apci_my_info *ddata;
 	apci_debug("Opening device\n");
 	ddata = container_of(inode->i_cdev, struct apci_my_info, cdev);
-	/* need to check to see if the device is
-     Blocking  / nonblocking */
+	/* need to check to see if the device is Blocking  / nonblocking */
 
 	filp->private_data = ddata;
 	ddata->waiting_for_irq = 0;
