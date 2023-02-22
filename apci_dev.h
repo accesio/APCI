@@ -355,7 +355,11 @@ struct apci_my_info {
 	void *dac_fifo_buffer;
 };
 
-enum apci_child_device_type { APCI_CHILD_RELAY, APCI_CHILD_INPUT };
+enum apci_child_device_type {
+	APCI_CHILD_RELAY,
+	APCI_CHILD_INPUT,
+	APCI_CHILD_INOUT
+};
 // Structure for the child device information
 struct apci_child_info {
 	enum apci_child_device_type type;

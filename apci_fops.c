@@ -44,8 +44,9 @@ ssize_t write_child_apci(struct file *filp, const char __user *buffer,
 
 	if (*off > 0)
 		return 0;
+
 	// Can't write to input
-	if (len == 0 || cdata->type == APCI_CHILD_INPUT)
+	if (cdata->type == APCI_CHILD_INPUT)
 		return -EINVAL;
 	get_user(write_data, buffer);
 
