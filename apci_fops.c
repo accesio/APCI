@@ -25,16 +25,59 @@ address_type is_valid_addr(struct apci_my_info *driver_data, int bar, int addr)
 	return INVALID;
 }
 
-ssize_t read_child_apci(struct file *filp, char __user *buf, size_t len,
+ssize_t write_child_apci(struct file *filp, const char __user *buffer,
+			 size_t len, loff_t *off)
+{
+	struct apci_child_info *cdata = filp->private_data;
+	// Currently we only support devices where the bar here is 2
+	const int bar = 2;
+	// Currently we only support devices where the offset is 0 for relays,
+	// and 1 for input data
+	const int bar_offset = cdata->type == APCI_CHILD_RELAY ? 0 : 1;
+	u8 write_data = 0;
+	*off = 0;
+	if (len == 0)
+		return 0;
+	// Can't write to input
+	if (len == 0 || cdata->type == APCI_CHILD_INPUT)
+		return -EINVAL;
+	get_user(write_data, buffer);
+
+	*off = 0;
+
+	if (is_valid_addr(cdata->ddata, bar, bar_offset) != IO) {
+		apci_error("Invalid address, bar %x, bar offset %x", bar,
+			   bar_offset);
+		return -EFAULT;
+	}
+	outb(write_data, cdata->ddata->regions[bar].start + bar_offset);
+	return 1;
+}
+
+ssize_t read_child_apci(struct file *filp, char __user *buffer, size_t len,
 			loff_t *off)
 {
-	return -EFAULT;
+	struct apci_child_info *cdata = filp->private_data;
+	// Currently we only support devices where the bar here is 2
+	const int bar = 2;
+	// Currently we only support devices where the offset is 0 for relays,
+	// and 1 for input data
+	const int bar_offset = cdata->type == APCI_CHILD_RELAY ? 0 : 1;
+	u8 result = 0;
+	if (len == 0)
+		return 0;
 
-	// struct apci_my_info *ddata = filp->private_data;
-	// int status;
-	// unsigned int value = inb(ddata->regions[2].start + 0x1);
-	// status = copy_to_user(buf, &value, 1);
-	// return (status ? -EFAULT : 1);
+	*off = 0;
+
+	if (is_valid_addr(cdata->ddata, bar, bar_offset) != IO) {
+		apci_error("Invalid address, bar %x, bar offset %x", bar,
+			   bar_offset);
+		return -EFAULT;
+	}
+	result = inb(cdata->ddata->regions[bar].start + bar_offset);
+	put_user(result, buffer);
+
+	return 1;
 }
 
 int open_child_apci(struct inode *inode, struct file *filp)

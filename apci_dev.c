@@ -479,7 +479,7 @@ static struct apci_lookup_table_entry apci_driver_table[] =
         APCI_MAKE_ENTRY(PCIe_DIO_48,0,0),
         APCI_MAKE_ENTRY(PCIe_DIO_48S,0,0),
         APCI_MAKE_ENTRY(PCIe_IIRO_8,1,1),
-        APCI_MAKE_ENTRY(PCIe_IIRO_16,1,1),
+        APCI_MAKE_ENTRY(PCIe_IIRO_16,0,0),
         APCI_MAKE_ENTRY(PCI_DIO_24H,0,0),
         APCI_MAKE_ENTRY(PCI_DIO_24D,0,0),
         APCI_MAKE_ENTRY(PCI_DIO_24H_C,0,0),
@@ -521,7 +521,7 @@ static struct apci_lookup_table_entry apci_driver_table[] =
         APCI_MAKE_ENTRY(PCI_DA12_8V,0,0),
         APCI_MAKE_ENTRY(LPCI_IIRO_8,1,1),
         APCI_MAKE_ENTRY(PCI_IIRO_8,1,1),
-        APCI_MAKE_ENTRY(PCI_IIRO_16,1,1),
+        APCI_MAKE_ENTRY(PCI_IIRO_16,0,0),
         APCI_MAKE_ENTRY(PCI_IDI_48,0,0),
         APCI_MAKE_ENTRY(PCI_IDO_48,0,0),
         APCI_MAKE_ENTRY(PCI_IDIO_16,0,0),
@@ -664,7 +664,8 @@ static struct pci_driver pci_driver = {
 
 static struct file_operations apci_child_ops = { .owner = THIS_MODULE,
 						 .open = open_child_apci,
-						 .read = read_child_apci };
+						 .read = read_child_apci,
+						 .write = write_child_apci };
 /* File Operations */
 static struct file_operations apci_root_fops = { .owner = THIS_MODULE,
 						 .read = read_apci,
@@ -1345,11 +1346,19 @@ static int __devinit apci_class_child_dev_register(
 	int ret = 0;
 	struct apci_lookup_table_entry *obj =
 		&apci_driver_table[APCI_LOOKUP_ENTRY((int)ddata->id->device)];
-	// Create child relay devices
+
+	if (num_devs == 0)
+		return 0;
+	apci_debug("Creating child devices of type %s, number %d",
+		   dev_type_name, num_devs);
+
+	// Create child  devices
 	for (int i = 0; i < num_devs; ++i) {
 		struct apci_child_info *cdata =
 			(struct apci_child_info *)kmalloc(
 				sizeof(struct apci_child_info), GFP_KERNEL);
+		apci_debug("Creating device %d of type %s", i, dev_type_name);
+
 		cdata->type = dev_type;
 		cdata->ddata = ddata;
 		cdata->group_num = i;
@@ -1393,7 +1402,7 @@ static int __devinit apci_class_root_dev_register(struct apci_my_info *ddata)
 	apci_devel("entering apci_class_dev_register\n");
 
 	ddata->dev = device_create(class_apci, &ddata->pci_dev->dev,
-				   apci_first_dev + dev_counter, NULL,
+				   apci_first_dev + dev_counter, ddata,
 				   "apci/%s_%d", obj->name, obj->counter);
 
 	/* add pointer to the list of all ACCES I/O products */
@@ -1407,9 +1416,11 @@ static int __devinit apci_class_root_dev_register(struct apci_my_info *ddata)
 
 	dev_counter++;
 
-	apci_class_child_dev_register(ddata, "relay", RELAY, obj->relay_bytes);
+	apci_class_child_dev_register(ddata, "relay", APCI_CHILD_RELAY,
+				      obj->relay_bytes);
 
-	apci_class_child_dev_register(ddata, "input", INPUT, obj->input_bytes);
+	apci_class_child_dev_register(ddata, "input", APCI_CHILD_INPUT,
+				      obj->input_bytes);
 
 	// Object counter increment happens after child devices created
 	// so that they share same prefix.
