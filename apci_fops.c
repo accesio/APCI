@@ -27,7 +27,6 @@ address_type is_valid_addr(struct apci_my_info *driver_data, int bar, int addr)
 
 loff_t seek_child_apci(struct file *filp, loff_t offset, int whence)
 {
-	apci_error("Seeking!");
 	return fixed_size_llseek(filp, offset, whence, 1);
 }
 
