@@ -31,9 +31,7 @@ ssize_t write_child_apci(struct file *filp, const char __user *buffer,
 	struct apci_child_info *cdata = filp->private_data;
 	// Currently we only support devices where the bar here is 2
 	const int bar = 2;
-	// Currently we only support devices where the offset is 0 for relays,
-	// and 1 for input data
-	const int bar_offset = cdata->type == APCI_CHILD_RELAY ? 0 : 1;
+	const int bar_offset = cdata->bar_offset;
 	u8 write_data = 0;
 	*off = 0;
 	if (len == 0)
@@ -60,9 +58,7 @@ ssize_t read_child_apci(struct file *filp, char __user *buffer, size_t len,
 	struct apci_child_info *cdata = filp->private_data;
 	// Currently we only support devices where the bar here is 2
 	const int bar = 2;
-	// Currently we only support devices where the offset is 0 for relays,
-	// and 1 for input data
-	const int bar_offset = cdata->type == APCI_CHILD_RELAY ? 0 : 1;
+	const int bar_offset = cdata->bar_offset;
 	u8 result = 0;
 	if (len == 0)
 		return 0;

@@ -361,7 +361,7 @@ struct apci_child_info {
 	enum apci_child_device_type type;
 	struct device *dev;
 	struct cdev cdev;
-	int group_num;
+	int bar_offset;
 	struct apci_my_info *ddata;
 };
 
