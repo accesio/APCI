@@ -35,6 +35,8 @@ ssize_t write_child_apci(struct file *filp, const char __user *buffer,
 	const int bar = 2;
 	const int bar_offset = cdata->bar_offset;
 	u8 write_data = 0;
+	int get_result = 0;
+
 	if (len <= 0)
 		return -EINVAL;
 
@@ -44,13 +46,15 @@ ssize_t write_child_apci(struct file *filp, const char __user *buffer,
 	// Can't write to input
 	if (cdata->type == APCI_CHILD_INPUT)
 		return -EINVAL;
-	get_user(write_data, buffer);
 
 	if (is_valid_addr(cdata->ddata, bar, bar_offset) != IO) {
 		apci_error("Invalid address, bar %x, bar offset %x", bar,
 			   bar_offset);
 		return -EFAULT;
 	}
+	get_result = get_user(write_data, buffer);
+	if (get_result != 0)
+		return get_result;
 	outb(write_data, cdata->ddata->regions[bar].start + bar_offset);
 	*off += 1;
 	return 1;
@@ -64,6 +68,7 @@ ssize_t read_child_apci(struct file *filp, char __user *buffer, size_t len,
 	const int bar = 2;
 	const int bar_offset = cdata->bar_offset;
 	u8 result = 0;
+	int put_result = 0;
 	if (len <= 0)
 		return -EINVAL;
 	if (*off > 0)
@@ -75,10 +80,11 @@ ssize_t read_child_apci(struct file *filp, char __user *buffer, size_t len,
 		return -EFAULT;
 	}
 	result = inb(cdata->ddata->regions[bar].start + bar_offset);
-	put_user(result, buffer);
+	put_result = put_user(result, buffer);
+	if (put_result != 0)
+		return put_result;
 
 	*off = 1;
-
 	return 1;
 }
 
