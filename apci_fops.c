@@ -4,27 +4,24 @@
 address_type is_valid_addr(struct apci_my_info *driver_data, int bar, int addr)
 {
 	/* if it is a valid bar */
-	if (driver_data->regions[bar].start != 0) {
-		/* if it is within the valid range */
-		if (driver_data->regions[bar].length >= addr) {
-			/* if it is an I/O region */
-			if (driver_data->regions[bar].flags & IORESOURCE_IO) {
-				apci_info("Valid I/O range.\n");
-				return IO;
-			} else {
-				apci_info("Valid Mem range.\n");
-				return MEM;
-			}
-		} else {
-			apci_error("register address to large for region[%d]\n",
-				   bar);
-		}
+	if (driver_data->regions[bar].start == 0) {
+		apci_error("Invalid addr: bar[%d]+0x%04x.\n", bar, addr);
+		return INVALID;
 	}
-	apci_error("Invalid addr: bar[%d]+0x%04x.\n", bar, addr);
-
-	return INVALID;
+	/* if it is within the valid range */
+	if (addr > driver_data->regions[bar].length) {
+		apci_error("register address to large for region[%d]\n", bar);
+		return INVALID;
+	}
+	/* if it is an I/O region */
+	if (driver_data->regions[bar].flags & IORESOURCE_IO) {
+		apci_info("Valid I/O range.\n");
+		return IO;
+	} else {
+		apci_info("Valid Mem range.\n");
+		return MEM;
+	}
 }
-
 loff_t seek_child_apci(struct file *filp, loff_t offset, int whence)
 {
 	return fixed_size_llseek(filp, offset, whence, 1);
@@ -100,7 +97,8 @@ int open_apci(struct inode *inode, struct file *filp)
 	struct apci_my_info *ddata;
 	apci_debug("Opening device\n");
 	ddata = container_of(inode->i_cdev, struct apci_my_info, cdev);
-	/* need to check to see if the device is Blocking  / nonblocking */
+	/* need to check to see if the device is Blocking  / nonblocking
+	 */
 
 	filp->private_data = ddata;
 	ddata->waiting_for_irq = 0;
@@ -202,7 +200,8 @@ long ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		if (status == 0) {
 			apci_error("access_ok failed\n");
-			return -EACCES; /* TODO: FIND appropriate return value
+			return -EACCES; /* TODO: FIND appropriate return
+					 * value
 					 */
 		}
 
@@ -215,7 +214,8 @@ long ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 		/*      } */
 		/*      count++; */
 		/* } */
-		/* if (ddata == NULL) return -ENXIO; /\* invalid device index
+		/* if (ddata == NULL) return -ENXIO; /\* invalid device
+		 * index
 		 * *\/ */
 
 		switch (is_valid_addr(ddata, io_pack.bar, io_pack.offset)) {
@@ -310,7 +310,8 @@ long ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 #endif
 
 		if (status == 0)
-			return -EACCES; /* TODO: Find a better return code */
+			return -EACCES; /* TODO: Find a better return
+					   code */
 
 		status =
 			copy_from_user(&io_pack, (iopack *)arg, sizeof(iopack));
@@ -419,7 +420,8 @@ long ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 			 * this device.
 			 */
 			spin_unlock_irqrestore(&(ddata->irq_lock), flags);
-			return -EALREADY; /* TODO: find a better return code */
+			return -EALREADY; /* TODO: find a better return
+					     code */
 		} else {
 			ddata->waiting_for_irq = 1;
 			ddata->irq_cancelled = 0;
@@ -722,8 +724,8 @@ int mmap_apci(struct file *filp, struct vm_area_struct *vma)
 	int status;
 	unsigned long pfn_start;
 
-	// vma->vm_pgoff will be offset/PAGE_SIZE where offset is the last
-	// parameter sent to mmap() in userspace
+	// vma->vm_pgoff will be offset/PAGE_SIZE where offset is the
+	// last parameter sent to mmap() in userspace
 	switch (vma->vm_pgoff) {
 	case 0: // default for DMA
 		status = dma_mmap_coherent(&(ddata->pci_dev->dev), vma,
