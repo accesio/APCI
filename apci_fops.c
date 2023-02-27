@@ -40,8 +40,11 @@ ssize_t write_child_apci(struct file *filp, const char __user *buffer,
 	if (len <= 0)
 		return -EINVAL;
 
-	if (*off > 0)
-		return 0;
+	// Since these are all a single byte right now, we allow writing
+	// anywhere to avoid the user needing to seek.
+
+	// if (*off > 0)
+	// 	return 0;
 
 	// Can't write to input
 	if (cdata->type == APCI_CHILD_INPUT)
@@ -71,6 +74,10 @@ ssize_t read_child_apci(struct file *filp, char __user *buffer, size_t len,
 	int put_result = 0;
 	if (len <= 0)
 		return -EINVAL;
+
+	// Since these are all a single byte right now, we allow reading
+	// anywhere to avoid the user needing to seek.
+
 	if (*off > 0)
 		return 0;
 
