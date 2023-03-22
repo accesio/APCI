@@ -1882,6 +1882,10 @@ exit_free:
   return ret;
 }
 
+//The name of this variable is exposed to userspace via /etc/modprobe.d
+static int dev_mode = 0;
+module_param(dev_mode, int, 0);
+
 /* Configure the default /dev/{devicename} permissions */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 2, 0)
 static char *apci_devnode(struct device *dev, umode_t *mode)
@@ -1891,7 +1895,17 @@ static char *apci_devnode(const struct device *dev, umode_t *mode)
 {
   if (!mode)
     return NULL;
-  *mode = APCI_DEFAULT_DEVFILE_MODE;
+                                       //Has been changed  build time.
+                                      //This is not recommended, but since it
+   if (0 != APCI_DEFAULT_DEVFILE_MODE)//was released this we continue to support it
+   {
+    *mode = APCI_DEFAULT_DEVFILE_MODE;
+   }
+   else if ( 0 != dev_mode ) //Has been changed via module parameter.
+   {                         //This is the recommended method
+      *mode = dev_mode;
+   }
+
   return NULL;
 }
 
