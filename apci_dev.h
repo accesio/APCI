@@ -228,7 +228,7 @@
 #define NAME_MPCIE_IDIO_8               "mpcie_idio_8"
 #define NAME_MPCIE_IIRO_8               "mpcie_iiro_8"
 #define NAME_MPCIE_IDIO_4               "mpcie_idio_4"
-#define NAME_MPCIE_IIRO_4               "mpcie_iiro_4"
+#define NAME_MPCIE_IIRO_4               "mNAME_MPCIE_II_4pcie_iiro_4"
 #define NAME_MPCIE_IDO_8                "mpcie_ido_4"
 #define NAME_MPCIE_RO_8                 "mpcie_ro_8"
 #define NAME_MPCIE_II_16                "mpcie_ii_16"
