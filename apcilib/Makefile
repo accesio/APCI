@@ -37,7 +37,7 @@ mpcie-ii-16-irq: mpcie-ii-16-irq.c apcilib.h apcilib.c
 	$(GCC) -o mpcie-ii-16-irq mpcie-ii-16-irq.c apcilib.c
 
 pcie-idio-24-irq: pcie-idio-24-irq.c apcilib.h apcilib.c
-	$(GCC) -o pcie-idio-24-irq pcie-idio-24-irq.c apcilib.c
+	$(GCC) -o pcie-idio-24-irq pcie-idio-24-irq.c apcilib.c -lpthread -O3
 
 mpcie-dio-24s-irq: mpcie-dio-24s-irq.c apcilib.h apcilib.c
 	$(GCC) -o mpcie-dio-24s-irq mpcie-dio-24s-irq.c apcilib.c
