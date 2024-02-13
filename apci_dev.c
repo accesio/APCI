@@ -820,6 +820,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   switch (ddata->dev_id)
   {
   case PCIe_DIO_24: /* group1 */
+  case PCIe_DIO_24S:
   case MPCIE_DIO_24S:
   case MPCIE_DIO_24S_R1:
   case MPCIE_IDIO_8:
@@ -1882,12 +1883,30 @@ exit_free:
   return ret;
 }
 
+//The name of this variable is exposed to userspace via /etc/modprobe.d
+static int dev_mode = 0;
+module_param(dev_mode, int, 0);
+
 /* Configure the default /dev/{devicename} permissions */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 2, 0)
 static char *apci_devnode(struct device *dev, umode_t *mode)
+#else
+static char *apci_devnode(const struct device *dev, umode_t *mode)
+#endif
 {
   if (!mode)
     return NULL;
-  *mode = APCI_DEFAULT_DEVFILE_MODE;
+                                       //Has been changed  build time.
+                                      //This is not recommended, but since it
+   if (0 != APCI_DEFAULT_DEVFILE_MODE)//was released this we continue to support it
+   {
+    *mode = APCI_DEFAULT_DEVFILE_MODE;
+   }
+   else if ( 0 != dev_mode ) //Has been changed via module parameter.
+   {                         //This is the recommended method
+      *mode = dev_mode;
+   }
+
   return NULL;
 }
 
@@ -1911,7 +1930,11 @@ apci_init(void)
   }
 
   /* Create the sysfs entry for this */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
   class_apci = class_create(THIS_MODULE, APCI_CLASS_NAME);
+#else
+  class_apci = class_create(APCI_CLASS_NAME);
+#endif
   if (IS_ERR(ptr_err = class_apci))
     goto err;
   class_apci->devnode = apci_devnode; // set device file permissions
