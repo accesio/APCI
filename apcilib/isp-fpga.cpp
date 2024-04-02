@@ -1,42 +1,51 @@
-
-#include <algorithm>   // std::max
-#include <filesystem>  // std::filesystem::directory_iterator
-#include <string>      // std::string
-#include <stdint.h>    // uint8_t, uint32_t
-#include <stdio.h>     // printf
-#include <stdlib.h>    // exit
-#include <fcntl.h>     // open, O_*
-#include <unistd.h>    // read, close, usleep, sleep
+#include <vector>
+#include <unistd.h>
+#include <thread>
+#include <sys/types.h>
+#include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/mman.h>
+#include <strings.h>
+#include <string>
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <sstream>
+#include <signal.h>
+#include <semaphore.h>
+#include <queue>
+#include <pthread.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <mutex>
+#include <math.h>
+#include <iostream>
+#include <filesystem>
+#include <fcntl.h>
+#include <errno.h>
+#include <ctime>
+#include <condition_variable>
+#include <chrono>
+#include <atomic>
+#include <arpa/inet.h>	//close
+#include <algorithm>
 
 #include "apcilib.h"
 
-/* *********************************************************************************** */
-/* 	                      WARNING     WARNING      WARNING     WARNING                 */
-/* The following #define constants must be changed to match your specific hardware     */
-#define BAR_REGISTER 1
-#define ofsFPGARevision 0xA0
+
+#define BAR_REGISTER 2
+#define ofsFPGARevision 0x68
 #define ofsFlashAddress 0x70
 #define ofsFlashData 0x74
 #define ofsFlashErase 0x78
-/* *********************************************************************************** */
-
 #define bmFlashWriteBit 0x80000000
 
 int apci;
 uint32_t EraseSentinel = 0x494f0000;	   // | DeviceID
 uint32_t EraseSectorSentinel = 0x0ACCE500; // | iSector
-int FileBytesRead = 0;
+uint32_t FileBytesRead = 0;
 uint8_t FlashData[0x80000];
-
-#define NUM_CHUNKS 256
-static inline unsigned pct(unsigned long long cur, unsigned long long total)
-{
-	if (!total)
-		return 0;
-	if (cur > total)
-		cur = total;
-	return (unsigned)((100ULL * cur) / total);
-}
 
 void ReadFile(char *FileName, uint8_t FlashData[])
 {
@@ -53,7 +62,7 @@ void ReadFile(char *FileName, uint8_t FlashData[])
 		printf("Could not read file %s\n", FileName);
 		exit(1);
 	}
-	printf("Loaded %d bytes from file %s\n", FileBytesRead, FileName);
+	printf("Read %d bytes from file %s\n", FileBytesRead, FileName);
 }
 
 void EraseFlash()
@@ -62,7 +71,7 @@ void EraseFlash()
 	{
 		apci_write32(apci, 1, BAR_REGISTER, ofsFlashErase, EraseSentinel);
 		apci_write32(apci, 1, BAR_REGISTER, ofsFlashErase, EraseSectorSentinel | iSector);
-		printf("Erasing Flash Sector %d/8 via %08X\r", iSector + 1, EraseSectorSentinel | iSector);
+		printf("Erasing Flash Sector %d/8 via %08X\n", iSector + 1, EraseSectorSentinel | iSector);
 		sleep(2);
 	}
 }
@@ -85,78 +94,66 @@ uint8_t PrimitiveReadFlashByte(uint32_t offset)
 
 void WriteFlash()
 {
-	printf("\nWriting %d bytes to Flash\n", FileBytesRead);
-	const int chunk = std::max(1, FileBytesRead / NUM_CHUNKS);
+	printf("Writing %d bytes to Flash\n", FileBytesRead);
 	for (int iByte = 0; iByte < FileBytesRead; iByte++)
 	{
 		PrimitiveWriteFlashByte(iByte, FlashData[iByte]);
-
-		int done = iByte + 1;
-		if ((done % chunk) == 0 || done == FileBytesRead || done == 1)
+		if (iByte % (FileBytesRead / 8) == 0)
 		{
-			printf("\rWrote     %9d / %-9d (%3u%%) to flash", done, FileBytesRead, pct(done, FileBytesRead));
-			fflush(stdout);
+			printf("wrote %d of %d to flash\n", iByte, FileBytesRead);
 		}
 	}
-	printf("\nFlash write complete\n");
+	printf("Flash write complete\n");
 }
 
 int VerifyFlash()
 {
-	printf("\nVerifying %d bytes from Flash\n", FileBytesRead);
+	printf("Verifying %d bytes from Flash\n", FileBytesRead);
 	int Result = 1;
-	const int chunk = std::max(1, FileBytesRead / NUM_CHUNKS);
-
 	for (int iByte = 0; iByte < FileBytesRead; iByte++)
 	{
 		uint8_t data = PrimitiveReadFlashByte(iByte);
 		if (data != FlashData[iByte])
 		{
-			printf("\nVerify failed at byte %8d; Got %02X, expected %02X\n",
-				   iByte, data, FlashData[iByte]);
+			printf("Verify failed at byte %8d; Got %02X, expected %02X\n", iByte, data, FlashData[iByte]);
 			Result = 0;
 			break;
 		}
 
-		int done = iByte + 1;
-		if ((done % chunk) == 0 || done == FileBytesRead || done == 1)
+		if (iByte % (FileBytesRead / 8) == 0)
 		{
-			printf("\rVerified  %9d / %-9d (%3u%%) of the flash", done, FileBytesRead, pct(done, FileBytesRead));
-			fflush(stdout);
+			printf("Verified %d of %d to flash\n", iByte, FileBytesRead);
 		}
 	}
-	printf("\n%s\n", Result ? "Verification of flash contents succeeded."
-							: "Verification of flash contents failed.\nRETRYING");
+	if (Result)
+		printf("\nVerification of flash contents succeeded.\n");
+	else
+		printf("\nVerification of flash contents failed.\nRETRYING\n");
 	return Result;
 }
 
 int VerifyErase()
 {
-	printf("\nVerifying Erasure of Flash\n");
 	int Result = 1;
-	const int total = 0x80000;
-	const int chunk = std::max(1, total / NUM_CHUNKS);
-
-	for (int iByte = 0; iByte < total; iByte++)
+	for (int iByte = 0; iByte < 0x80000; iByte++)
 	{
 		uint8_t data = PrimitiveReadFlashByte(iByte);
 		if (data != 0xFF)
 		{
-			printf("\nErase_Verify failed at byte %8d; Got %02X, expected FF\n",
-				   iByte, data);
+			printf("Erase_Verify failed at byte %8d; Got %02X, expected %02X\n", iByte, data, FlashData[iByte]);
 			Result = 0;
 			break;
 		}
 
-		int done = iByte + 1;
-		if ((done % chunk) == 0 || done == total || done == 1)
+		if (iByte % (FileBytesRead / 8) == 0)
 		{
-			printf("\rErased    %9d / %-9d (%3u%%) of the flash", done, total, pct(done, total));
-			fflush(stdout);
+			printf("Verified erasure of %d/%d of the flash\n", iByte, FileBytesRead);
 		}
 	}
-	printf("\n%s\n", Result ? "Verification of flash erasure succeeded."
-							: "Verification of flash erasure failed.");
+	if (Result)
+		printf("\nVerification of flash erasure succeeded.\n");
+	else
+		printf("\nVerification of flash erasure failed.\n");
 	return Result;
 }
 
@@ -169,7 +166,7 @@ int main(int argc, char **argv)
 	}
 	std::string devicefile = "";
 	std::string devicepath = "/dev/apci";
-	for (const auto &devfile : std::filesystem::directory_iterator(devicepath))
+	for (const auto & devfile : std::filesystem::directory_iterator(devicepath))
 	{
 		apci = open(devfile.path().c_str(), O_RDONLY);
 		if (apci >= 0)
@@ -184,13 +181,12 @@ int main(int argc, char **argv)
 		exit(2);
 	}
 
-	setvbuf(stdout, NULL, _IONBF, 0);
-	printf("Using device @ %s", devicefile.c_str());
+	printf("Opening device @ %s", devicefile.c_str());
 
 	uint32_t Version = 0;
 	apci_read32(apci, 1, BAR_REGISTER, ofsFPGARevision, &Version);
-	printf("\nACCES ISP-FPGA Engineering Utility for Linux [current FPGA Rev %08X]\n\n", Version);
 
+	printf("\nACCES ISP-FPGA Engineering Utility for Linux [current FPGA Rev %08X]\n", Version);
 
 	ReadFile(argv[1], FlashData);
 
@@ -200,11 +196,11 @@ int main(int argc, char **argv)
 	apci_get_device_info(apci, 1, &DeviceID, bar);
 
 	/* Verify the DeviceID is on approved list for this code */
-	//	if (DeviceID != 0xC2EC)
-	//	{
-	//		printf("\nDeviceID %08X is not supported by this utility.\n", DeviceID);
-	//		exit(1);
-	//	}
+//	if (DeviceID != 0xC2EC)
+//	{
+//		printf("\nDeviceID %08X is not supported by this utility.\n", DeviceID);
+//		exit(1);
+//	}
 
 	EraseSentinel |= DeviceID;
 	printf("EraseSentinel is %08X\n", EraseSentinel);
@@ -220,6 +216,6 @@ int main(int argc, char **argv)
 		/* verify data read from flash */
 	} while (!VerifyFlash());
 
-	printf("Flash Update Successful.  Wrote %s to Device %04x.\n\n", argv[1], DeviceID);
-	printf("----`sudo reboot` the eNET-AIO to load the new FPGA from Flash!!----\n");
+	printf("Flash Update Successful.  Wrote %s to Device %04x.\n\n", argv[2], DeviceID);
+	printf("\n----\nyou must COLD REBOOT to load the new FPGA from Flash!!----\n\n");
 }

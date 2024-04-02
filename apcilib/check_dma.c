@@ -17,13 +17,17 @@
 
 #include "apcilib.h"
 
+#define DEVICEPATH "/dev/apci/pcie_adio16_16fds_0"
+//#define DEVICEPATH "/dev/apci/mpcie_adio16_8e_0"
+#define DEV2PATH "/dev/apci/mpcie_adio16_8f_0"
+
 #define BAR_REGISTER 1
 // Note: This is the overall sample rate, sample rate of each channel is SAMPLE_RATE / CHANNEL_COUNT
 //#define SAMPLE_RATE 1000000.0 /* Hz */
 #define SAMPLE_RATE 10000.0 /* Hz */
 
 #define LOG_FILE_NAME "samples.csv"
-#define SECONDS_TO_LOG 120.0
+#define SECONDS_TO_LOG 2.0
 
 uint8_t CHANNEL_COUNT = 1;            /* For single ended inputs, maximum CHANNEL_COUNT is 8 or 16, depending on model */
 #define HIGH_CHANNEL (CHANNEL_COUNT-1) /* channels 0 through HIGH_CHANNEL are sampled, simultaneously, from both ADAS3022 chips */
@@ -73,9 +77,6 @@ static volatile int terminate;
 int fd;
 pthread_t logger_thread;
 pthread_t worker_thread;
-
-// opens the only device file found in /dev/apci or presents menu to select from if more than 1 found
-int OpenDevFile(); // located in apci_pnp.c
 
 			/* diagnostic data dump function; unused */
 			void diag_dump_buffer_half (volatile void *mmap_addr, int half)
@@ -214,7 +215,9 @@ void * worker_main(void *arg)
 
 		if (0) printf("  Worker Thread: data [%d slots] in slot %d\n", num_slots, first_slot);
 
-		for (int i = 0 ; i < num_slots ; i++)
+
+		//if ((num_slots >0) && (first_slot + num_slots <= RING_BUFFER_SLOTS)) // J2H version
+		if (first_slot + num_slots <= RING_BUFFER_SLOTS)
 		{
 			sem_wait(&logger_sem);
 			pthread_mutex_lock(&ring_logger_mutex);
@@ -292,6 +295,8 @@ int main (void)
 		printf("Press ENTER to continue sample or CTRL-C to abort.\n");
 		getchar();
 	}
+	//reset everything
+	apci_write32(fd, 1,BAR_REGISTER, RESETOFFSET, 0x1);
 
 	//Setup dma ring buffer in driver
 	status = apci_dma_transfer_size(fd, 1, RING_BUFFER_SLOTS, BYTES_PER_TRANSFER);
@@ -301,11 +306,10 @@ int main (void)
 		printf("Error setting transfer_size\n");
 		return -1;
 	}
+	apci_write32(fd, 1,BAR_REGISTER, RESETOFFSET, 0x1);
 
 	pthread_create(&worker_thread, NULL, &worker_main, NULL);
 
-	//reset everything
-	apci_write32(fd, 1,BAR_REGISTER, RESETOFFSET, 0x1);
 
 	//set depth of FIFO to generate IRQ
 	apci_write32(fd, 1, BAR_REGISTER, FAFIRQTHRESHOLDOFFSET, FIFO_SIZE);
@@ -327,6 +331,10 @@ int main (void)
 	start_command &= ~(7 << 12);
 	start_command |= HIGH_CHANNEL << 12;
 	start_command |= ADC_START_MASK;
+
+	time_t timerStart, timerEnd;
+    char buffer[30];
+    struct tm tm_info;
 
 	time_t timerStart, timerEnd;
 		char buffer[30];
