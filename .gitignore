@@ -15,3 +15,8 @@ apci.o
 apci_dev.o
 apci_fops.o
 modules.order
+apcilib/check_dma
+apcilib/check
+apcilib/isp-fpga
+
+apcilib/a.out
