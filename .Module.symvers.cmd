@@ -1,0 +1,1 @@
+cmd_/home/jhentges/dev/apci/Module.symvers := sed 's/\.ko$$/\.o/' /home/jhentges/dev/apci/modules.order | scripts/mod/modpost -m -a  -o /home/jhentges/dev/apci/Module.symvers -e -i Module.symvers   -T -

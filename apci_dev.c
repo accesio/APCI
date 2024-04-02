@@ -247,12 +247,50 @@ static struct pci_device_id ids[] = {
         PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA16_8F),
     },
     {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA16_8A),
+            },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA16_8E),
+            },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA12_8A),
+            },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA12_8),
+            },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA12_8E),
+            },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA16_4F),
+            },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA16_4A),
+            },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA16_4E),
+            },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA12_4A),
+            },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA12_4 ),
+            },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA12_4E),
+            },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DA16_8  ),
+            },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DA16_4  ),
+    },
+    {
         PCI_DEVICE(A_VENDOR_ID, PCIe_ADIO16_16FDS),
     },
     {
         PCI_DEVICE(A_VENDOR_ID, PCIe_ADIO16_16F),
     },
-
     {
         PCI_DEVICE(A_VENDOR_ID, PCIe_ADIO16_16A),
     },
@@ -626,6 +664,19 @@ static struct apci_lookup_table_entry apci_driver_table[] =
         APCI_MAKE_ENTRY(PCIe_IDIO_24),
 
         APCI_MAKE_ENTRY(mPCIe_DAA16_8F),
+        APCI_MAKE_ENTRY(mPCIe_DAA16_8A),
+        APCI_MAKE_ENTRY(mPCIe_DAA16_8E),
+        APCI_MAKE_ENTRY(mPCIe_DAA12_8A),
+        APCI_MAKE_ENTRY(mPCIe_DAA12_8 ),
+        APCI_MAKE_ENTRY(mPCIe_DAA12_8E),
+        APCI_MAKE_ENTRY(mPCIe_DAA16_4F),
+        APCI_MAKE_ENTRY(mPCIe_DAA16_4A),
+        APCI_MAKE_ENTRY(mPCIe_DAA16_4E),
+        APCI_MAKE_ENTRY(mPCIe_DAA12_4A),
+        APCI_MAKE_ENTRY(mPCIe_DAA12_4 ),
+        APCI_MAKE_ENTRY(mPCIe_DAA12_4E),
+        APCI_MAKE_ENTRY(mPCIe_DA16_8  ),
+        APCI_MAKE_ENTRY(mPCIe_DA16_4  ),
 
         APCI_MAKE_ENTRY(PCIe_ADIO16_16FDS),
         APCI_MAKE_ENTRY(PCIe_ADIO16_16F),
@@ -857,6 +908,19 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_ADI12_8:
   case mPCIe_ADI12_8E:
   case mPCIe_DAA16_8F:
+  case mPCIe_DAA16_8A:
+  case mPCIe_DAA16_8E:
+  case mPCIe_DAA12_8A:
+  case mPCIe_DAA12_8 :
+  case mPCIe_DAA12_8E:
+  case mPCIe_DAA16_4F:
+  case mPCIe_DAA16_4A:
+  case mPCIe_DAA16_4E:
+  case mPCIe_DAA12_4A:
+  case mPCIe_DAA12_4 :
+  case mPCIe_DAA12_4E:
+  case mPCIe_DA16_8  :
+  case mPCIe_DA16_4  :
   case PCIe_ADIO16_16FDS:
   case PCIe_ADIO16_16F:
   case PCIe_ADIO16_16A:
@@ -1054,6 +1118,19 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_ADI12_8:
   case mPCIe_ADI12_8E:
   case mPCIe_DAA16_8F:
+  case mPCIe_DAA16_8A:
+  case mPCIe_DAA16_8E:
+  case mPCIe_DAA12_8A:
+  case mPCIe_DAA12_8 :
+  case mPCIe_DAA12_8E:
+  case mPCIe_DAA16_4F:
+  case mPCIe_DAA16_4A:
+  case mPCIe_DAA16_4E:
+  case mPCIe_DAA12_4A:
+  case mPCIe_DAA12_4 :
+  case mPCIe_DAA12_4E:
+  case mPCIe_DA16_8  :
+  case mPCIe_DA16_4  :
   case PCIe_ADIO16_16FDS:
   case PCIe_ADIO16_16F:
   case PCIe_ADIO16_16A:
@@ -1246,6 +1323,19 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_AI12_16E_proto:
 
   case mPCIe_DAA16_8F:
+  case mPCIe_DAA16_8A:
+  case mPCIe_DAA16_8E:
+  case mPCIe_DAA12_8A:
+  case mPCIe_DAA12_8 :
+  case mPCIe_DAA12_8E:
+  case mPCIe_DAA16_4F:
+  case mPCIe_DAA16_4A:
+  case mPCIe_DAA16_4E:
+  case mPCIe_DAA12_4A:
+  case mPCIe_DAA12_4 :
+  case mPCIe_DAA12_4E:
+  case mPCIe_DA16_8  :
+  case mPCIe_DA16_4  :
   case PCIe_ADIO16_16FDS:
   case PCIe_ADIO16_16F:
   case PCIe_ADIO16_16A:
@@ -1419,6 +1509,19 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_AI12_16E_proto:
 
   case mPCIe_DAA16_8F:
+  case mPCIe_DAA16_8A:
+  case mPCIe_DAA16_8E:
+  case mPCIe_DAA12_8A:
+  case mPCIe_DAA12_8 :
+  case mPCIe_DAA12_8E:
+  case mPCIe_DAA16_4F:
+  case mPCIe_DAA16_4A:
+  case mPCIe_DAA16_4E:
+  case mPCIe_DAA12_4A:
+  case mPCIe_DAA12_4 :
+  case mPCIe_DAA12_4E:
+  case mPCIe_DA16_8  :
+  case mPCIe_DA16_4  :
 
   case PCIe_ADIO16_16FDS:
   case PCIe_ADIO16_16F:
@@ -1596,6 +1699,19 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
   switch (ddata->dev_id)
   {
   case mPCIe_DAA16_8F:
+  case mPCIe_DAA16_8A:
+  case mPCIe_DAA16_8E:
+  case mPCIe_DAA12_8A:
+  case mPCIe_DAA12_8 :
+  case mPCIe_DAA12_8E:
+  case mPCIe_DAA16_4F:
+  case mPCIe_DAA16_4A:
+  case mPCIe_DAA16_4E:
+  case mPCIe_DAA12_4A:
+  case mPCIe_DAA12_4 :
+  case mPCIe_DAA12_4E:
+  case mPCIe_DA16_8  :
+  case mPCIe_DA16_4  :
 
   case PCIe_ADIO16_16FDS:
   case PCIe_ADIO16_16F:
@@ -1907,6 +2023,19 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
   }
 
   case mPCIe_DAA16_8F:
+  case mPCIe_DAA16_8A:
+  case mPCIe_DAA16_8E:
+  case mPCIe_DAA12_8A:
+  case mPCIe_DAA12_8 :
+  case mPCIe_DAA12_8E:
+  case mPCIe_DAA16_4F:
+  case mPCIe_DAA16_4A:
+  case mPCIe_DAA16_4E:
+  case mPCIe_DAA12_4A:
+  case mPCIe_DAA12_4 :
+  case mPCIe_DAA12_4E:
+  case mPCIe_DA16_8  :
+  case mPCIe_DA16_4  :
   case PCIe_ADIO16_16FDS:
   case PCIe_ADIO16_16F:
   case PCIe_ADIO16_16A:
