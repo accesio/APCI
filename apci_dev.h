@@ -25,7 +25,6 @@
 
 /* The device IDs for all the PCI/PCIe/mPCIe/etc cards this driver will support. */
 #define ROB_MATRIX_8X16 0x0180
-#define MPCIE_DIO_24A 0x2E50
 
 #define PCIe_DIO_24	0x0C52
 #define PCIe_DIO_24D	0x0C53
@@ -33,6 +32,7 @@
 #define PCIe_DIO_24DS	0x0E54
 #define PCIe_DIO_24DC	0x0E55
 #define PCIe_DIO_24DCS	0x0E56
+#define MPCIE_DIO_24A 0x2E50
 #define PCIe_DIO_48	0x0C61
 #define PCIe_DIO_48S	0x0E61
 #define PCIe_DIO_72     0x0C6A
@@ -108,6 +108,8 @@
 #define MPCIE_DIO_24  0x0C57
 #define PCIe_IDIO_12 0x0FC0
 #define PCIe_IDIO_24 0x0FD0
+
+#define mPCIe_DAA16_8F 0xCEE8
 
 #define PCIe_ADIO16_16FDS 0xC2EF
 #define PCIe_ADIO16_16F 0xC2EC
@@ -250,6 +252,8 @@
 #define NAME_MPCIE_DIO_24S_R1           "mpcie_dio_24s"
 #define NAME_PCIe_IDIO_12				"pcie_idio_12"
 #define NAME_PCIe_IDIO_24				"pcie_idio_24"
+
+#define NAME_mPCIe_DAA16_8F             "mpcie_daa16_8f"
 
 #define NAME_PCIe_ADIO16_16FDS          "pcie_adio16_16fds"
 #define NAME_PCIe_ADIO16_16F            "pcie_adio16_16f"

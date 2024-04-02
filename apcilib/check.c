@@ -11,11 +11,11 @@
 #include <unistd.h>
 
 #include "apcilib.h"
-#define DEVICEPATH "/dev/apci/pcie_adio16_16f_0"
-#define DEV2PATH "/dev/apci/mpcie_adio16_8e_0"
+#define DEVICEPATH "/dev/apci/pcie_adio16_16fds_0"
+#define DEV2PATH "/dev/apci/pcie_adio16_8e_0"
 uint8_t CHANNEL_COUNT = 16; // change to 8 for M.2-/mPCIe-ADIO16-8F Family cards
 
-int bDiagnostic = 1;
+int bDiagnostic = 0;
 
 #define BAR_REGISTER 1
 
