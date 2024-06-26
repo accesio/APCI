@@ -60,6 +60,8 @@ uint8_t CHANNEL_COUNT = 1;             /* For single ended inputs, maximum CHANN
 #define RING_BUFFER_SLOTS 4
 static uint32_t ring_buffer[RING_BUFFER_SLOTS][SAMPLES_PER_TRANSFER];
 static sem_t ring_sem;
+static sem_t logger_sem;
+static pthread_mutex_t ring_logger_mutex;
 volatile static int terminate;
 
 //#define ADC_SAMPLE_FIFO_DEPTH   4096
@@ -121,37 +123,44 @@ void * log_main(void *arg)
 		apci_write32(fd, 1, BAR_REGISTER, RESETOFFSET, 0x1);
 		exit(1);
 	}
-        while (1)
-        {
+	while (1)
+	{
 		// Output is Ch 0, Ch 8, Ch 1, Ch 9, ....
 		int buffers_queued;
 		sem_getvalue(&ring_sem, &buffers_queued);
 		if (terminate == 1 && buffers_queued == 0) break;
+		
+		status = sem_wait(&ring_sem);
+		
+		if (terminate == 2) break;
 
-                status = sem_wait(&ring_sem);
-                if (terminate == 2) break;
+		pthread_mutex_lock(&ring_logger_mutex);
 
-                for (int ii = 0; ii < SAMPLES_PER_TRANSFER; ii+=NUM_CHANNELS)
-                {
-		    ++samples;
-		    for (int jj = 0; jj < NUM_CHANNELS; ++jj)
-		    {
-                        //(ring_buffer[ring_read_index][ii+jj] >> 20) & 0xF, // RAWchannelshift
-                        //(ring_buffer[ring_read_index][ii+jj] >> 19) & 0xF, // RAWdiffshift
-                        //(ring_buffer[ring_read_index][ii+jj] >> 16) & 0x7, // RAWgainshift
+		for (int ii = 0; ii < SAMPLES_PER_TRANSFER; ii+=NUM_CHANNELS)
+		{
+			++samples;
+			for (int jj = 0; jj < NUM_CHANNELS; ++jj)
+			{
+				//(ring_buffer[ring_read_index][ii+jj] >> 20) & 0xF, // RAWchannelshift
+				//(ring_buffer[ring_read_index][ii+jj] >> 19) & 0xF, // RAWdiffshift
+				//(ring_buffer[ring_read_index][ii+jj] >> 16) & 0x7, // RAWgainshift
 
-		        int16_t dval = ring_buffer[ring_read_index][ii+jj] & 0xFFFF;
-			fprintf(out, "%d,", dval);
-			//int16_t chan = (ring_buffer[ring_read_index][ii+jj] >> 20) & 0xF;
-			//fprintf(out, "%d,%d,", chan, dval);
-		    }
-		    fprintf(out, "\n");
+				int16_t dval = ring_buffer[ring_read_index][ii+jj] & 0xFFFF;
+				fprintf(out, "%d,", dval);
+				//int16_t chan = (ring_buffer[ring_read_index][ii+jj] >> 20) & 0xF;
+				//fprintf(out, "%d,%d,", chan, dval);
+			}
+				fprintf(out, "\n");
 		}
-                ring_read_index++;
-                ring_read_index %= RING_BUFFER_SLOTS;
-         };
+
+		pthread_mutex_unlock(&(ring_logger_mutex));
+		sem_post(&logger_sem);
+
+		ring_read_index++;
+		ring_read_index %= RING_BUFFER_SLOTS;
+	};
 	 fflush(out);
-         fclose(out);
+				 fclose(out);
 	 printf("Recorded %d samples on %d channels at rate %f\n", samples, NUM_CHANNELS, SAMPLE_RATE);
 	 printf("Duration: %f\n", (CHANNEL_COUNT/SAMPLE_RATE) * samples);
 }
@@ -169,6 +178,8 @@ void * worker_main(void *arg)
 	}
 
 	status = sem_init(&ring_sem, 0, 0);
+	status |= sem_init(&logger_sem, 0, RING_BUFFER_SLOTS);
+	status |= pthread_mutex_init(&ring_logger_mutex, NULL);
 	if (status)   {
 		printf("  Worker Thread: Unable to init semaphore\n");
 		return NULL; // was -1
@@ -208,43 +219,25 @@ void * worker_main(void *arg)
 
 		if (0) printf("  Worker Thread: data [%d slots] in slot %d\n", num_slots, first_slot);
 		
-		
-		//if ((num_slots >0) && (first_slot + num_slots <= RING_BUFFER_SLOTS)) // J2H version
-		if (first_slot + num_slots <= RING_BUFFER_SLOTS)
+		for (int i = 0 ; i < num_slots ; i++)
 		{
-			if (0) printf("  Worker Thread: Copying contiguous buffers from ring\n");
-			memcpy(ring_buffer[first_slot], mmap_addr + (BYTES_PER_TRANSFER * first_slot), BYTES_PER_TRANSFER * num_slots);
-			//memcpy(ring_buffer[0], mmap_addr + (BYTES_PER_TRANSFER * 0), BYTES_PER_TRANSFER * 1);
-		}
-		else
-		{
-			if (0) printf("  Worker Thread: Copying non-contiguous buffers from ring\n");
-			memcpy(ring_buffer[first_slot],
-					mmap_addr + (BYTES_PER_TRANSFER * first_slot),
-					BYTES_PER_TRANSFER * (RING_BUFFER_SLOTS - first_slot));
-			memcpy(ring_buffer[0],
-					mmap_addr,
-					BYTES_PER_TRANSFER * (num_slots - (RING_BUFFER_SLOTS - first_slot)));
-		}
+			sem_wait(&logger_sem);
+			pthread_mutex_lock(&ring_logger_mutex);
+			memcpy(ring_buffer[(first_slot + i) % RING_BUFFER_SLOTS],
+							mmap + (BYTES_PER_TRANSFER * ((first_slot + i) % RING_BUFFER_SLOTS)),
+							BYTES_PER_TRANSFER);
+			pthread_mutex_unlock(&ring_logger_mutex);
+			sem_post(&(ring_sem));
 
-		__sync_synchronize();
-
+			apci_dma_data_done(fd, 1, 1);
+		}
 		if (1) printf("  Worker Thread: Telling driver we've taken %d buffer%c\n", num_slots, (num_slots == 1) ? ' ':'s');
-		apci_dma_data_done(fd, 1, num_slots);
 
-		for (int i = 0; i < num_slots; i++)
-		{
-			sem_post(&ring_sem);
-		}
-
-		sem_getvalue(&ring_sem, &buffers_queued);
-		if (buffers_queued >= RING_BUFFER_SLOTS) {
-			printf("  Worker Thread: overran the ring buffer.  Saving the log was too slow. Aborting.\n");
-			break;
-		}
+		
+		__sync_synchronize();
 		transfer_count += num_slots;
 		if (1) printf("  Worker Thread: transfer count == %d / %d\n", transfer_count, NUMBER_OF_DMA_TRANSFERS);
-	}while (transfer_count < NUMBER_OF_DMA_TRANSFERS);
+	} while (transfer_count < NUMBER_OF_DMA_TRANSFERS);
 	printf("  Worker Thread: exiting; data acquisition complete.\n");
 	terminate = 1;
 }
@@ -347,10 +340,10 @@ int main (void)
 	start_command |= ADC_START_MASK;
 	
 	time_t timerStart, timerEnd;
-    char buffer[30];
-    struct tm tm_info;
+		char buffer[30];
+		struct tm tm_info;
 
-    timerStart = time(NULL);
+		timerStart = time(NULL);
 
 	apci_write32(fd, 1, BAR_REGISTER, ADCCONTROLOFFSET+4, start_command);
 	apci_write32(fd, 1, BAR_REGISTER, ADCCONTROLOFFSET, start_command);
@@ -383,16 +376,16 @@ err_out: //Once a start has been issued to the card we need to tell it to stop b
 	fflush(stdout);
 	pthread_join(logger_thread, NULL);
 
-    	timerEnd = time(NULL);
+			timerEnd = time(NULL);
 	time_t timeDelta = timerEnd-timerStart;
 
 	printf("Finished recording in %ld seconds\n", timeDelta);
-    	localtime_r(&timerStart, &tm_info);
+			localtime_r(&timerStart, &tm_info);
 	strftime(buffer, 30, "Start: %Y-%m-%d %H:%M:%S", &tm_info);
-        puts(buffer);
-    	localtime_r(&timerEnd, &tm_info);
+				puts(buffer);
+			localtime_r(&timerEnd, &tm_info);
 	strftime(buffer, 30, "End:   %Y-%m-%d %H:%M:%S", &tm_info);
-        puts(buffer);
+				puts(buffer);
 
 	printf("Done. Data logged to %s\n", LOG_FILE_NAME);
 }
