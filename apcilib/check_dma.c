@@ -30,7 +30,7 @@
 #define LOG_FILE_NAME "samples.csv"
 #define SECONDS_TO_LOG 2.0
 
-uint8_t CHANNEL_COUNT = 1;             /* For single ended inputs, maximum CHANNEL_COUNT is 8 */
+uint8_t CHANNEL_COUNT = 8;             /* For single ended inputs, maximum CHANNEL_COUNT is 8 */
 #define HIGH_CHANNEL (CHANNEL_COUNT-1) /* channels 0 through HIGH_CHANNEL are sampled, simultaneously, from both ADAS3022 chips */
 #define NUM_CHANNELS (2 * CHANNEL_COUNT)
 #define AMOUNT_OF_SAMPLES_TO_LOG (SECONDS_TO_LOG * SAMPLE_RATE * 2)
@@ -128,22 +128,22 @@ void * log_main(void *arg)
 		sem_getvalue(&ring_sem, &buffers_queued);
 		if (terminate == 1 && buffers_queued == 0) break;
 
-                status = sem_wait(&ring_sem);
-                if (terminate == 2) break;
+		status = sem_wait(&ring_sem);
+		if (terminate == 2) break;
 
-                for (int ii = 0; ii < SAMPLES_PER_TRANSFER; ii+=NUM_CHANNELS)
-                {
+		for (int ii = 0; ii < SAMPLES_PER_TRANSFER; ii+=NUM_CHANNELS)
+		{
 		    ++samples;
 		    for (int jj = 0; jj < NUM_CHANNELS; ++jj)
 		    {
-                        //(ring_buffer[ring_read_index][ii+jj] >> 20) & 0xF, // RAWchannelshift
-                        //(ring_buffer[ring_read_index][ii+jj] >> 19) & 0xF, // RAWdiffshift
-                        //(ring_buffer[ring_read_index][ii+jj] >> 16) & 0x7, // RAWgainshift
+				fprintf(out, "%d=", (ring_buffer[ring_read_index][ii + jj] >> 20) & 0xF); // RAWchannelshift
+																						  //(ring_buffer[ring_read_index][ii+jj] >> 19) & 0xF, // RAWdiffshift
+																						  //(ring_buffer[ring_read_index][ii+jj] >> 16) & 0x7, // RAWgainshift
 
-		        int16_t dval = ring_buffer[ring_read_index][ii+jj] & 0xFFFF;
-			fprintf(out, "%d,", dval);
-			//int16_t chan = (ring_buffer[ring_read_index][ii+jj] >> 20) & 0xF;
-			//fprintf(out, "%d,%d,", chan, dval);
+				int16_t dval = ring_buffer[ring_read_index][ii+jj] & 0xFFFF;
+				fprintf(out, "%d,", dval);
+						//int16_t chan = (ring_buffer[ring_read_index][ii+jj] >> 20) & 0xF;
+						//fprintf(out, "%d,%d,", chan, dval);
 		    }
 		    fprintf(out, "\n");
 		}
@@ -262,6 +262,13 @@ void set_acquisition_rate (int fd, double *Hz)
 	printf("divisor (%d) = ", divisor);
 
 	apci_write32(fd, 1, BAR_REGISTER, DIVISOROFFSET, divisor);
+	divisor = divisor / CHANNEL_COUNT;
+    printf(" [intrascan conversion divisor = %d Hz] ", divisor);
+
+    apci_write32(fd, 1, BAR_REGISTER, DIVISOROFFSET + 4, divisor);
+    apci_read32(fd, 1, BAR_REGISTER, DIVISOROFFSET + 4, &divisor);
+
+    printf(" [intrascan divisor readback = %d] ", divisor);
 }
 
 /* mPCIe-ADIO16-8F Family:  ADC Data Acquisition sample (with logging to sample.csv)
@@ -341,10 +348,10 @@ int main (void)
 	apci_write32(fd, 1, BAR_REGISTER, IRQENABLEOFFSET, bmADIO_ADCTRIGGEREnable|bmADIO_DMADoneEnable);
 
 	// start_command = 0xf4ee; // differential //note: logger thread would need refactoring to handle differential well, it will currently report "0"
-	start_command = 0xfcee; // single-ended
+	start_command = 0x7f4ee; // differential
 
 	start_command &= ~(7 << 12);
-	start_command |= HIGH_CHANNEL << 12;
+	start_command |= (HIGH_CHANNEL & 0x06) << 12;
 	start_command |= ADC_START_MASK;
 
 	time_t timerStart, timerEnd;
@@ -353,7 +360,7 @@ int main (void)
 
     timerStart = time(NULL);
 
-	apci_write32(fd, 1, BAR_REGISTER, ADCCONTROLOFFSET+4, start_command);
+	// apci_write32(fd, 1, BAR_REGISTER, ADCCONTROLOFFSET+4, start_command);
 	apci_write32(fd, 1, BAR_REGISTER, ADCCONTROLOFFSET, start_command);
 
 	printf("start_command = 0x%05x\n", start_command);
