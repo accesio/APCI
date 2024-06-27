@@ -820,6 +820,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   switch (ddata->dev_id)
   {
   case PCIe_DIO_24: /* group1 */
+  case PCIe_DIO_24S:
   case MPCIE_DIO_24S:
   case MPCIE_DIO_24S_R1:
   case MPCIE_IDIO_8:
@@ -1929,7 +1930,11 @@ apci_init(void)
   }
 
   /* Create the sysfs entry for this */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
   class_apci = class_create(THIS_MODULE, APCI_CLASS_NAME);
+#else
+  class_apci = class_create(APCI_CLASS_NAME);
+#endif
   if (IS_ERR(ptr_err = class_apci))
     goto err;
   class_apci->devnode = apci_devnode; // set device file permissions
