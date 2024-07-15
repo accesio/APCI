@@ -1562,7 +1562,6 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
       spin_lock(&(ddata->dma_data_lock));
       if (ddata->dma_last_buffer == -1)
       {
-        notify_user = false;
         apci_debug("ISR First IRQ");
       }
       else if (ddata->dma_first_valid == -1)
@@ -1648,13 +1647,12 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
       return IRQ_NONE;
     }
 
-    if (irq_event & (bmADIO_ADCTRIGGERStatus | bmADIO_DMADoneStatus))
+    if (irq_event & (bmADIO_DMADoneStatus))
     {
       dma_addr_t base = ddata->dma_addr;
       spin_lock(&(ddata->dma_data_lock));
       if (ddata->dma_last_buffer == -1)
       {
-        notify_user = false;
         apci_debug("ISR First IRQ");
       }
       else if (ddata->dma_first_valid == -1)
