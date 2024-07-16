@@ -224,7 +224,7 @@ void * worker_main(void *arg)
 			sem_wait(&logger_sem);
 			pthread_mutex_lock(&ring_logger_mutex);
 			memcpy(ring_buffer[(first_slot + i) % RING_BUFFER_SLOTS],
-							mmap + (BYTES_PER_TRANSFER * ((first_slot + i) % RING_BUFFER_SLOTS)),
+							mmap_addr + (BYTES_PER_TRANSFER * ((first_slot + i) % RING_BUFFER_SLOTS)),
 							BYTES_PER_TRANSFER);
 			pthread_mutex_unlock(&ring_logger_mutex);
 			sem_post(&(ring_sem));
