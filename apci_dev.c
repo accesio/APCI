@@ -1560,11 +1560,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
     {
       dma_addr_t base = ddata->dma_addr;
       spin_lock(&(ddata->dma_data_lock));
-      if (ddata->dma_last_buffer == -1)
-      {
-        apci_debug("ISR First IRQ");
-      }
-      else if (ddata->dma_first_valid == -1)
+      if (ddata->dma_first_valid == -1)
       {
         ddata->dma_first_valid = 0;
       }
@@ -1587,11 +1583,11 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
       iowrite32(base >> 32, ddata->regions[0].mapped_address + 4);
       iowrite32(ddata->dma_slot_size, ddata->regions[0].mapped_address + 8);
       iowrite32(4, ddata->regions[0].mapped_address + 12);
-      udelay(5);
     }
 
     iowrite8(irq_event, ddata->regions[2].mapped_address + 0x2);
     apci_debug("ISR: irq_event = 0x%x, depth = 0x%x\n", irq_event, ioread32(ddata->regions[2].mapped_address + 0x28));
+    irq_event = ioread8(ddata->regions[2].mapped_address + 0x2);
     break;
   }
 
@@ -1647,15 +1643,12 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
       return IRQ_NONE;
     }
 
-    if (irq_event & (bmADIO_DMADoneStatus))
+    if (irq_event & (1))
     {
       dma_addr_t base = ddata->dma_addr;
       spin_lock(&(ddata->dma_data_lock));
-      if (ddata->dma_last_buffer == -1)
-      {
-        apci_debug("ISR First IRQ");
-      }
-      else if (ddata->dma_first_valid == -1)
+
+      if (ddata->dma_first_valid == -1)
       {
         ddata->dma_first_valid = 0;
       }
@@ -1678,11 +1671,11 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
       iowrite32(base >> 32, ddata->regions[0].mapped_address + 4 + 0x10);
       iowrite32(ddata->dma_slot_size, ddata->regions[0].mapped_address + 8 + 0x10);
       iowrite32(4, ddata->regions[0].mapped_address + 12 + 0x10);
-      udelay(5); // ?
     }
 
     iowrite32(irq_event, ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // clear whatever IRQ occurred and retain enabled IRQ sources // TODO: Upgrade to doRegisterAction("Clear&Enable")
     apci_debug("ISR: irq_event = 0x%x, depth = 0x%x, IRQStatus = 0x%x\n", irq_event, ioread32(ddata->regions[1].mapped_address + 0x28), ioread32(ddata->regions[1].mapped_address + 0x40));
+    irq_event = ioread32(ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset);
     break;
   }
   }; // end card-specific switch
