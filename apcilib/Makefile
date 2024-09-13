@@ -68,5 +68,5 @@ isp_fpga: isp-fpga.cpp apcilib.h
 	$(GCC) -o isp-fpga isp-fpga.cpp apcilib.c
 
 clean:
-	rm axiodac axiodac_irq pcie-dio-48s-irq pcie-iiro-16 mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f mpcie_aio16_16f_dma check check_dma irq dac
+	rm pcie_adio12_16e_dma axiodac axiodac_irq pcie-dio-48s-irq pcie-iiro-16 mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f mpcie_aio16_16f_dma check check_dma irq dac
 
