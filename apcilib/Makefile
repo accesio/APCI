@@ -12,6 +12,10 @@ else
 	GCC = gcc
 endif
 
+pcieaio: pcie_adio12_16e_dma.c apcilib.h apcilib.c
+	$(GCC) -o pcie_adio12_16e_dma pcie_adio12_16e_dma.c apcilib.c -lm -lpthread
+
+
 axiodac_irq: axiodac_irq.c apcilib.h apcilib.c
 	$(GCC) -o axiodac_irq axiodac_irq.c apcilib.c -lm -lpthread
 
