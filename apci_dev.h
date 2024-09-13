@@ -160,6 +160,30 @@
 #define mPCIe_ADI12_8A 0x805C
 #define mPCIe_ADI12_8 0x805D
 #define mPCIe_ADI12_8E 0x805E
+
+#define mPCIe_ADIODF16_8FDS 0xC0C0
+#define mPCIe_ADIODF16_8F   0xC0C1
+#define mPCIe_ADIODF16_8A   0xC0C2
+#define mPCIe_ADIODF16_8E   0xC0C3
+#define mPCIe_ADIOFD12_8A   0xC050
+#define mPCIe_ADIOFD12_8    0xC051
+#define mPCIe_ADIOFD12_8E   0xC052
+
+#define mPCIe_DAAI16_8F     0xCEE8
+#define mPCIe_DAAI16_8A     0xCEE9
+#define mPCIe_DAAI16_8E     0xCEEA
+#define mPCIe_DAAI12_8      0xCE50
+#define mPCIe_DAAI12_8E     0xCE51
+#define mPCIe_DAAI12_8A     0xCE52
+#define mPCIe_DAAI16_4F     0xCED8
+#define mPCIe_DAAI16_4A     0xCED9
+#define mPCIe_DAAI16_4E     0xCEDA
+#define mPCIe_DAAI12_4A     0xCE98
+#define mPCIe_DAAI12_4      0xCE9A
+#define mPCIe_DAAI12_4E     0xCE9B
+#define mPCIe_DA16_8        0x4CE8
+#define mPCIe_DA16_4        0x4CD8
+
 #define PCIe_DIO_24HC 0x0C54
 
 /* names for the drivers we create */
@@ -299,6 +323,31 @@
 #define NAME_mPCIe_ADI12_8A             "mpcie_adi12_8a"
 #define NAME_mPCIe_ADI12_8              "mpcie_adi12_8"
 #define NAME_mPCIe_ADI12_8E             "mpcie_adi12_8e"
+
+#define NAME_mPCIe_ADIODF16_8FDS        "mpcie_adiodf16_8fds"
+#define NAME_mPCIe_ADIODF16_8F          "mpcie_adiodf16_8f"
+#define NAME_mPCIe_ADIODF16_8A          "mpcie_adiodf16_8a"
+#define NAME_mPCIe_ADIODF16_8E          "mpcie_adiodf16_8e"
+#define NAME_mPCIe_ADIOFD12_8A          "mpcie_adiodf12_8a"
+#define NAME_mPCIe_ADIOFD12_8           "mpcie_adiodf12_8"
+#define NAME_mPCIe_ADIOFD12_8E          "mpcie_adiodf12_8e"
+
+#define NAME_mPCIe_DAAI16_8F            "mpcie_daai16_8f"
+#define NAME_mPCIe_DAAI16_8A            "mpcie_daai16_8a"
+#define NAME_mPCIe_DAAI16_8E            "mpcie_daai16_8e"
+#define NAME_mPCIe_DAAI12_8             "mpcie_daai12_8"
+#define NAME_mPCIe_DAAI12_8E            "mpcie_daai12_8e"
+#define NAME_mPCIe_DAAI12_8A            "mpcie_daai12_8a"
+#define NAME_mPCIe_DAAI16_4F            "mpcie_daai16_4f"
+#define NAME_mPCIe_DAAI16_4A            "mpcie_daai16_4a"
+#define NAME_mPCIe_DAAI16_4E            "mpcie_daai16_4e"
+#define NAME_mPCIe_DAAI12_4A            "mpcie_daai12_4a"
+#define NAME_mPCIe_DAAI12_4             "mpcie_daai12_4"
+#define NAME_mPCIe_DAAI12_4E            "mpcie_daai12_4e"
+#define NAME_mPCIe_DA16_8               "mpcie_da16_8"
+#define NAME_mPCIe_DA16_4               "mpcie_da16_4"
+
+
 #define NAME_PCIe_DIO_24HC              "PCIe_DIO_24HC"
 
 enum ADDRESS_TYPE {INVALID = 0, IO, MEM};

@@ -386,6 +386,70 @@ static struct pci_device_id ids[] = {
         PCI_DEVICE(A_VENDOR_ID, mPCIe_ADI12_8E),
     },
     {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_ADIODF16_8FDS),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_ADIODF16_8F),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_ADIODF16_8A),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_ADIODF16_8E),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_ADIOFD12_8A),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_ADIOFD12_8),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_ADIOFD12_8E),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAAI16_8F),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAAI16_8A),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAAI16_8E),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAAI12_8),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAAI12_8E),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAAI12_8A),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAAI16_4F),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAAI16_4A),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAAI16_4E),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAAI12_4A),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAAI12_4),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAAI12_4E),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DA16_8),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DA16_4),
+    },
+
+    {
         PCI_DEVICE(A_VENDOR_ID, PCIe_DIO_24HC),
     },
     {
@@ -424,12 +488,10 @@ struct apci_lookup_table_entry
 /* Driver naming section */
 #define APCI_MAKE_ENTRY(X) \
   {                        \
-    X, 0, NAME_##X         \
-  }
+      X, 0, NAME_##X}
 #define APCI_MAKE_DRIVER_TABLE(...) \
   {                                 \
-    __VA_ARGS__                     \
-  }
+      __VA_ARGS__}
 /* acpi_lookup_table */
 
 static int
@@ -539,7 +601,6 @@ static struct apci_lookup_table_entry apci_driver_table[] =
         APCI_MAKE_ENTRY(PCI_QUAD_8),
         APCI_MAKE_ENTRY(PCI_QUAD_4),
 
-
         APCI_MAKE_ENTRY(MPCIE_DIO_24),
         APCI_MAKE_ENTRY(PCI_WDG_IMPAC),
         // APCI_MAKE_ENTRY( MPCIE_DIO_24S ),
@@ -598,6 +659,27 @@ static struct apci_lookup_table_entry apci_driver_table[] =
         APCI_MAKE_ENTRY(mPCIe_ADI12_8A),
         APCI_MAKE_ENTRY(mPCIe_ADI12_8),
         APCI_MAKE_ENTRY(mPCIe_ADI12_8E),
+        APCI_MAKE_ENTRY(mPCIe_ADIODF16_8FDS),
+        APCI_MAKE_ENTRY(mPCIe_ADIODF16_8F),
+        APCI_MAKE_ENTRY(mPCIe_ADIODF16_8A),
+        APCI_MAKE_ENTRY(mPCIe_ADIODF16_8E),
+        APCI_MAKE_ENTRY(mPCIe_ADIOFD12_8A),
+        APCI_MAKE_ENTRY(mPCIe_ADIOFD12_8),
+        APCI_MAKE_ENTRY(mPCIe_ADIOFD12_8E),
+        APCI_MAKE_ENTRY(mPCIe_DAAI16_8F),
+        APCI_MAKE_ENTRY(mPCIe_DAAI16_8A),
+        APCI_MAKE_ENTRY(mPCIe_DAAI16_8E),
+        APCI_MAKE_ENTRY(mPCIe_DAAI12_8),
+        APCI_MAKE_ENTRY(mPCIe_DAAI12_8E),
+        APCI_MAKE_ENTRY(mPCIe_DAAI12_8A),
+        APCI_MAKE_ENTRY(mPCIe_DAAI16_4F),
+        APCI_MAKE_ENTRY(mPCIe_DAAI16_4A),
+        APCI_MAKE_ENTRY(mPCIe_DAAI16_4E),
+        APCI_MAKE_ENTRY(mPCIe_DAAI12_4A),
+        APCI_MAKE_ENTRY(mPCIe_DAAI12_4),
+        APCI_MAKE_ENTRY(mPCIe_DAAI12_4E),
+        APCI_MAKE_ENTRY(mPCIe_DA16_8),
+        APCI_MAKE_ENTRY(mPCIe_DA16_4),
         APCI_MAKE_ENTRY(PCIe_DIO_24HC),
         APCI_MAKE_ENTRY(PCIe_DIO_72),
         APCI_MAKE_ENTRY(PCIe_DIO_96),
@@ -750,6 +832,27 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_ADI12_8A:
   case mPCIe_ADI12_8:
   case mPCIe_ADI12_8E:
+  case mPCIe_ADIODF16_8FDS:
+  case mPCIe_ADIODF16_8F:
+  case mPCIe_ADIODF16_8A:
+  case mPCIe_ADIODF16_8E:
+  case mPCIe_ADIOFD12_8A:
+  case mPCIe_ADIOFD12_8:
+  case mPCIe_ADIOFD12_8E:
+  case mPCIe_DAAI16_8F:
+  case mPCIe_DAAI16_8A:
+  case mPCIe_DAAI16_8E:
+  case mPCIe_DAAI12_8:
+  case mPCIe_DAAI12_8E:
+  case mPCIe_DAAI12_8A:
+  case mPCIe_DAAI16_4F:
+  case mPCIe_DAAI16_4A:
+  case mPCIe_DAAI16_4E:
+  case mPCIe_DAAI12_4A:
+  case mPCIe_DAAI12_4:
+  case mPCIe_DAAI12_4E:
+  case mPCIe_DA16_8:
+  case mPCIe_DA16_4:
   case PCIe_ADIO16_16FDS:
   case PCIe_ADIO16_16F:
   case PCIe_ADIO16_16A:
@@ -922,6 +1025,28 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_ADI12_8A:
   case mPCIe_ADI12_8:
   case mPCIe_ADI12_8E:
+  case mPCIe_ADIODF16_8FDS:
+  case mPCIe_ADIODF16_8F:
+  case mPCIe_ADIODF16_8A:
+  case mPCIe_ADIODF16_8E:
+  case mPCIe_ADIOFD12_8A:
+  case mPCIe_ADIOFD12_8:
+  case mPCIe_ADIOFD12_8E:
+  case mPCIe_DAAI16_8F:
+  case mPCIe_DAAI16_8A:
+  case mPCIe_DAAI16_8E:
+  case mPCIe_DAAI12_8:
+  case mPCIe_DAAI12_8E:
+  case mPCIe_DAAI12_8A:
+  case mPCIe_DAAI16_4F:
+  case mPCIe_DAAI16_4A:
+  case mPCIe_DAAI16_4E:
+  case mPCIe_DAAI12_4A:
+  case mPCIe_DAAI12_4:
+  case mPCIe_DAAI12_4E:
+  case mPCIe_DA16_8:
+  case mPCIe_DA16_4:
+
   case PCIe_ADIO16_16FDS:
   case PCIe_ADIO16_16F:
   case PCIe_ADIO16_16A:
@@ -1086,6 +1211,26 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_ADI12_8A:
   case mPCIe_ADI12_8:
   case mPCIe_ADI12_8E:
+  case mPCIe_ADIODF16_8FDS:
+  case mPCIe_ADIODF16_8F:
+  case mPCIe_ADIODF16_8A:
+  case mPCIe_ADIODF16_8E:
+  case mPCIe_ADIOFD12_8A:
+  case mPCIe_ADIOFD12_8:
+  case mPCIe_ADIOFD12_8E:
+  case mPCIe_DAAI16_8F:
+  case mPCIe_DAAI16_8A:
+  case mPCIe_DAAI16_8E:
+  case mPCIe_DAAI12_8:
+  case mPCIe_DAAI12_8E:
+  case mPCIe_DAAI12_8A:
+  case mPCIe_DAAI16_4F:
+  case mPCIe_DAAI16_4A:
+  case mPCIe_DAAI16_4E:
+  case mPCIe_DAAI12_4A:
+  case mPCIe_DAAI12_4:
+  case mPCIe_DAAI12_4E:
+
     apci_devel("setting up DMA in alloc\n");
     ddata->regions[0].start = pci_resource_start(pdev, 0);
     ddata->regions[0].end = pci_resource_end(pdev, 0);
@@ -1204,6 +1349,28 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_ADI12_8A:
   case mPCIe_ADI12_8:
   case mPCIe_ADI12_8E:
+  case mPCIe_ADIODF16_8FDS:
+  case mPCIe_ADIODF16_8F:
+  case mPCIe_ADIODF16_8A:
+  case mPCIe_ADIODF16_8E:
+  case mPCIe_ADIOFD12_8A:
+  case mPCIe_ADIOFD12_8:
+  case mPCIe_ADIOFD12_8E:
+  case mPCIe_DAAI16_8F:
+  case mPCIe_DAAI16_8A:
+  case mPCIe_DAAI16_8E:
+  case mPCIe_DAAI12_8:
+  case mPCIe_DAAI12_8E:
+  case mPCIe_DAAI12_8A:
+  case mPCIe_DAAI16_4F:
+  case mPCIe_DAAI16_4A:
+  case mPCIe_DAAI16_4E:
+  case mPCIe_DAAI12_4A:
+  case mPCIe_DAAI12_4:
+  case mPCIe_DAAI12_4E:
+  case mPCIe_DA16_8:
+  case mPCIe_DA16_4:
+
     spin_lock_init(&(ddata->dma_data_lock));
     ddata->plx_region = ddata->regions[0];
     apci_debug("DMA spinlock init\n");
@@ -1355,6 +1522,28 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
   case mPCIe_ADI12_8A:
   case mPCIe_ADI12_8:
   case mPCIe_ADI12_8E:
+  case mPCIe_ADIODF16_8FDS:
+  case mPCIe_ADIODF16_8F:
+  case mPCIe_ADIODF16_8A:
+  case mPCIe_ADIODF16_8E:
+  case mPCIe_ADIOFD12_8A:
+  case mPCIe_ADIOFD12_8:
+  case mPCIe_ADIOFD12_8E:
+  case mPCIe_DAAI16_8F:
+  case mPCIe_DAAI16_8A:
+  case mPCIe_DAAI16_8E:
+  case mPCIe_DAAI12_8:
+  case mPCIe_DAAI12_8E:
+  case mPCIe_DAAI12_8A:
+  case mPCIe_DAAI16_4F:
+  case mPCIe_DAAI16_4A:
+  case mPCIe_DAAI16_4E:
+  case mPCIe_DAAI12_4A:
+  case mPCIe_DAAI12_4:
+  case mPCIe_DAAI12_4E:
+  case mPCIe_DA16_8:
+  case mPCIe_DA16_4:
+
     break;
 
   default:
@@ -1495,35 +1684,35 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
 
   case MPCIE_QUAD_4:
   case PCI_QUAD_4:
+  {
+    int i;
+    for (i = 0; i < 4; i++)
     {
-      int i;
-      for (i = 0; i < 4; i++)
-      {
-        byte = inb(ddata->regions[2].start + 0x8 * i + 7);
-        if (0 ==( byte & 0x80))
-          break;
+      byte = inb(ddata->regions[2].start + 0x8 * i + 7);
+      if (0 == (byte & 0x80))
+        break;
 
-        if (byte & 0x08)
-          outb(0x08, ddata->regions[2].start + 0x8 * i + 6);
-      }
+      if (byte & 0x08)
+        outb(0x08, ddata->regions[2].start + 0x8 * i + 6);
     }
-    break;
+  }
+  break;
 
   case MPCIE_QUAD_8:
   case PCI_QUAD_8:
+  {
+    int i;
+    for (i = 0; i < 8; i++)
     {
-      int i;
-      for (i = 0; i < 8; i++)
-      {
-        byte = inb(ddata->regions[2].start + 0x8 * i + 7);
-        if (0 == (byte & 0x80))
-          break;
+      byte = inb(ddata->regions[2].start + 0x8 * i + 7);
+      if (0 == (byte & 0x80))
+        break;
 
-        if (byte & 0x08)
-          outb(0x08, ddata->regions[2].start + 0x8 * i + 6);
-      }
+      if (byte & 0x08)
+        outb(0x08, ddata->regions[2].start + 0x8 * i + 6);
     }
-    break;
+  }
+  break;
 
   case PCIe_IDIO_12:
   case PCIe_IDIO_24:
@@ -1630,6 +1819,28 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
   case mPCIe_ADI12_8A:
   case mPCIe_ADI12_8:
   case mPCIe_ADI12_8E:
+  case mPCIe_ADIODF16_8FDS:
+  case mPCIe_ADIODF16_8F:
+  case mPCIe_ADIODF16_8A:
+  case mPCIe_ADIODF16_8E:
+  case mPCIe_ADIOFD12_8A:
+  case mPCIe_ADIOFD12_8:
+  case mPCIe_ADIOFD12_8E:
+  case mPCIe_DAAI16_8F:
+  case mPCIe_DAAI16_8A:
+  case mPCIe_DAAI16_8E:
+  case mPCIe_DAAI12_8:
+  case mPCIe_DAAI12_8E:
+  case mPCIe_DAAI12_8A:
+  case mPCIe_DAAI16_4F:
+  case mPCIe_DAAI16_4A:
+  case mPCIe_DAAI16_4E:
+  case mPCIe_DAAI12_4A:
+  case mPCIe_DAAI12_4:
+  case mPCIe_DAAI12_4E:
+  case mPCIe_DA16_8:
+  case mPCIe_DA16_4:
+
   {
     apci_devel("ISR: mPCIe-AxIO irq_event\n");
     // If this is a FIFO near full IRQ then tell the card
@@ -1874,7 +2085,7 @@ exit_free:
   return ret;
 }
 
-//The name of this variable is exposed to userspace via /etc/modprobe.d
+// The name of this variable is exposed to userspace via /etc/modprobe.d
 static int dev_mode = 0;
 module_param(dev_mode, int, 0);
 
@@ -1887,16 +2098,16 @@ static char *apci_devnode(const struct device *dev, umode_t *mode)
 {
   if (!mode)
     return NULL;
-                                       //Has been changed  build time.
-                                      //This is not recommended, but since it
-   if (0 != APCI_DEFAULT_DEVFILE_MODE)//was released this we continue to support it
-   {
+  // Has been changed  build time.
+  // This is not recommended, but since it
+  if (0 != APCI_DEFAULT_DEVFILE_MODE) // was released this we continue to support it
+  {
     *mode = APCI_DEFAULT_DEVFILE_MODE;
-   }
-   else if ( 0 != dev_mode ) //Has been changed via module parameter.
-   {                         //This is the recommended method
-      *mode = dev_mode;
-   }
+  }
+  else if (0 != dev_mode) // Has been changed via module parameter.
+  {                       // This is the recommended method
+    *mode = dev_mode;
+  }
 
   return NULL;
 }
