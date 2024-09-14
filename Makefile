@@ -1,7 +1,7 @@
 obj-m += apci.o
-CC		:= "gcc"
-KVERSION        := $(shell uname -r)
-KDIR		:= /lib/modules/$(KVERSION)/build
+CC		?= "gcc"
+KVERSION        ?= $(shell uname -r)
+KDIR		?= /lib/modules/$(KVERSION)/build
 
 apci-objs :=      \
     apci_fops.o   \
