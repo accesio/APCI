@@ -2090,10 +2090,10 @@ static int dev_mode = 0;
 module_param(dev_mode, int, 0);
 
 /* Configure the default /dev/{devicename} permissions */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 2, 0)
-static char *apci_devnode(struct device *dev, umode_t *mode)
-#else
+#if LINUX_VERSION_CODE > KERNEL_VERSION(6, 2, 0) || RULES_DONT_APPLY_TO_RH
 static char *apci_devnode(const struct device *dev, umode_t *mode)
+#else
+static char *apci_devnode(struct device *dev, umode_t *mode)
 #endif
 {
   if (!mode)
@@ -2132,10 +2132,10 @@ apci_init(void)
   }
 
   /* Create the sysfs entry for this */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
-  class_apci = class_create(THIS_MODULE, APCI_CLASS_NAME);
-#else
+#if LINUX_VERSION_CODE > KERNEL_VERSION(6, 4, 0) || RULES_DONT_APPLY_TO_RH
   class_apci = class_create(APCI_CLASS_NAME);
+#else
+  class_apci = class_create(THIS_MODULE, APCI_CLASS_NAME);
 #endif
   if (IS_ERR(ptr_err = class_apci))
     goto err;
