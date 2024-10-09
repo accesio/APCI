@@ -1,13 +1,15 @@
 
-#include <stdint.h>
-#include <math.h>
-#include <signal.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+#include <dirent.h>
 #include <fcntl.h>
+#include <math.h>
 #include <pthread.h>
+#include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "apcilib.h"
@@ -78,9 +80,12 @@ static int terminate;
 int apci;
 
 #pragma region /* UTILITY FUNCTIONS */
+
+				int OpenDevFile(); // located in apci_pnp.c
+
 				void abort_handler(int s)
 				{
-					printf("\n\nCaught signal %d\n",s);
+					printf("\n\nCaught signal %d\n", s);
 
 					terminate = 1;
 					pthread_join(worker_thread, NULL);
@@ -289,14 +294,9 @@ void set_acquisition_rate (int fd, double *Hz)
 	printf("DAC Waveform Playback Rate: (%lf Hz)\n", *Hz);
 }
 
-
-
 //------------------------------------------------------------------------------------
 int main (int argc, char **argv)
 {
-	printf("Control Value: %08X\n", ADC_BuildControlValue(1,6,1,1,1,0));
-	printf("Control Value: %08X\n", ADC_BuildControlValue(1,7,0,1,1,0));
-
 	struct sigaction sigIntHandler;
 
 	sigIntHandler.sa_handler = abort_handler;
@@ -305,38 +305,19 @@ int main (int argc, char **argv)
 	sigaction(SIGINT, &sigIntHandler, NULL);
 	sigaction(SIGABRT, &sigIntHandler, NULL);
 
-	uint32_t Version = 0;
-	apci_read32(apci, 1, BAR_REGISTER, 0x68, &Version);
-	printf("\nmPCIe-AIO16-16F/mPCIe-ADIO16-8F Family ADC Sample 0+ [FPGA Rev %08X]\n", Version);
+	printf("\nAxIO Family ADC Sample 0+\nSupports M.2-/mPCIe-AIO16-16F, M.2-/mPCIe-ADIO16-8F, M.2-/mPCIe-ADIODF16-8F, mPCIe-DAAI16-8F, and PCIe-ADIO16-16F\n");
 
-				// this code section is weak.  TODO: improve plug-and-play and device file detection / selection; enumerate /dev/apci/ and if >1 device have menu?
-				apci = -1;
+	apci = OpenDevFile();
+	if (apci < 0)
+	{
+		printf("Failed to open APCI Devicefile.\n");
+		exit(0);
+	} else
+	{
 
-				if (argc > 1)
-				{
-					apci = open(argv[1], O_RDONLY);	// open device file from command line
-					if (apci < 0)
-						printf("Couldn't open device file on command line: do you need sudo? /dev/apci? [%s]\n", argv[1]);
-				}
-
-				if (apci < 0) // if the command line didn't work, or if they didn't pass a parameter
-				{
-					apci = open(DEVICEPATH, O_RDONLY);
-					if (apci < 0)
-					{
-						printf("Device file %s could not be opened. Please ensure the APCI driver module is loaded or try sudo?.\nTrying Alternate [ %s ]...\n", DEVICEPATH, DEV2PATH);
-						apci = open(DEV2PATH, O_RDONLY);
-						if (apci < 0)
-						{
-							printf("Device file %s could not be opened. Please ensure the APCI driver module is loaded or try sudo?.\n", DEV2PATH);
-							exit(0);
-						} else
-						{
-							CHANNEL_COUNT = 8;
-						}
-					}
-				}
-
+		printf("Press ENTER to continue sample or CTRL-C to abort.\n");
+		getchar();
+	}
 
 	int testcount=0, passcount=0, errcount=0, readbackerrcount=0, chan;
 	uint32_t readControlValue;

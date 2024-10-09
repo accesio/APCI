@@ -55,11 +55,11 @@ mpcie_aio16_16f_dma: mpcie_aio16_16f_dma.c apcilib.h apcilib.c
 mpcie_aio16_16f: mpcie_aio16_16f.c apcilib.h apcilib.c
 	$(GCC) -o mpcie_aio16_16f mpcie_aio16_16f.c apcilib.c -lm -lpthread -O3
 
-check: check.c apcilib.h apcilib.c
-	$(GCC) -o check check.c apcilib.c -lm -lpthread -O3
+check: check.c apcilib.h apcilib.c apci_pnp.c
+	$(GCC) -o check check.c apcilib.c apci_pnp.c -lm -lpthread -O3
 
-check_dma: check_dma.c apcilib.h apcilib.c
-	$(GCC) -g -o check_dma check_dma.c apcilib.c -lm -lpthread -O3
+check_dma: check_dma.c apcilib.h apcilib.c apci_pnp.c
+	$(GCC) -g -o check_dma check_dma.c apcilib.c apci_pnp.c -lm -lpthread -O3
 
 dac: dac.c apcilib.h apcilib.c
 	$(GCC) -o dac dac.c apcilib.c

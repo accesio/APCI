@@ -1,6 +1,5 @@
 /* TODO: Make sure FIFO_SIZE is correctly autodetecting */
 
-
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -17,10 +16,6 @@
 #include <stdlib.h>
 
 #include "apcilib.h"
-
-#define DEVICEPATH "/dev/apci/pcie_adio16_16fds_0"
-//#define DEVICEPATH "/dev/apci/mpcie_adio16_8e_0"
-#define DEV2PATH "/dev/apci/mpcie_adio16_8f_0"
 
 #define BAR_REGISTER 1
 // Note: This is the overall sample rate, sample rate of each channel is SAMPLE_RATE / CHANNEL_COUNT
@@ -78,6 +73,9 @@ volatile static int terminate;
 int fd;
 pthread_t logger_thread;
 pthread_t worker_thread;
+
+// opens the only device file found in /dev/apci or presents menu to select from if more than 1 found
+int OpenDevFile(); // located in apci_pnp.c
 
 			/* diagnostic data dump function; unused */
 			void diag_dump_buffer_half (volatile void *mmap_addr, int half)
@@ -285,23 +283,22 @@ int main (void)
 	 sigaction(SIGINT, &sigIntHandler, NULL);
 	 sigaction(SIGABRT, &sigIntHandler, NULL);
 
-	printf("mPCIe-ADIO16-16F Family ADC logging sample.\n");
+	printf("AxIO Family ADC logging sample.\n");
+	printf("Supports  M.2-/mPCIe-AIO16-16F, M.2-/mPCIe-ADIO16-8F, M.2-/mPCIe-ADIODF16-8F, mPCIe-DAAI16-8F, and PCIe-ADIO16-16F\n");
+	printf(" ... note: small things like `CHANNEL_COUNT` may need to change to work perfectly...\n");
 
 	dma_delay.tv_nsec = 10;
 
-	fd = open(DEVICEPATH, O_RDONLY);
+	fd = OpenDevFile();
 	if (fd < 0)
 	{
-		printf("Device file %s could not be opened. Please ensure the APCI driver module is loaded or try sudo?.\nTrying Alternate [ %s ]...\n", DEVICEPATH, DEV2PATH);
-		fd = open(DEV2PATH, O_RDONLY);
-		if (fd < 0)
-		{
-			printf("Device file %s could not be opened. Please ensure the APCI driver module is loaded or try sudo?.\n", DEV2PATH);
-			exit(0);
-		} else
-		{
-			CHANNEL_COUNT = 8;
-		}
+		printf("Failed to open APCI Devicefile.\n");
+		exit(0);
+	} else
+	{
+
+		printf("Press ENTER to continue sample or CTRL-C to abort.\n");
+		getchar();
 	}
 
 	//Setup dma ring buffer in driver
