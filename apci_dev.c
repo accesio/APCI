@@ -873,66 +873,67 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case PCIe_ADI12_16A:
   case PCIe_ADI12_16:
   case PCIe_ADI12_16E:
+  case MPCIE_DIO_24X:
+
     break;
 
   default:
-    if (pci_resource_flags(pdev, 0) & IORESOURCE_IO)
-    {
-      plx_bar = 0;
-    }
-    else
-    {
-      plx_bar = 1;
-    }
+        if (pci_resource_flags(pdev, 0) & IORESOURCE_IO)
+        {
+          plx_bar = 0;
+        }
+        else
+        {
+          plx_bar = 1;
+        }
 
-    apci_debug("dev_id = %04x. plx_bar = %d\n", ddata->dev_id, plx_bar);
+        apci_debug("dev_id = %04x. plx_bar = %d\n", ddata->dev_id, plx_bar);
 
-    ddata->plx_region.start = pci_resource_start(pdev, plx_bar);
-    if (!ddata->plx_region.start)
-    {
-      apci_error("Invalid PLX bar %d on start ", plx_bar);
-    }
+        ddata->plx_region.start = pci_resource_start(pdev, plx_bar);
+        if (!ddata->plx_region.start)
+        {
+          apci_error("Invalid PLX bar %d on start ", plx_bar);
+        }
 
-    ddata->plx_region.end = pci_resource_end(pdev, plx_bar);
-    if (!ddata->plx_region.start)
-    {
-      apci_error("Invalid PLX bar %d on end", plx_bar);
-    }
-    ddata->plx_region.flags = pci_resource_flags(pdev, plx_bar);
+        ddata->plx_region.end = pci_resource_end(pdev, plx_bar);
+        if (!ddata->plx_region.start)
+        {
+          apci_error("Invalid PLX bar %d on end", plx_bar);
+        }
+        ddata->plx_region.flags = pci_resource_flags(pdev, plx_bar);
 
-    ddata->plx_region.length = ddata->plx_region.end - ddata->plx_region.start + 1;
+        ddata->plx_region.length = ddata->plx_region.end - ddata->plx_region.start + 1;
 
-    apci_debug("plx_region.start = %08llx\n", ddata->plx_region.start);
-    apci_debug("plx_region.end   = %08llx\n", ddata->plx_region.end);
-    apci_debug("plx_region.length= %08x\n", ddata->plx_region.length);
-    apci_debug("plx_region.flags = %08lx\n", ddata->plx_region.flags);
+        apci_debug("plx_region.start = %08llx\n", ddata->plx_region.start);
+        apci_debug("plx_region.end   = %08llx\n", ddata->plx_region.end);
+        apci_debug("plx_region.length= %08x\n", ddata->plx_region.length);
+        apci_debug("plx_region.flags = %08lx\n", ddata->plx_region.flags);
 
-    if (ddata->plx_region.flags & IORESOURCE_IO)
-    {
-      presource = request_region(ddata->plx_region.start, ddata->plx_region.length, "apci");
-      if (presource == NULL)
-      {
-        /* We couldn't get the region.  We have only allocated
-         * ddata so release it and return an error.
-         */
-        apci_error("Unable to request region.\n");
-        goto out_alloc_driver;
+        if (ddata->plx_region.flags & IORESOURCE_IO)
+        {
+          presource = request_region(ddata->plx_region.start, ddata->plx_region.length, "apci");
+          if (presource == NULL)
+          {
+            /* We couldn't get the region.  We have only allocated
+            * ddata so release it and return an error.
+            */
+            apci_error("Unable to request region.\n");
+            goto out_alloc_driver;
+          }
+        }
+        else
+        {
+          ddata->plx_region.mapped_address = ioremap(ddata->plx_region.start, ddata->plx_region.length);
+        }
+        break;
       }
-    }
-    else
-    {
-      ddata->plx_region.mapped_address = ioremap(ddata->plx_region.start, ddata->plx_region.length);
-    }
-    break;
-  }
-  /* TODO: request and remap the region for plx */
+      /* TODO: request and remap the region for plx */
 
   switch (ddata->dev_id)
   {
   case PCIe_DIO_24: /* group1 */
   case PCIe_DIO_24S:
   case MPCIE_DIO_24A:
-  case MPCIE_DIO_24X:
   case MPCIE_DIO_24S:
   case MPCIE_DIO_24S_R1:
   case MPCIE_IDIO_8:
@@ -1037,6 +1038,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_ADIODF16_8FDS:
   case mPCIe_ADIODF16_8F:
   case mPCIe_ADIODF16_8A:
+
   case mPCIe_ADIODF16_8E:
   case mPCIe_ADIOFD12_8A:
   case mPCIe_ADIOFD12_8:
@@ -1092,6 +1094,29 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
     apci_debug("        irq = %d\n", ddata->irq);
     break;
 
+  case MPCIE_DIO_24X:
+    ddata->regions[0].start = pci_resource_start(pdev, 0);
+    ddata->regions[0].end = pci_resource_end(pdev, 0);
+    ddata->regions[0].flags = pci_resource_flags(pdev, 0);
+    ddata->regions[0].length = ddata->regions[0].end - ddata->regions[0].start + 1;
+
+    ddata->regions[1].start = pci_resource_start(pdev, 1);
+    ddata->regions[1].end = pci_resource_end(pdev, 1);
+    ddata->regions[1].flags = pci_resource_flags(pdev, 1);
+    ddata->regions[1].length = ddata->regions[1].end - ddata->regions[1].start + 1;
+
+    ddata->irq = pdev->irq;
+    ddata->irq_capable = 1;
+    apci_debug("[%04x]: regions[0].start = %08llx\n", ddata->dev_id, ddata->regions[0].start);
+    apci_debug("        regions[0].end   = %08llx\n", ddata->regions[0].end);
+    apci_debug("        regions[0].length= %08x\n", ddata->regions[0].length);
+    apci_debug("        regions[0].flags = %lx\n", ddata->regions[0].flags);
+    apci_debug("        regions[1].start = %08llx\n", ddata->regions[1].start);
+    apci_debug("        regions[1].end   = %08llx\n", ddata->regions[1].end);
+    apci_debug("        regions[1].length= %08x\n", ddata->regions[1].length);
+    apci_debug("        regions[1].flags = %lx\n", ddata->regions[1].flags);
+    apci_debug("        irq = %d\n", ddata->irq);
+    break;
   case LPCI_A16_16A:
   case PCIe_DA12_16:
   case PCIe_DA12_8:
@@ -1164,6 +1189,9 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
     apci_debug("NO irq\n");
     break;
   }
+
+
+
 
   // cards where we support DMA. So far just the mPCIe_AI*_proto cards
   switch (ddata->dev_id)

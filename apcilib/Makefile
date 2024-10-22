@@ -1,4 +1,4 @@
-all: axiodac axiodac_irq pcie_dio_48s mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f_dma mpcie_aio16_16f pcie_iiro_16_irq irq check check_dma dac isp_fpga
+all: axiodac axiodac_irq pcie_dio_48s mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f_dma mpcie_aio16_16f pcie_iiro_16_irq irq check check_dma dac isp_fpga mpcie-dio-24x-irq
 
 ifneq ("$(wildcard /etc/redhat-release)","")
     REDHAT_VERSION = $(shell cat /etc/redhat-release | grep  -o "[0-9]*" | head -1)
@@ -48,6 +48,9 @@ pcie-idio-24-irq: pcie-idio-24-irq.c apcilib.h apcilib.c
 
 mpcie-dio-24s-irq: mpcie-dio-24s-irq.c apcilib.h apcilib.c
 	$(GCC) -o mpcie-dio-24s-irq mpcie-dio-24s-irq.c apcilib.c
+
+mpcie-dio-24x-irq: mpcie-dio-24x-irq.c apcilib.h apcilib.c
+	$(GCC) -o mpcie-dio-24x-irq mpcie-dio-24x-irq.c apcilib.c
 
 mpcie_aio16_16f_dma: mpcie_aio16_16f_dma.c apcilib.h apcilib.c
 	$(GCC) -o mpcie_aio16_16f_dma mpcie_aio16_16f_dma.c apcilib.c -lm -lpthread -O3
