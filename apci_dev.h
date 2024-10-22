@@ -85,6 +85,8 @@
 #define PCI_WDG_2S	0x1250 //TODO: Find out if the Watch Dog Cards should really be here
 #define PCI_WDG_CSM	0x22C0
 #define PCI_WDG_IMPAC	0x12D0
+#define MPCIE_DIO_24A   0x2E50
+#define MPCIE_DIO_24X   0x2E51
 #define MPCIE_DIO_24S_R1   0x0e57
 #define MPCIE_DIO_24S   0x0100
 #define MPCIE_IDIO_8  0x0101
@@ -248,6 +250,8 @@
 #define NAME_PCI_WDG_2S                 "pci_wdg_2s"
 #define NAME_PCI_WDG_CSM                "pci_wdg_csm"
 #define NAME_PCI_WDG_IMPAC              "pci_wdg_impac"
+#define NAME_MPCIE_DIO_24A              "mpcie_dio_24a"
+#define NAME_MPCIE_DIO_24X              "mpcie_dio_24x"
 #define NAME_MPCIE_DIO_24S              "mpcie_dio_24s"
 #define NAME_MPCIE_IDIO_8               "mpcie_idio_8"
 #define NAME_MPCIE_IIRO_8               "mpcie_iiro_8"
@@ -265,7 +269,6 @@
 #define NAME_PCI_QUAD_8                 "pci_quad_8"
 #define NAME_PCI_QUAD_4                 "pci_quad_4"
 
-//#define NAME_MPCIE_DIO_24S              "mpcie_dio_24s"
 #define NAME_MPCIE_DIO_24S_R1           "mpcie_dio_24s"
 #define NAME_PCIe_IDIO_12				"pcie_idio_12"
 #define NAME_PCIe_IDIO_24				"pcie_idio_24"
