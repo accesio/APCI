@@ -48,11 +48,17 @@
 #include "apcilib.h"
 
 
+/* *********************************************************************************** */
+/* 	                      WARNING     WARNING      WARNING     WARNING                 */
+/* The following #define constants must be changed to match your specific hardware     */
 #define BAR_REGISTER 1
 #define ofsFPGARevision 0xA0
 #define ofsFlashAddress 0x70
 #define ofsFlashData 0x74
 #define ofsFlashErase 0x78
+/* *********************************************************************************** */
+
+
 #define bmFlashWriteBit 0x80000000
 
 int apci;

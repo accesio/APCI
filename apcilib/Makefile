@@ -1,4 +1,4 @@
-all: axiodac axiodac_irq pcie_dio_48s mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f_dma mpcie_aio16_16f pcie_iiro_16_irq irq check check_dma dac isp_fpga mpcie-dio-24x-irq
+all: axiodac axiodac_irq pcie_dio_48s mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq pcie_iiro_16_irq irq check check_dma dac isp_fpga mpcie-dio-24x-irq
 
 ifneq ("$(wildcard /etc/redhat-release)","")
     REDHAT_VERSION = $(shell cat /etc/redhat-release | grep  -o "[0-9]*" | head -1)
@@ -52,12 +52,6 @@ mpcie-dio-24s-irq: mpcie-dio-24s-irq.c apcilib.h apcilib.c
 mpcie-dio-24x-irq: mpcie-dio-24x-irq.c apcilib.h apcilib.c
 	$(GCC) -o mpcie-dio-24x-irq mpcie-dio-24x-irq.c apcilib.c
 
-mpcie_aio16_16f_dma: mpcie_aio16_16f_dma.c apcilib.h apcilib.c
-	$(GCC) -o mpcie_aio16_16f_dma mpcie_aio16_16f_dma.c apcilib.c -lm -lpthread -O3
-
-mpcie_aio16_16f: mpcie_aio16_16f.c apcilib.h apcilib.c
-	$(GCC) -o mpcie_aio16_16f mpcie_aio16_16f.c apcilib.c -lm -lpthread -O3
-
 check: check.c apcilib.h apcilib.c apci_pnp.c
 	$(GCC) -o check check.c apcilib.c apci_pnp.c -lm -lpthread -O3
 
@@ -68,8 +62,13 @@ dac: dac.c apcilib.h apcilib.c
 	$(GCC) -o dac dac.c apcilib.c
 
 isp_fpga: isp-fpga.cpp apcilib.h
-	$(GCC) -o isp-fpga isp-fpga.cpp apcilib.c
+	g++ -o isp-fpga isp-fpga.cpp apcilib.c
 
 clean:
 	rm pcie_adio12_16e_dma axiodac axiodac_irq pcie-dio-48s-irq pcie-iiro-16 mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f mpcie_aio16_16f_dma check check_dma irq dac
 
+mpcie_aio16_16f_dma: mpcie_aio16_16f_dma.c apcilib.h apcilib.c
+	$(GCC) -o mpcie_aio16_16f_dma mpcie_aio16_16f_dma.c apcilib.c -lm -lpthread -O3
+
+mpcie_aio16_16f: mpcie_aio16_16f.c apcilib.h apcilib.c
+	$(GCC) -o mpcie_aio16_16f mpcie_aio16_16f.c apcilib.c -lm -lpthread -O3
