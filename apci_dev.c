@@ -1773,7 +1773,9 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
   case mPCIe_AI12_16_proto:
   case mPCIe_AI12_16E_proto: // DMA capable cards
   {
-    apci_devel("ISR: mPCIe-AI irq_event\n");
+    //All of the _proto cards should not be in production. If you are wondering
+    //which DMA section to look at it is probably the one below
+    apci_devel("ISR: mPCIe-AI irq_event !!PROTOTYPE!!\n");
     // If this is a FIFO near full IRQ then tell the card
     // to write to the next buffer (and don't notify the user?)
     // else if it is a write done IRQ set last_valid_buffer and notify user
@@ -1893,7 +1895,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
       return IRQ_NONE;
     }
 
-    if (irq_event & (1))
+    if (irq_event & (bmADIO_FAFIRQStatus))
     {
       dma_addr_t base = ddata->dma_addr;
       spin_lock(&(ddata->dma_data_lock));
@@ -1901,22 +1903,27 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
       if (ddata->dma_first_valid == -1)
       {
         ddata->dma_first_valid = 0;
+        ddata->dma_last_buffer = 0;
       }
-
-      ddata->dma_last_buffer++;
-      ddata->dma_last_buffer %= ddata->dma_num_slots;
-
-      if (ddata->dma_last_buffer == ddata->dma_first_valid)
+      else
       {
-        apci_error("ISR: data discarded");
-        ddata->dma_last_buffer--;
-        if (ddata->dma_last_buffer < 0)
-          ddata->dma_last_buffer = ddata->dma_num_slots - 1;
-        ddata->dma_data_discarded++;
+
+        ddata->dma_last_buffer++;
+        ddata->dma_last_buffer %= ddata->dma_num_slots;
+
+        if (ddata->dma_last_buffer == ddata->dma_first_valid)
+        {
+          apci_error("ISR: data discarded");
+          ddata->dma_last_buffer--;
+          if (ddata->dma_last_buffer < 0)
+            ddata->dma_last_buffer = ddata->dma_num_slots - 1;
+          ddata->dma_data_discarded++;
+        }
       }
       spin_unlock(&(ddata->dma_data_lock));
       base += ddata->dma_slot_size * ddata->dma_last_buffer;
 
+      apci_debug("ISR: depth = 0x%x\n", ioread32(ddata->regions[1].mapped_address + 0x28))
       iowrite32(base & 0xffffffff, ddata->regions[0].mapped_address + 0x10);
       iowrite32(base >> 32, ddata->regions[0].mapped_address + 4 + 0x10);
       iowrite32(ddata->dma_slot_size, ddata->regions[0].mapped_address + 8 + 0x10);
