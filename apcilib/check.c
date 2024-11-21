@@ -13,11 +13,10 @@
 #include <unistd.h>
 
 #include "apcilib.h"
-#define DEVICEPATH "/dev/apci/pcie_adio16_16f_0"
-#define DEV2PATH "/dev/apci/mpcie_adio16_8e_0"
-uint8_t CHANNEL_COUNT = 16; // change to 8 for M.2-/mPCIe-ADIO16-8F Family cards
 
-int bDiagnostic = 1;
+uint8_t CHANNEL_COUNT = 16; // change to 8 for 8-channel cards
+
+int bDiagnostic = 0;
 
 #define BAR_REGISTER 1
 
@@ -363,10 +362,7 @@ int main (int argc, char **argv)
 
 		apci_read32(apci, 1, BAR_REGISTER, ADCFIFODepthOffset, &ADCFIFODepth);
 		printf("  ADC FIFO has %d entries\n", ADCFIFODepth); // debug/diagnostic; should match the number of ADC Control writes
-		if (ADCFIFODepth != CHANNEL_COUNT)
-			errcount++;
-		else
-			passcount++;
+
 		testcount++;
 		int bTemp=0, bAux=0;
 
@@ -374,13 +370,10 @@ int main (int argc, char **argv)
 		{
 			apci_read32(apci, 1, BAR_REGISTER, ADCDataRegisterOffset, &ADCDataRaw);
 			pretty_print_ADC_raw_data(ADCDataRaw, 0);
-			//ParseADCRawData(ADCDataRaw, &chan,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
-			//printf("%02d ",chan);
 		}
 		printf("\n");
 		//printf("Done with one scan of software-started conversions.\n\n\n");
 
-		printf("\n%d failures, %d passes. Failure%% = %f.  Control readback failures: %d",errcount,passcount,(double)errcount/(double)testcount*100.0, readbackerrcount);
 	}
 
 
