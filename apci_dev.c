@@ -1,7 +1,7 @@
 /*
  * ACCES I/O APCI Linux driver
  *
- * Copyright 1998-2013 Jimi Damon <jdamon@accesio.com>
+ * Copyright 1998-2024 John Hentges <jhentges@accesio.com>  All rights granted.
  *
  */
 #include <linux/module.h>
@@ -2236,4 +2236,3 @@ module_init(apci_init);
 module_exit(apci_exit);
 
 MODULE_AUTHOR("John Hentges <JHentges@accesio.com>");
-MODULE_LICENSE("GPL");

@@ -1,20 +1,13 @@
 /*
-This software is a driver for ACCES I/O Products, Inc. PCI cards.
-Copyright (C) 2007  ACCES I/O Products, Inc.
+This software is a driver for ACCES I/O Products, Inc. PCI and other plug-and-play cards.
+Copyright (C) 2007-2024 ACCES I/O Products, Inc.
 
 This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation. This software is released under
-version 2 of the GPL.
+modify it at will.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 In addition ACCES provides other licenses with its software at customer request.
 For more information please contact the ACCES software department at
