@@ -2236,3 +2236,4 @@ module_init(apci_init);
 module_exit(apci_exit);
 
 MODULE_AUTHOR("John Hentges <JHentges@accesio.com>");
+MODULE_LICENSE("Dual MIT/GPL");
