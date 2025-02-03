@@ -1,4 +1,4 @@
-all: mpcie-dio-24a-irq axiodac axiodac_irq pcie_dio_48s mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f_dma mpcie_aio16_16f pcie_iiro_16_irq irq check check_dma dac
+all: dio_8255_output mpcie-dio-24a-irq axiodac axiodac_irq pcie_dio_48s mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f_dma mpcie_aio16_16f pcie_iiro_16_irq irq check check_dma dac
 
 ifneq ("$(wildcard /etc/redhat-release)","")
     REDHAT_VERSION := $(shell sed -n 's/.* \([0-9]\+\).*/\1/p' /etc/redhat-release | head -1)
@@ -11,13 +11,11 @@ ifeq (,$(filter -j%,$(MAKEFLAGS)))
   MAKEFLAGS += -j$(NPROC)
 endif
 
-CC   := gcc
-CXX  := g++
-CFLAGS := -O2 -Wall -Wextra
-CXXFLAGS := -O2 -Wall -Wextra
-ifeq ($(REDHAT_VERSION),7)
-    CFLAGS   += -std=c11 -D_XOPEN_SOURCE=700 -D_BSD_SOURCE
-endif
+dio_8255_output: dio_8255_output.c apcilib.h apcilib.c
+	$(GCC) -o dio_8255_output dio_8255_output.c apcilib.c -lm -lpthread
+
+axiodac_irq: axiodac_irq.c apcilib.h apcilib.c
+	$(GCC) -o axiodac_irq axiodac_irq.c apcilib.c -lm -lpthread
 
 LDFLAGS :=
 LDLIBS  := -lpthread -lm
@@ -90,5 +88,5 @@ isp-fpga: isp-fpga.cpp $(APCI_OBJS)
 
 .PHONY: all clean
 clean:
-	rm -f mpcie-dio-24a-irq axiodac axiodac_irq pcie-dio-48s-irq pcie-iiro-16 mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f mpcie_aio16_16f_dma check check_dma irq dac
+	rm -f dio_8255_output mpcie-dio-24a-irq axiodac axiodac_irq pcie-dio-48s-irq pcie-iiro-16 mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f mpcie_aio16_16f_dma check check_dma irq dac
 
