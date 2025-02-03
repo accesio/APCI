@@ -261,6 +261,12 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
 
 
     case apci_wait_for_irq_ioctl:
+         if (!ddata->irq_capable)
+         {
+             apci_error("Not capable of generating IRQs.\n");
+             return -EINVAL;
+         }
+
          if (ddata->irq_disabled)
          {
              apci_error("IRQ is disabled.\n");
@@ -298,6 +304,12 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
          break;
 
     case apci_cancel_wait_ioctl:
+         if (!ddata->irq_capable)
+         {
+             apci_error("Not capable of generating IRQs.\n");
+             return -EINVAL;
+         }
+         
          if (ddata->irq_disabled)
          {
              apci_error("IRQ is disabled.\n");
