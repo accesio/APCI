@@ -2,7 +2,7 @@
 #include "apci_dev.h"
 
 
-address_type is_valid_addr(struct apci_my_info *driver_data, int bar, int addr)
+address_type is_valid_addr(struct apci_my_info *driver_data, int bar, u64 addr)
 {
     /* if it is a valid bar */
     if (driver_data->regions[bar].start != 0) {
@@ -19,7 +19,7 @@ address_type is_valid_addr(struct apci_my_info *driver_data, int bar, int addr)
         }
       } else
       {
-           apci_error("register address to large for region[%d]\n", bar);
+           apci_error("register address to large for region[%d], %d > %d\n", bar, addr, driver_data->regions[bar].length);
       }
     }
     apci_error("Invalid addr: bar[%d]+0x%04x.\n", bar, addr);
