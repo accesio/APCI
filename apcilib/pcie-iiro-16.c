@@ -12,17 +12,17 @@ int fd;
 pthread_t worker_thread;
 int terminated = 0;
 
-
-void * worker(void *arg)
-{ 
+void *worker(void *arg)
+{
     int status;
     __u8 inputs = 0;
-    do {
-        status = apci_wait_for_irq(fd, 1); 
+    do
+    {
+        status = apci_wait_for_irq(fd, 1);
         if (0 == status)
         {
             printf("IRQ occurred: ");
-                //do a final read of inputs
+            // do a final read of inputs
             status = apci_read8(fd, 1, 2, 0, &inputs);
             printf("in0-7 = 0x%hhx   ", inputs);
             status = apci_read8(fd, 1, 2, 1, &inputs);
@@ -35,21 +35,22 @@ void * worker(void *arg)
         }
     } while (!terminated);
 
+    return 0;
+    (void)arg;
 }
 
-void abort_handler(int s){
-  printf("Caught signal %d\n",s);
+void abort_handler(int s)
+{
+    printf("Caught signal %d\n", s);
 
-
-  terminated = 1;
-  pthread_join(worker_thread, NULL);
-  exit(1);
+    terminated = 1;
+    pthread_join(worker_thread, NULL);
+    exit(1);
 }
 
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
     time_t the_time;
-    int status = 0;  
     __u8 relayData;
     __u8 inputData;
     struct sigaction sigIntHandler;
@@ -82,18 +83,18 @@ int main (int argc, char **argv)
 
     apci_read8(fd, 1, 2, 5, &inputData);
     printf(" read of input bits 8-15= %04hhX\n", inputData);
-   
 
     pthread_create(&worker_thread, NULL, &worker, NULL);
-    
+
     time(&the_time);
     printf("Testing CoS IRQ.  Press any key to exit.\nWaiting for irq @ %s: Please toggle any input bit.\n", ctime(&the_time));
-    apci_read8(fd, 1, 2, 2, &inputData); //enable COS
+    apci_read8(fd, 1, 2, 2, &inputData); // enable COS
 
-    do     // wait for IRQ
+    do // wait for IRQ
     {
-        printf(".");sleep(1);
-    }while (!kbhit());
+        printf(".");
+        sleep(1);
+    } while (!kbhit());
 
     terminated = 1;
     apci_cancel_irq(fd, 1);
@@ -104,8 +105,10 @@ int main (int argc, char **argv)
     apci_read8(fd, 1, 2, 5, &inputData);
     printf(" read of input bits 8-15= %04hhX\n", inputData);
 
-err_out:
-  close(fd);
+    close(fd);
 
-  return 0;
+    return 0;
+
+    (void)argc;
+    (void)argv;
 }

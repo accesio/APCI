@@ -156,7 +156,6 @@ int main(int argc, char **argv)
         if (regvalue & bmDacWaveformPlaying)
         {
             printf("\nDAC FIFO is empty -- ABORTING\n");
-            uint32_t roomInFIFO_Samples = 0;
             terminate = 1;
         }
         else
@@ -220,6 +219,8 @@ void *worker_main(void *arg)
     } while (!terminate);
 
     printf("  Worker Thread: exiting; Waveform Playback ended.\n");
+    return 0;
+    (void)arg;
 }
 
 /* configure DAC "Point" output rate */
@@ -242,4 +243,5 @@ void set_DACWaveform_rate(int fd, double *Hz)
 void abort_handler(int s)
 {
     terminate = 1;
+    (void)s;
 }

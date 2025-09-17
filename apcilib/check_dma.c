@@ -57,7 +57,7 @@ static uint32_t ring_buffer[RING_BUFFER_SLOTS][SAMPLES_PER_TRANSFER];
 static sem_t ring_sem;
 static sem_t logger_sem;
 static pthread_mutex_t ring_logger_mutex;
-volatile static int terminate;
+static volatile int terminate;
 
 //#define ADC_SAMPLE_FIFO_DEPTH   4096
 #define DMA_BUFF_SIZE           (BYTES_PER_TRANSFER * RING_BUFFER_SLOTS)
@@ -107,12 +107,8 @@ void abort_handler(int s){
 void * log_main(void *arg)
 {
 	int samples = 0;
+
 	int ring_read_index = 0;
-	int status;
-	int row = 0;
-	int last_channel = -1;
-	int16_t counts[NUM_CHANNELS];
-	int channel;
 	FILE *out = fopen(LOG_FILE_NAME, "w");
 
 	if (out == NULL)
@@ -128,7 +124,7 @@ void * log_main(void *arg)
 		sem_getvalue(&ring_sem, &buffers_queued);
 		if (terminate == 1 && buffers_queued == 0) break;
 
-		status = sem_wait(&ring_sem);
+		sem_wait(&ring_sem);
 
 		if (terminate == 2) break;
 
@@ -161,6 +157,8 @@ void * log_main(void *arg)
 				 fclose(out);
 	 printf("Recorded %d samples on %d channels at rate %f\n", samples, NUM_CHANNELS, SAMPLE_RATE);
 	 printf("Duration: %f\n", (CHANNEL_COUNT/SAMPLE_RATE) * samples);
+	 return 0;
+	 (void)arg;
 }
 
 /* Background thread to acquire data and queue to logger_thread */
@@ -190,7 +188,6 @@ void * worker_main(void *arg)
 	int num_slots;
 	int first_slot;
 	int data_discarded;
-	int buffers_queued;
 
 	do
 	{
@@ -238,6 +235,8 @@ void * worker_main(void *arg)
 	} while (transfer_count < NUMBER_OF_DMA_TRANSFERS);
 	printf("  Worker Thread: exiting; data acquisition complete.\n");
 	terminate = 1;
+	return 0;
+	(void)arg;
 }
 
 void set_acquisition_rate (int fd, double *Hz)
@@ -262,15 +261,10 @@ void set_acquisition_rate (int fd, double *Hz)
  */
 int main (void)
 {
-	int i;
-	volatile void *mmap_addr;
 	int status = 0;
 	double rate = SAMPLE_RATE;
 	uint32_t depth_readback;
 	uint32_t start_command;
-	int ring_write_index = 0;
-	int last_status = -1;
-	struct timespec dma_delay = {0};
 
 	struct sigaction sigIntHandler;
 
@@ -286,8 +280,6 @@ int main (void)
 	printf("AxIO Family ADC logging sample.\n");
 	printf("Supports  M.2-/mPCIe-AIO16-16F, M.2-/mPCIe-ADIO16-8F, M.2-/mPCIe-ADIODF16-8F, mPCIe-DAAI16-8F, and PCIe-ADIO16-16F\n");
 	printf(" ... note: small things like `CHANNEL_COUNT` may need to change to work perfectly...\n");
-
-	dma_delay.tv_nsec = 10;
 
 	fd = OpenDevFile();
 	if (fd < 0)
@@ -362,8 +354,6 @@ int main (void)
 		} while (buffers_queued > 0);
 	}
 
-
-err_out: //Once a start has been issued to the card we need to tell it to stop before exiting
 	/* put the card back in the power-up state */
 	apci_write32(fd, 1, BAR_REGISTER, RESETOFFSET, 0x1);
 

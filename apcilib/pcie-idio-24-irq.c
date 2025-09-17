@@ -15,7 +15,7 @@ int IRQCount = 0;
 void abort_handler(int s);
 void *worker_main(void *arg);
 
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
   __u8 in_byte = 0;
   int status = 0;
@@ -23,11 +23,11 @@ int main (int argc, char **argv)
 
   fd = open("/dev/apci/pcie_idio_24_0", O_RDONLY);
 
-	if (fd < 0)
-	{
-		printf("Device file could not be opened. Please ensure the iogen driver module is loaded.\n");
-		exit(0);
-	}
+  if (fd < 0)
+  {
+    printf("Device file could not be opened. Please ensure the iogen driver module is loaded.\n");
+    exit(0);
+  }
   struct sigaction sigIntHandler;
 
   sigIntHandler.sa_handler = abort_handler;
@@ -36,24 +36,22 @@ int main (int argc, char **argv)
   sigaction(SIGINT, &sigIntHandler, NULL);
   sigaction(SIGABRT, &sigIntHandler, NULL);
 
-
   pthread_create(&worker_thread, NULL, &worker_main, NULL);
 
-  //soft reset
-  //OutByte( Base + 0x0F, 0 );
+  // soft reset
+  // OutByte( Base + 0x0F, 0 );
   apci_write8(fd, 1, 2, 0xf, 0);
 
-
-  //set ttl out
-  //OutByte( a + 0x0C, ( InByte( a + 0x0C ) & 0x0F ) | 0x02 );
+  // set ttl out
+  // OutByte( a + 0x0C, ( InByte( a + 0x0C ) & 0x0F ) | 0x02 );
   apci_read8(fd, 1, 2, 0xc, &in_byte);
   apci_write8(fd, 1, 2, 0xc, (in_byte & 0xf) | 0x2);
 
-  //do an initial read of inputs 0-7
+  // do an initial read of inputs 0-7
   status = apci_read8(fd, 1, 2, 4, &in_byte);
   printf("Reading input bits 0-7: status = %d, in_byte = 0x%x\n", status, in_byte);
 
-  //enable COS
+  // enable COS
   apci_write8(fd, 1, 2, 0xe, 0xf);
 
   printf("This sample will now generate random IRQs by occasionally writing random data to bits 0-7\n");
@@ -74,41 +72,44 @@ int main (int argc, char **argv)
     }
   }
 
-   apci_cancel_irq(fd, 1);
-   pthread_join(worker_thread, NULL);
+  apci_cancel_irq(fd, 1);
+  pthread_join(worker_thread, NULL);
 
-  //do a final read of inputs 0-7
+  // do a final read of inputs 0-7
   status = apci_read8(fd, 1, 2, 4, &in_byte);
   printf("Reading input bits 0-7.\n");
   printf("final read: status = %d, in_byte = 0x%x\n", status, in_byte);
 
-err_out:
   close(fd);
 
-
   return 0;
+  (void)argc;
+  (void)argv;
 }
-
 
 /* Background thread to wait for IRQs */
 void *worker_main(void *arg)
 {
-    do
+  do
+  {
+    int status = apci_wait_for_irq(fd, 1);
+    if (status < 0)
     {
-        int status = apci_wait_for_irq(fd, 1);
-        if (status < 0)
-        {
-            printf("Error waiting for IRQ: %d\n", status);
-            break;
-        }
+      printf("Error waiting for IRQ: %d\n", status);
+      break;
+    }
 
-        IRQCount++;
-    } while (!terminate);
+    IRQCount++;
+  } while (!terminate);
 
-    printf("  Worker Thread: exiting.\n");
+  printf("  Worker Thread: exiting.\n");
+
+  return 0;
+  (void)arg;
 }
 
 void abort_handler(int s)
 {
-    terminate = 1;
+  terminate = 1;
+  (void)s;
 }

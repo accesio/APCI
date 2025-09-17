@@ -16,11 +16,10 @@ Registers (all hex offsets) +0, +1, +2, +3, +8, +28, +29 are all implemented in 
 Registers +2c, +30, +40, +50, +FC, and all registers at or above +0x100 are implemented only in BAR[1].
 Registers +68, +70, +74, and +78 are implemented only in BAR[2].
 */
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
   __u8 inputs = 0;
   int status = 0;
-  time_t the_time;
   int bar = 2;
   int membar = 1;
   int ignored = 0;
@@ -29,8 +28,8 @@ int main (int argc, char **argv)
 
   if (fd < 0)
   {
-	printf("Device file could not be opened. Please ensure the iogen driver module is loaded.\n");
-	exit(0);
+    printf("Device file could not be opened. Please ensure the iogen driver module is loaded.\n");
+    exit(0);
   }
 
   // Reset card
@@ -51,7 +50,8 @@ int main (int argc, char **argv)
   status = apci_write8(fd, ignored, bar, 3, 0x89);
   printf("write +3 <= 0x89: status = %d\n", status);
 
-  while (1) {
+  while (1)
+  {
     status = apci_read8(fd, ignored, bar, 3, &inputs);
     printf("read +3: status = %d, control = 0x%02hhx\n", status, inputs);
     apci_write8(fd, ignored, bar, 0, 1);
@@ -63,4 +63,6 @@ int main (int argc, char **argv)
     printf("read +0: status = %d, output A = 0x%02hhx\n", status, inputs);
     sleep(1);
   }
+  (void)argc;
+  (void)argv;
 }
