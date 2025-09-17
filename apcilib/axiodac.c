@@ -34,7 +34,8 @@ pthread_t worker_thread;
 int DACFIFOSamples = 8192;
 
 #define DACBufferLength (65536 * 4)
-#define DacsPerPoint 1
+#define DacsPerPoint 2
+
 double DacWaveformPPS = 1000000.0 / DacsPerPoint;
 void *mmap_ptr;
 uint32_t *data;
@@ -85,7 +86,7 @@ int main(int argc, char **argv)
     //the kernel buffer to be freed underneath the map.
     apci_dac_buffer_size(apci, DACBufferLength * sizeof(uint32_t));
 
-    //send PAGE_SIZE * 1 as last paramater to map the DAC buffer. 
+    //send PAGE_SIZE * 1 as last paramater to map the DAC buffer.
     mmap_ptr = (void *) mmap(NULL, DACBufferLength * sizeof(uint32_t), PROT_READ | PROT_WRITE, MAP_SHARED, apci, getpagesize());
     if (MAP_FAILED == mmap_ptr)
     {
@@ -101,8 +102,8 @@ int main(int argc, char **argv)
         switch (i % DacsPerPoint)
         {
         case 0:
-            data[i] = 0x000000 | (uint16_t)(cos(2 * M_PI * i / DACBufferLength) * 0x7FFF + 0x8000); // cosine wave;
-            //data[i] = 65535 * ((i/DacsPerPoint) & 1); // diagnostic version fastest possible square wave. note: DAC output slew rate is 5V/µSec
+            //data[i] = 0x000000 | (uint16_t)(cos(2 * M_PI * i / DACBufferLength) * 0x7FFF + 0x8000); // cosine wave;
+            data[i] = 65535 * ((i/DacsPerPoint) & 1); // diagnostic version fastest possible square wave. note: DAC output slew rate is 5V/µSec
             break;
         case 1:
             data[i] = 0x010000 | ((i >> 2) % 0x10000);

@@ -1,3 +1,4 @@
+#pragma once
 /*
 This software is a driver for ACCES I/O Products, Inc. PCI and other plug-and-play cards.
 Copyright (C) 2007-2024 ACCES I/O Products, Inc.
@@ -14,7 +15,13 @@ For more information please contact the ACCES software department at
 (800)-326-1649 or visit www.accesio.com
 */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <linux/types.h>
+#include <stddef.h>        // for size_t
+
 
 int apci_get_devices(int fd);
 
@@ -40,3 +47,7 @@ int apci_writebuf16(int fd, unsigned long device_index, int bar, int bar_offset,
 int apci_writebuf32(int fd, unsigned long device_index, int bar, int bar_offset, unsigned int mmap_offset, int length);
 
 int apci_dac_buffer_size (int fd, unsigned long size);
+
+#ifdef __cplusplus
+}
+#endif

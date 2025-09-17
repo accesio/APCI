@@ -1,77 +1,95 @@
-all: dio_8255_output axiodac axiodac_irq pcie_dio_48s mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq pcie_iiro_16_irq irq check check_dma dac isp_fpga mpcie-dio-24x-irq
-
+# Detect RHEL7 special flags (kept from your file)
 ifneq ("$(wildcard /etc/redhat-release)","")
-    REDHAT_VERSION = $(shell cat /etc/redhat-release | grep  -o "[0-9]*" | head -1)
+    REDHAT_VERSION := $(shell sed -n 's/.* \([0-9]\+\).*/\1/p' /etc/redhat-release | head -1)
 else
-    REDHAT_VERSION = 0
+    REDHAT_VERSION := 0
 endif
 
-ifeq ($(REDHAT_VERSION), 7)
-	GCC = gcc -std=c11 -D_XOPEN_SOURCE=700 -D _BSD_SOURCE
-else
-	GCC = gcc
+NPROC := $(shell nproc 2>/dev/null || echo 1)
+ifeq (,$(filter -j%,$(MAKEFLAGS)))
+  MAKEFLAGS += -j$(NPROC)
 endif
 
-dio_8255_output: dio_8255_output.c apcilib.h apcilib.c
-	$(GCC) -o dio_8255_output dio_8255_output.c apcilib.c -lm -lpthread
+CC   := gcc
+CXX  := g++
+CFLAGS := -O2 -Wall -Wextra
+CXXFLAGS := -O2 -Wall -Wextra
+ifeq ($(REDHAT_VERSION),7)
+    CFLAGS   += -std=c11 -D_XOPEN_SOURCE=700 -D_BSD_SOURCE
+endif
 
-pcieaio: pcie_adio12_16e_dma.c apcilib.h apcilib.c
-	$(GCC) -o pcie_adio12_16e_dma pcie_adio12_16e_dma.c apcilib.c -lm -lpthread
+LDFLAGS :=
+LDLIBS  := -lpthread -lm
 
+# Objects
+APCI_OBJS := apcilib.o
 
-axiodac_irq: axiodac_irq.c apcilib.h apcilib.c
-	$(GCC) -o axiodac_irq axiodac_irq.c apcilib.c -lm -lpthread
+all: dio_8255_output axiodac axiodac_irq pcie_dio_48s mpcie_quad_8 \
+     mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq pcie-iiro-16 \
+     irq check check_dma dac isp-fpga mpcie-dio-24x-irq \
+     mpcie_aio16_16f mpcie_aio16_16f_dma
 
-axiodac: axiodac.c apcilib.h apcilib.c
-	$(GCC) -o axiodac axiodac.c apcilib.c -lm -lpthread -O3
+# Pattern rules
+%.o: %.c apcilib.h
+	$(CC) $(CFLAGS) -c $< -o $@
 
-pcie_dio_48s:
-	$(GCC) -o pcie-dio-48s-irq pcie-dio-48s-irq.c apcilib.c
+# C targets (link with CC)
+dio_8255_output: dio_8255_output.o $(APCI_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-mpcie_quad_4:
-	$(GCC) -o mpcie_quad_8 mpcie_quad_8.c apcilib.c
+axiodac: axiodac.o $(APCI_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-mpcie_quad_8: mpcie_quad_8.c apcilib.h apcilib.c
-	$(GCC) -o mpcie_quad_8 mpcie_quad_8.c apcilib.c
+axiodac_irq: axiodac_irq.o $(APCI_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-pcie_iiro_16_irq: pcie-iiro-16.c apcilib.h apcilib.c
-	$(GCC) -o pcie-iiro-16 pcie-iiro-16.c apcilib.c -lm -lpthread -O3
+pcie_dio_48s: pcie-dio-48s-irq.o $(APCI_OBJS)
+	$(CC) $(LDFLAGS) -o pcie-dio-48s-irq $^ $(LDLIBS)
 
-irq: irq.c apcilib.h apcilib.c
-	$(GCC) -o irq irq.c apcilib.c -lm -lpthread -O3
+mpcie_quad_8: mpcie_quad_8.o $(APCI_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-mpcie_iiro_8: mpcie-iiro-8.c apcilib.h apcilib.c
-	$(GCC) -o mpcie-iiro-8 mpcie-iiro-8.c apcilib.c -lm -lpthread -O3
+pcie-ii-16-irq: mpcie-ii-16-irq.o $(APCI_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-mpcie-ii-16-irq: mpcie-ii-16-irq.c apcilib.h apcilib.c
-	$(GCC) -o mpcie-ii-16-irq mpcie-ii-16-irq.c apcilib.c
+pcie-idio-24-irq: pcie-idio-24-irq.o $(APCI_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ -lpthread -O3
 
-pcie-idio-24-irq: pcie-idio-24-irq.c apcilib.h apcilib.c
-	$(GCC) -o pcie-idio-24-irq pcie-idio-24-irq.c apcilib.c -lpthread -O3
+mpcie-dio-24s-irq: mpcie-dio-24s-irq.o $(APCI_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-mpcie-dio-24s-irq: mpcie-dio-24s-irq.c apcilib.h apcilib.c
-	$(GCC) -o mpcie-dio-24s-irq mpcie-dio-24s-irq.c apcilib.c
+mpcie-dio-24x-irq: mpcie-dio-24x-irq.o $(APCI_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-mpcie-dio-24x-irq: mpcie-dio-24x-irq.c apcilib.h apcilib.c
-	$(GCC) -o mpcie-dio-24x-irq mpcie-dio-24x-irq.c apcilib.c
+pcie-iiro-16: pcie-iiro-16.o $(APCI_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-check: check.c apcilib.h apcilib.c apci_pnp.c
-	$(GCC) -o check check.c apcilib.c apci_pnp.c -lm -lpthread -O3
+irq: irq.o $(APCI_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS) -O3
 
-check_dma: check_dma.c apcilib.h apcilib.c apci_pnp.c
-	$(GCC) -g -o check_dma check_dma.c apcilib.c apci_pnp.c -lm -lpthread -O3
+check: check.o apci_pnp.o $(APCI_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS) -O3
 
-dac: dac.c apcilib.h apcilib.c
-	$(GCC) -o dac dac.c apcilib.c
+check_dma: check_dma.o apci_pnp.o $(APCI_OBJS)
+	$(CC) -g $(LDFLAGS) -o $@ $^ $(LDLIBS) -O3
 
-isp_fpga: isp-fpga.cpp apcilib.h
-	g++ -o isp-fpga isp-fpga.cpp apcilib.c
+dac: dac.o $(APCI_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
-mpcie_aio16_16f_dma: mpcie_aio16_16f_dma.c apcilib.h apcilib.c
-	$(GCC) -o mpcie_aio16_16f_dma mpcie_aio16_16f_dma.c apcilib.c -lm -lpthread -O3
+mpcie_aio16_16f: mpcie_aio16_16f.o $(APCI_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS) -O3
 
-mpcie_aio16_16f: mpcie_aio16_16f.c apcilib.h apcilib.c
-	$(GCC) -o mpcie_aio16_16f mpcie_aio16_16f.c apcilib.c -lm -lpthread -O3
+mpcie_aio16_16f_dma: mpcie_aio16_16f_dma.o $(APCI_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LDLIBS) -O3
 
+# C++ target: compile C++/link with CXX, but still use C object for apcilib
+isp-fpga: isp-fpga.cpp $(APCI_OBJS)
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(LDLIBS)
+
+.PHONY: all clean
 clean:
-	rm dio_8255_output pcie_adio12_16e_dma axiodac axiodac_irq pcie-dio-48s-irq pcie-iiro-16 mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f mpcie_aio16_16f_dma check check_dma irq dac
+	rm -f *.o \
+	      dio_8255_output axiodac axiodac_irq pcie-dio-48s-irq pcie-iiro-16 \
+	      mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq \
+	      mpcie-dio-24x-irq check check_dma irq dac isp-fpga \
+	      mpcie_aio16_16f mpcie_aio16_16f_dma
