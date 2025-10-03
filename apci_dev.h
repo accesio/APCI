@@ -1,6 +1,4 @@
-#ifndef APCI_DEV_H
-#define APCI_DEV_H
-
+#pragma once
 
 #include <linux/cdev.h>
 #include <linux/delay.h>
@@ -84,6 +82,7 @@
 #define PCI_IDIO_16	0x0DC8
 #define PCI_WDG_2S	0x1250 //TODO: Find out if the Watch Dog Cards should really be here
 #define PCI_WDG_CSM	0x22C0
+
 #define PCI_WDG_IMPAC	0x12D0
 #define MPCIE_DIO_24A   0x2E50
 #define MPCIE_DIO_24X   0x2E51
@@ -94,6 +93,7 @@
 #define MPCIE_IDIO_4  0x0103
 #define MPCIE_IIRO_4  0x0104
 #define MPCIE_IDO_8   0x0105
+#define MPCIE_ISODIO_16 0x0DC9
 #define MPCIE_RO_8    0x0106
 #define MPCIE_II_16   0x0107
 #define MPCIE_II_8    0x0108
@@ -258,6 +258,7 @@
 #define NAME_MPCIE_IDIO_4               "mpcie_idio_4"
 #define NAME_MPCIE_IIRO_4               "mNAME_MPCIE_II_4pcie_iiro_4"
 #define NAME_MPCIE_IDO_8                "mpcie_ido_4"
+#define NAME_MPCIE_ISODIO_16            "mpcie_isodio_16"
 #define NAME_MPCIE_RO_8                 "mpcie_ro_8"
 #define NAME_MPCIE_II_16                "mpcie_ii_16"
 #define NAME_MPCIE_II_8                 "mpcie_ii_8"
@@ -413,7 +414,3 @@ struct apci_my_info {
 int probe(struct pci_dev *dev, const struct pci_device_id *id);
 void remove(struct pci_dev *dev);
 void delete_driver(struct pci_dev *dev);
-
-
-
-#endif

@@ -204,6 +204,9 @@ static struct pci_device_id ids[] = {
         PCI_DEVICE(A_VENDOR_ID, MPCIE_IDO_8),
     },
     {
+        PCI_DEVICE(A_VENDOR_ID, MPCIE_ISODIO_16),
+    },
+    {
         PCI_DEVICE(A_VENDOR_ID, MPCIE_RO_8),
     },
     {
@@ -599,6 +602,7 @@ static struct apci_lookup_table_entry apci_driver_table[] =
         APCI_MAKE_ENTRY(MPCIE_IDIO_4),
         APCI_MAKE_ENTRY(MPCIE_IIRO_4),
         APCI_MAKE_ENTRY(MPCIE_IDO_8),
+        APCI_MAKE_ENTRY(MPCIE_ISODIO_16),
         APCI_MAKE_ENTRY(MPCIE_RO_8),
         APCI_MAKE_ENTRY(MPCIE_II_16),
         APCI_MAKE_ENTRY(MPCIE_II_8),
@@ -944,6 +948,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case MPCIE_IDIO_4:
   case MPCIE_IIRO_4:
   case MPCIE_IDO_8:
+  case MPCIE_ISODIO_16:
   case MPCIE_RO_8:
   case MPCIE_II_16:
   case MPCIE_II_8:
@@ -1766,6 +1771,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
   case MPCIE_IDIO_4:
   case MPCIE_IIRO_4:
   case MPCIE_IDO_8:
+  case MPCIE_ISODIO_16:
   case MPCIE_RO_8:
   case MPCIE_II_16:
   case MPCIE_II_8:

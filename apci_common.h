@@ -1,8 +1,6 @@
+#pragma once
 
-#ifndef APCI_COMMON_H
-#define APCI_COMMON_H
-
-#define A_PCI_DEBUG 3 /*feel free to change this value*/
+#define A_PCI_DEBUG 0 /*feel free to change this value*/
 
 /* ACCES does not recommend changing anything _else_ in this file. */
 
@@ -36,6 +34,3 @@ extern int apci_debug_level;
 #define apci_info(fmt, ...) if( 0 ) { pr_info( APCI_PREFIX fmt, ##__VA_ARGS__ ); }
 #endif
 #define apci_error(fmt,...) pr_err( APCI_PREFIX fmt, ##__VA_ARGS__ )
-
-
-#endif
