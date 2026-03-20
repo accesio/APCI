@@ -783,8 +783,8 @@ void *
 apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 
-  struct apci_my_info *ddata = kmalloc(sizeof(struct apci_my_info), GFP_KERNEL);
-  int count, i, plx_bar;
+  struct apci_my_info *ddata = kzalloc(sizeof(struct apci_my_info), GFP_KERNEL);
+  int count, i, plx_bar = -1;
   struct resource *presource;
   int status = -1;
 
@@ -793,25 +793,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
 
   ddata->dac_fifo_buffer = NULL;
 
-  /* Initialize with defaults, fill in specifics later */
-  ddata->irq = 0;
-  ddata->irq_capable = 0;
 
-  ddata->dma_virt_addr = NULL;
-
-  for (count = 0; count < 6; count++)
-  {
-    ddata->regions[count].start = 0;
-    ddata->regions[count].end = 0;
-    ddata->regions[count].flags = 0;
-    ddata->regions[count].mapped_address = NULL;
-    ddata->regions[count].length = 0;
-  }
-
-  ddata->plx_region.start = 0;
-  ddata->plx_region.end = 0;
-  ddata->plx_region.length = 0;
-  ddata->plx_region.mapped_address = NULL;
 
   ddata->dev_id = id->device;
 
@@ -1295,7 +1277,11 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
     ddata->regions[0].flags = pci_resource_flags(pdev, 0);
     ddata->regions[0].length = ddata->regions[0].end - ddata->regions[0].start + 1;
 
-    iounmap(ddata->plx_region.mapped_address);
+    if (ddata->plx_region.mapped_address != NULL)
+    {
+      iounmap(ddata->plx_region.mapped_address);
+      ddata->plx_region.mapped_address = NULL;
+    }
     apci_debug("regions[0].start = %08llx\n", ddata->regions[0].start);
     apci_debug("regions[0].end   = %08llx\n", ddata->regions[0].end);
     apci_debug("regions[0].length= %08x\n", ddata->regions[0].length);
@@ -1308,7 +1294,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   {
     if (ddata->regions[count].start == 0)
       continue; /* invalid region */
-    if (count == plx_bar)
+    if (plx_bar >= 0 && count == plx_bar)
     {
       apci_debug("skipping request region for plx_bar [%d], already requested\n", count);
       continue; /* already requested */
@@ -1349,7 +1335,10 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
                 apci_debug("Releasing IO region at %llx\n", ddata->regions[i].start);
                 release_region(ddata->regions[i].start, ddata->regions[i].length);
             } else {
-                iounmap(ddata->regions[i].mapped_address);
+                if (ddata->regions[i].mapped_address != NULL)
+                {
+                  iounmap(ddata->regions[i].mapped_address);
+                }
                 release_mem_region(ddata->regions[i].start, ddata->regions[i].length);
             }
         }
@@ -1512,7 +1501,10 @@ void apci_free_driver(struct pci_dev *pdev)
     }
     else
     {
-      iounmap(ddata->regions[count].mapped_address);
+      if (ddata->regions[count].mapped_address != NULL)
+      {
+        iounmap(ddata->regions[count].mapped_address);
+      }
       release_mem_region(ddata->regions[count].start, ddata->regions[count].length);
     }
   }
@@ -2111,7 +2103,7 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
     // TODO: Fix this when HW is available to test MEM version
     if (ddata->is_pcie)
     {
-      if (ddata->dev_id != 0xC0E8)
+      if (ddata->plx_region.flags != 0)
       {
         if (ddata->plx_region.flags & IORESOURCE_IO)
         {
