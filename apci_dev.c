@@ -79,6 +79,9 @@ static struct pci_device_id ids[] = {
         PCI_DEVICE(A_VENDOR_ID, MPCIE_DIO_24A),
     },
     {
+        PCI_DEVICE(A_VENDOR_ID, MPCIE_DIO_24X),
+    },
+    {
         PCI_DEVICE(A_VENDOR_ID, PCIe_DA12_6),
     },
     {
@@ -496,12 +499,6 @@ static struct pci_device_id ids[] = {
     {
         PCI_DEVICE(A_VENDOR_ID, mPCIe_DAAI12_4E),
     },
-    {
-        PCI_DEVICE(A_VENDOR_ID, mPCIe_DA16_8),
-    },
-    {
-        PCI_DEVICE(A_VENDOR_ID, mPCIe_DA16_4),
-    },
 
     {
         PCI_DEVICE(A_VENDOR_ID, PCIe_DIO_24HC),
@@ -603,6 +600,7 @@ static struct apci_lookup_table_entry apci_driver_table[] =
         APCI_MAKE_ENTRY(PCI_DIO_48HS),
         APCI_MAKE_ENTRY(PCI_DIO_72),
         APCI_MAKE_ENTRY(MPCIE_DIO_24A),
+        APCI_MAKE_ENTRY(MPCIE_DIO_24X),
         APCI_MAKE_ENTRY(P104_DIO_96),
         APCI_MAKE_ENTRY(PCI_DIO_96),
         APCI_MAKE_ENTRY(PCI_DIO_96CT),
@@ -749,8 +747,6 @@ static struct apci_lookup_table_entry apci_driver_table[] =
         APCI_MAKE_ENTRY(mPCIe_DAAI12_4A),
         APCI_MAKE_ENTRY(mPCIe_DAAI12_4),
         APCI_MAKE_ENTRY(mPCIe_DAAI12_4E),
-        APCI_MAKE_ENTRY(mPCIe_DA16_8),
-        APCI_MAKE_ENTRY(mPCIe_DA16_4),
         APCI_MAKE_ENTRY(PCIe_DIO_24HC),
         APCI_MAKE_ENTRY(PCIe_DIO_72),
         APCI_MAKE_ENTRY(PCIe_DIO_96),
@@ -934,6 +930,15 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case PCIe_ADI12_16A:
   case PCIe_ADI12_16:
   case PCIe_ADI12_16E:
+  case mPCIe_ADIODF16_8FDS:
+  case mPCIe_ADIODF16_8F:
+  case mPCIe_ADIODF16_8A:
+  case mPCIe_ADIODF16_8E:
+  case mPCIe_ADIOFD12_8A:
+  case mPCIe_ADIOFD12_8:
+  case mPCIe_ADIOFD12_8E:
+  case mPCIe_DAAI12_4E:
+  case MPCIE_DIO_24X:
     break;
 
   default: // allocate PLX BAR
@@ -990,18 +995,12 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
         }
         break;
       }
-    }
-    else
-    {
-      ddata->plx_region.mapped_address = ioremap(ddata->plx_region.start, ddata->plx_region.length);
-    }
-    break;
-  }
   /* TODO: request and remap the region for plx */
 
   switch (ddata->dev_id)
   {
   case PCIe_DIO_24: /* group1 */
+  case PCIe_DIO_24S:
   case MPCIE_DIO_24S:
   case MPCIE_DIO_24S_R1:
   case MPCIE_IDIO_8:
@@ -1019,7 +1018,6 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case PCI_QUAD_8:
   case PCI_QUAD_4:
   case MPCIE_DIO_24:
-  case MPCIE_DIO_24S:
   case PCIe_DIO_24DS:
   case PCIe_DIO_24DC:
   case PCIe_DIO_24DCS:
@@ -1407,17 +1405,6 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_ADIOFD12_8A:
   case mPCIe_ADIOFD12_8:
   case mPCIe_ADIOFD12_8E:
-  case mPCIe_DAAI16_8F:
-  case mPCIe_DAAI16_8A:
-  case mPCIe_DAAI16_8E:
-  case mPCIe_DAAI12_8:
-  case mPCIe_DAAI12_8E:
-  case mPCIe_DAAI12_8A:
-  case mPCIe_DAAI16_4F:
-  case mPCIe_DAAI16_4A:
-  case mPCIe_DAAI16_4E:
-  case mPCIe_DAAI12_4A:
-  case mPCIe_DAAI12_4:
   case mPCIe_DAAI12_4E:
 
     apci_devel("setting up DMA in alloc\n");
@@ -1594,20 +1581,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_ADIOFD12_8A:
   case mPCIe_ADIOFD12_8:
   case mPCIe_ADIOFD12_8E:
-  case mPCIe_DAAI16_8F:
-  case mPCIe_DAAI16_8A:
-  case mPCIe_DAAI16_8E:
-  case mPCIe_DAAI12_8:
-  case mPCIe_DAAI12_8E:
-  case mPCIe_DAAI12_8A:
-  case mPCIe_DAAI16_4F:
-  case mPCIe_DAAI16_4A:
-  case mPCIe_DAAI16_4E:
-  case mPCIe_DAAI12_4A:
-  case mPCIe_DAAI12_4:
   case mPCIe_DAAI12_4E:
-  case mPCIe_DA16_8:
-  case mPCIe_DA16_4:
 
     spin_lock_init(&(ddata->dma_data_lock));
     ddata->plx_region = ddata->regions[0];
@@ -1784,20 +1758,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
   case mPCIe_ADIOFD12_8A:
   case mPCIe_ADIOFD12_8:
   case mPCIe_ADIOFD12_8E:
-  case mPCIe_DAAI16_8F:
-  case mPCIe_DAAI16_8A:
-  case mPCIe_DAAI16_8E:
-  case mPCIe_DAAI12_8:
-  case mPCIe_DAAI12_8E:
-  case mPCIe_DAAI12_8A:
-  case mPCIe_DAAI16_4F:
-  case mPCIe_DAAI16_4A:
-  case mPCIe_DAAI16_4E:
-  case mPCIe_DAAI12_4A:
-  case mPCIe_DAAI12_4:
   case mPCIe_DAAI12_4E:
-  case mPCIe_DA16_8:
-  case mPCIe_DA16_4:
 
     break;
 
@@ -2107,20 +2068,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
   case mPCIe_ADIOFD12_8A:
   case mPCIe_ADIOFD12_8:
   case mPCIe_ADIOFD12_8E:
-  case mPCIe_DAAI16_8F:
-  case mPCIe_DAAI16_8A:
-  case mPCIe_DAAI16_8E:
-  case mPCIe_DAAI12_8:
-  case mPCIe_DAAI12_8E:
-  case mPCIe_DAAI12_8A:
-  case mPCIe_DAAI16_4F:
-  case mPCIe_DAAI16_4A:
-  case mPCIe_DAAI16_4E:
-  case mPCIe_DAAI12_4A:
-  case mPCIe_DAAI12_4:
   case mPCIe_DAAI12_4E:
-  case mPCIe_DA16_8:
-  case mPCIe_DA16_4:
 
   {
     apci_devel("ISR: mPCIe-AxIO irq_event\n");

@@ -272,7 +272,6 @@
 #define NAME_MPCIE_DIO_24X              "mpcie_dio_24x"
 #define NAME_MPCIE_DIO_24S              "mpcie_dio_24s"
 #define NAME_ROB_MATRIX_8X16            "rob_matrix_8x16"
-#define NAME_MPCIE_DIO_24A            "mpcie_dio_24a"
 
 #define NAME_MPCIE_IDIO_8               "mpcie_idio_8"
 #define NAME_MPCIE_IIRO_8               "mpcie_iiro_8"
