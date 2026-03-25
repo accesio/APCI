@@ -9,7 +9,7 @@
 #define ACCES_MAJOR  98
 #define ACCES_MAGIC_NUM 0xE0
 
-#define APCI_DEFAULT_DEVFILE_MODE 0000 // /dev/{cardname} will get these permissions on creation
+#define APCI_DEFAULT_DEVFILE_MODE 0666 // /dev/{cardname} will get these permissions on creation
 
 #define APCI_PREFIX "apci: "
 #define APCI "apci"
