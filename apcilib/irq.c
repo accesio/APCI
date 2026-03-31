@@ -19,9 +19,8 @@ void *worker(void *arg)
 {
   int status;
   __u8 inputs = 0;
-  do
-  {
-    status = apci_wait_for_irq(fd, 1);
+  do {
+    status = apci_wait_for_irq(fd, 1); 
     if (0 == status)
     {
       printf("IRQ occurred: ");

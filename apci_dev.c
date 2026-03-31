@@ -39,8 +39,15 @@
 #define bmADIO_ADCTRIGGERStatus (1 << 16)
 #define bmADIO_ADCTRIGGEREnable (1 << 0)
 
+int irq_disabled = 0;
+module_param(irq_disabled, int, 0444);
+MODULE_PARM_DESC(irq_disabled, "Don't register an IRQ/ISR. IRSRC register must be polled from userspace");
+
 /* PCI table construction */
 static struct pci_device_id ids[] = {
+    {
+        PCI_DEVICE(A_VENDOR_ID, ROB_MATRIX_8X16),
+    },
     {
         PCI_DEVICE(A_VENDOR_ID, PCIe_IIRO_8),
     },
@@ -240,12 +247,53 @@ static struct pci_device_id ids[] = {
         PCI_DEVICE(A_VENDOR_ID, PCIe_IDIO_24),
     },
     {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA16_8F),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA16_8A),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA16_8E),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA12_8A),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA12_8),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA12_8E),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA16_4F),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA16_4A),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA16_4E),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA12_4A),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA12_4 ),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DAA12_4E),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DA16_8  ),
+    },
+    {
+        PCI_DEVICE(A_VENDOR_ID, mPCIe_DA16_4  ),
+    },
+    {
         PCI_DEVICE(A_VENDOR_ID, PCIe_ADIO16_16FDS),
     },
     {
         PCI_DEVICE(A_VENDOR_ID, PCIe_ADIO16_16F),
     },
-
     {
         PCI_DEVICE(A_VENDOR_ID, PCIe_ADIO16_16A),
     },
@@ -535,6 +583,7 @@ int APCI_LOOKUP_ENTRY(int x ) {
 #else
 static struct apci_lookup_table_entry apci_driver_table[] =
     APCI_MAKE_DRIVER_TABLE(
+        APCI_MAKE_ENTRY(ROB_MATRIX_8X16),
         APCI_MAKE_ENTRY(PCIe_DIO_24),
         APCI_MAKE_ENTRY(PCIe_DIO_24D),
         APCI_MAKE_ENTRY(PCIe_DIO_24S),
@@ -734,6 +783,7 @@ int APCI_LOOKUP_ENTRY(int fx)
 
   if (!driver_num)
   {
+    apci_debug("did not find driver in table for %04x", fx);
     return -1;
   }
   else
@@ -820,6 +870,8 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
 
   switch (ddata->dev_id)
   {
+  case ROB_MATRIX_8X16:
+  case MPCIE_DIO_24A:
   case mPCIe_AIO16_16FDS:
   case mPCIe_AIO16_16F:
   case mPCIe_AIO16_16A:
@@ -941,7 +993,6 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   {
   case PCIe_DIO_24: /* group1 */
   case PCIe_DIO_24S:
-  case MPCIE_DIO_24A:
   case MPCIE_DIO_24S_R1:
   case MPCIE_IDIO_8:
   case MPCIE_IIRO_8:
@@ -1059,7 +1110,6 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_ADIODF16_8FDS:
   case mPCIe_ADIODF16_8F:
   case mPCIe_ADIODF16_8A:
-
   case mPCIe_ADIODF16_8E:
   case mPCIe_ADIOFD12_8A:
   case mPCIe_ADIOFD12_8:
@@ -1078,6 +1128,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_DAAI12_4E:
   case mPCIe_DA16_8:
   case mPCIe_DA16_4:
+  case mPCIe_DAA12_4:
 
   case PCIe_ADIO16_16FDS:
   case PCIe_ADIO16_16F:
@@ -1209,10 +1260,71 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
     apci_debug("regions[3].flags = %08lx\n", ddata->regions[3].flags);
     apci_debug("NO irq\n");
     break;
-  }
+    case MPCIE_DIO_24A:
 
+      ddata->regions[0].start = pci_resource_start(pdev, 0);
+      ddata->regions[0].end = pci_resource_end(pdev, 0);
+      ddata->regions[0].flags = pci_resource_flags(pdev, 0);
+      ddata->regions[0].length = ddata->regions[0].end - ddata->regions[0].start + 1;
 
+      ddata->regions[1].start = pci_resource_start(pdev, 1);
+      ddata->regions[1].end = pci_resource_end(pdev, 1);
+      ddata->regions[1].flags = pci_resource_flags(pdev, 1);
+      ddata->regions[1].length = ddata->regions[1].end - ddata->regions[1].start + 1;
 
+      ddata->irq = pdev->irq;
+      ddata->irq_capable = 1;
+      apci_debug("[%04x]: regions[0].start = %08llx\n", ddata->dev_id, ddata->regions[0].start);
+      apci_debug("        regions[0].end   = %08llx\n", ddata->regions[0].end);
+      apci_debug("        regions[0].length= %08x\n", ddata->regions[0].length);
+      apci_debug("        regions[0].flags = %lx\n", ddata->regions[0].flags);
+      apci_debug("        regions[1].start = %08llx\n", ddata->regions[1].start);
+      apci_debug("        regions[1].end   = %08llx\n", ddata->regions[1].end);
+      apci_debug("        regions[1].length= %08x\n", ddata->regions[1].length);
+      apci_debug("        regions[1].flags = %lx\n", ddata->regions[1].flags);
+      apci_debug("        irq = %d\n", ddata->irq);
+      break;
+    default:
+      ddata->regions[0].start = pci_resource_start(pdev, 0);
+      ddata->regions[0].end = pci_resource_end(pdev, 0);
+      ddata->regions[0].flags = pci_resource_flags(pdev, 0);
+      ddata->regions[0].length = ddata->regions[0].end - ddata->regions[0].start + 1;
+
+      ddata->regions[1].start = pci_resource_start(pdev, 1);
+      ddata->regions[1].end = pci_resource_end(pdev, 1);
+      ddata->regions[1].flags = pci_resource_flags(pdev, 1);
+      ddata->regions[1].length = ddata->regions[1].end - ddata->regions[1].start + 1;
+
+      ddata->regions[2].start = pci_resource_start(pdev, 2);
+      ddata->regions[2].end = pci_resource_end(pdev, 2);
+      ddata->regions[2].flags = pci_resource_flags(pdev, 2);
+      ddata->regions[2].length = ddata->regions[2].end - ddata->regions[2].start + 1;
+
+      ddata->regions[3].start = pci_resource_start(pdev, 3);
+      ddata->regions[3].end = pci_resource_end(pdev, 3);
+      ddata->regions[3].flags = pci_resource_flags(pdev, 3);
+      ddata->regions[3].length = ddata->regions[3].end - ddata->regions[3].start + 1;
+      ddata->irq_capable = 0;
+      apci_debug("[%04x]: regions[0].start = %08llx\n", ddata->dev_id, ddata->regions[0].start);
+      apci_debug("        regions[0].end   = %08llx\n", ddata->regions[0].end);
+      apci_debug("        regions[0].length= %08x\n", ddata->regions[0].length);
+      apci_debug("        regions[0].flags = %lx\n", ddata->regions[0].flags);
+      apci_debug("        regions[1].start = %08llx\n", ddata->regions[1].start);
+      apci_debug("        regions[1].end   = %08llx\n", ddata->regions[1].end);
+      apci_debug("        regions[1].length= %08x\n", ddata->regions[1].length);
+      apci_debug("        regions[1].flags = %lx\n", ddata->regions[1].flags);
+      apci_debug("        regions[2].start = %08llx\n", ddata->regions[2].start);
+      apci_debug("        regions[2].end   = %08llx\n", ddata->regions[2].end);
+      apci_debug("        regions[2].length= %08x\n", ddata->regions[2].length);
+      apci_debug("        regions[2].flags = %lx\n", ddata->regions[2].flags);
+      apci_debug("        regions[3].start = %08llx\n", ddata->regions[3].start);
+      apci_debug("        regions[3].end   = %08llx\n", ddata->regions[3].end);
+      apci_debug("        regions[3].length= %08x\n", ddata->regions[3].length);
+      apci_debug("        regions[3].flags = %lx\n", ddata->regions[3].flags);
+      apci_debug("        NO irq\n");
+
+      break;
+    }
 
   // cards where we support DMA. So far just the mPCIe_AI*_proto cards
   switch (ddata->dev_id)
@@ -1230,6 +1342,20 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_AI12_16_proto:
   case mPCIe_AI12_16E_proto:
 
+  case mPCIe_DAA16_8F:
+  case mPCIe_DAA16_8A:
+  case mPCIe_DAA16_8E:
+  case mPCIe_DAA12_8A:
+  case mPCIe_DAA12_8 :
+  case mPCIe_DAA12_8E:
+  case mPCIe_DAA16_4F:
+  case mPCIe_DAA16_4A:
+  case mPCIe_DAA16_4E:
+  case mPCIe_DAA12_4A:
+  case mPCIe_DAA12_4 :
+  case mPCIe_DAA12_4E:
+  case mPCIe_DA16_8  :
+  case mPCIe_DA16_4  :
   case PCIe_ADIO16_16FDS:
   case PCIe_ADIO16_16F:
   case PCIe_ADIO16_16A:
@@ -1276,17 +1402,6 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_ADIOFD12_8A:
   case mPCIe_ADIOFD12_8:
   case mPCIe_ADIOFD12_8E:
-  case mPCIe_DAAI16_8F:
-  case mPCIe_DAAI16_8A:
-  case mPCIe_DAAI16_8E:
-  case mPCIe_DAAI12_8:
-  case mPCIe_DAAI12_8E:
-  case mPCIe_DAAI12_8A:
-  case mPCIe_DAAI16_4F:
-  case mPCIe_DAAI16_4A:
-  case mPCIe_DAAI16_4E:
-  case mPCIe_DAAI12_4A:
-  case mPCIe_DAAI12_4:
   case mPCIe_DAAI12_4E:
 
     apci_devel("setting up DMA in alloc\n");
@@ -1304,58 +1419,54 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   }
 
   /* request regions */
+  /* request regions */
   for (count = 0; count < 6; count++)
   {
     if (ddata->regions[count].start == 0)
-      continue; /* invalid region */
-    if (count == plx_bar)
     {
-      apci_debug("skipping request region for plx_bar [%d], already requested\n", count);
-      continue; /* already requested */
+      continue; /* invalid region */
     }
     if (ddata->regions[count].flags & IORESOURCE_IO)
     {
-      apci_debug("request io region BAR[%d]: start=%08llx, len=%d\n", count, ddata->regions[count].start, ddata->regions[count].length);
+
+      apci_debug("requesting io region start=%08llx,len=%d\n", ddata->regions[count].start, ddata->regions[count].length);
       presource = request_region(ddata->regions[count].start, ddata->regions[count].length, "apci");
-      apci_debug("requested region %p\n", presource);
     }
     else
     {
-      apci_debug("requesting mem region @[%d] start=%08llx,len=%d\n", count, ddata->regions[count].start, ddata->regions[count].length);
+      apci_debug("requesting mem region start=%08llx,len=%d\n", ddata->regions[count].start, ddata->regions[count].length);
       presource = request_mem_region(ddata->regions[count].start, ddata->regions[count].length, "apci");
       if (presource != NULL)
       {
-        apci_debug("request mem region worked.\n");
         ddata->regions[count].mapped_address = ioremap(ddata->regions[count].start, ddata->regions[count].length);
       }
-      else
-        apci_debug("request mem region failed\n");
-      apci_debug("finished requesting mem region\n");
     }
 
-    if (presource == NULL) // if some BAR we thought we needed failed to allocate, deallocate any BARs we HAVE allocated successfully
+    if (presource == NULL)
     {
-      apci_error("request_region() FAILED! start=%08llx, len=%d, flags=%08lx",
-                ddata->regions[2].start,
-                ddata->regions[2].length,
-                ddata->regions[2].flags);
+      /* If we failed to allocate the region. */
+      count--;
 
-      apci_debug("presource is null\n");
-      for (i = count - 1; i >= 0; i--)
+      while (count >= 0)
       {
-        if (ddata->regions[i].start != 0) {
-            apci_debug("found region to release\n")
-            if (ddata->regions[i].flags & IORESOURCE_IO) {
-                apci_debug("Releasing IO region at %llx\n", ddata->regions[i].start);
-                release_region(ddata->regions[i].start, ddata->regions[i].length);
-            } else {
-                iounmap(ddata->regions[i].mapped_address);
-                release_mem_region(ddata->regions[i].start, ddata->regions[i].length);
-            }
+        if (ddata->regions[count].start != 0)
+        {
+          if (ddata->regions[count].flags & IORESOURCE_IO)
+          {
+            /* if it is a valid region */
+            release_region(ddata->regions[count].start, ddata->regions[count].length);
+          }
+          else
+          {
+            iounmap(ddata->regions[count].mapped_address);
+
+            release_region(ddata->regions[count].start, ddata->regions[count].length);
+          }
         }
       }
       goto out_alloc_driver;
     }
+  }
 
     // if (presource == NULL)
     // {
@@ -1384,7 +1495,6 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
     //   apci_debug("exiting via out_alloc_driver\n");
     //   goto out_alloc_driver;
     // }
-  }
 
   // cards where we support DMA. So far just the mPCIe_AI*(_proto) cards
   switch (ddata->dev_id)
@@ -1441,6 +1551,20 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_ADI12_8A:
   case mPCIe_ADI12_8:
   case mPCIe_ADI12_8E:
+  case mPCIe_DAA16_8F:
+  case mPCIe_DAA16_8A:
+  case mPCIe_DAA16_8E:
+  case mPCIe_DAA12_8A:
+  case mPCIe_DAA12_8:
+  case mPCIe_DAA12_8E:
+  case mPCIe_DAA16_4F:
+  case mPCIe_DAA16_4A:
+  case mPCIe_DAA16_4E:
+  case mPCIe_DAA12_4A:
+  case mPCIe_DAA12_4:
+  case mPCIe_DAA12_4E:
+  case mPCIe_DA16_8:
+  case mPCIe_DA16_4:
   case mPCIe_ADIODF16_8FDS:
   case mPCIe_ADIODF16_8F:
   case mPCIe_ADIODF16_8A:
@@ -1448,20 +1572,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   case mPCIe_ADIOFD12_8A:
   case mPCIe_ADIOFD12_8:
   case mPCIe_ADIOFD12_8E:
-  case mPCIe_DAAI16_8F:
-  case mPCIe_DAAI16_8A:
-  case mPCIe_DAAI16_8E:
-  case mPCIe_DAAI12_8:
-  case mPCIe_DAAI12_8E:
-  case mPCIe_DAAI12_8A:
-  case mPCIe_DAAI16_4F:
-  case mPCIe_DAAI16_4A:
-  case mPCIe_DAAI16_4E:
-  case mPCIe_DAAI12_4A:
-  case mPCIe_DAAI12_4:
   case mPCIe_DAAI12_4E:
-  case mPCIe_DA16_8:
-  case mPCIe_DA16_4:
 
     spin_lock_init(&(ddata->dma_data_lock));
     ddata->plx_region = ddata->regions[0];
@@ -1616,6 +1727,20 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
   case mPCIe_ADI12_8A:
   case mPCIe_ADI12_8:
   case mPCIe_ADI12_8E:
+  case mPCIe_DAA16_8F:
+  case mPCIe_DAA16_8A:
+  case mPCIe_DAA16_8E:
+  case mPCIe_DAA12_8A:
+  case mPCIe_DAA12_8:
+  case mPCIe_DAA12_8E:
+  case mPCIe_DAA16_4F:
+  case mPCIe_DAA16_4A:
+  case mPCIe_DAA16_4E:
+  case mPCIe_DAA12_4A:
+  case mPCIe_DAA12_4:
+  case mPCIe_DAA12_4E:
+  case mPCIe_DA16_8:
+  case mPCIe_DA16_4:
   case mPCIe_ADIODF16_8FDS:
   case mPCIe_ADIODF16_8F:
   case mPCIe_ADIODF16_8A:
@@ -1623,20 +1748,7 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
   case mPCIe_ADIOFD12_8A:
   case mPCIe_ADIOFD12_8:
   case mPCIe_ADIOFD12_8E:
-  case mPCIe_DAAI16_8F:
-  case mPCIe_DAAI16_8A:
-  case mPCIe_DAAI16_8E:
-  case mPCIe_DAAI12_8:
-  case mPCIe_DAAI12_8E:
-  case mPCIe_DAAI12_8A:
-  case mPCIe_DAAI16_4F:
-  case mPCIe_DAAI16_4A:
-  case mPCIe_DAAI16_4E:
-  case mPCIe_DAAI12_4A:
-  case mPCIe_DAAI12_4:
   case mPCIe_DAAI12_4E:
-  case mPCIe_DA16_8:
-  case mPCIe_DA16_4:
 
     break;
 
@@ -2028,7 +2140,7 @@ void remove(struct pci_dev *pdev)
 
   spin_lock(&(ddata->irq_lock));
 
-  if (ddata->irq_capable)
+  if (!irq_disabled && ddata->irq_capable)
     free_irq(pdev->irq, ddata);
 
   spin_unlock(&(ddata->irq_lock));
@@ -2075,12 +2187,14 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
   if (pci_enable_device(pdev))
   {
+    apci_debug("pci_enable_device returned fail\n");
     return -ENODEV;
   }
 
   ddata = (struct apci_my_info *)apci_alloc_driver(pdev, id);
   if (ddata == NULL)
   {
+    apci_debug("apci_alloc_driver returned null\n");
     return -ENOMEM;
   }
   /* Setup actual device driver items */
@@ -2089,25 +2203,32 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
   ddata->id = id;
   ddata->is_pcie = (ddata->plx_region.length >= 0x100 ? 1 : 0);
   apci_debug("Is device PCIE : %d\n", ddata->is_pcie);
+  ddata->irq_disabled = irq_disabled;
 
   /* Spin lock init stuff */
 
-  /* Request Irq */
+ /* Request Irq */
   if (ddata->irq_capable)
   {
-    apci_debug("Requesting Interrupt, %u\n", (unsigned int)ddata->irq);
-    ret = request_irq((unsigned int)ddata->irq,
-                      apci_interrupt,
-                      IRQF_SHARED,
-                      "apci",
-                      ddata);
-    if (ret)
+    if (!irq_disabled)
     {
-      apci_error("error requesting IRQ %u\n", ddata->irq);
-      ret = -ENOMEM;
-      goto exit_free;
+      apci_debug("Requesting Interrupt, %u\n", (unsigned int)ddata->irq);
+      ret = request_irq((unsigned int)ddata->irq,
+                        apci_interrupt,
+                        IRQF_SHARED,
+                        "apci",
+                        ddata);
+      if (ret)
+      {
+        apci_error("error requesting IRQ %u\n", ddata->irq);
+        ret = -ENOMEM;
+        goto exit_free;
+      }
     }
-
+    else
+    {
+       pr_info("apci: IRQ is disabled via module param\n");
+    }
     // TODO: Fix this when HW is available to test MEM version
     if (ddata->is_pcie)
     {
@@ -2182,7 +2303,7 @@ exit_pci_setdrv:
   pci_set_drvdata(pdev, NULL);
   cdev_del(&ddata->cdev);
 exit_irq:
-  if (ddata->irq_capable)
+  if (!irq_disabled && ddata->irq_capable)
     free_irq(pdev->irq, ddata);
 exit_free:
   apci_free_driver(pdev);
@@ -2269,7 +2390,7 @@ apci_init(void)
 
   /* needed to get the probe and remove to be called */
   result = pci_register_driver(&pci_driver);
-
+  apci_error("register driver returned: %d\n", result);
   return 0;
 err:
 
