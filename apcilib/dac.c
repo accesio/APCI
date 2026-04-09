@@ -14,6 +14,7 @@
 
 
 #define BAR_REGISTER 2
+#define CALIBRATION_BAR 3
 
 int apci;
 
@@ -40,10 +41,18 @@ int main (int argc, char **argv)
 		if (apci < 0)
 		{
 			printf("Device file %s could not be opened. Please ensure the APCI driver module is loaded or try sudo?.\n", DEVICEPATH);
+			return 1;
 		}
 	}
 
-	int chan;
+	int chan = 0;
+	__u8 range;
+	for (chan=0;chan<6;chan++)
+	{
+		apci_read8(apci, 0, CALIBRATION_BAR, 0xF0+chan, &range);
+		printf("Debug: Cal BAR read %02X for DAC #%d\n", range, chan);
+	}
+
 	__u8 data_ignore;
 	apci_write16(apci, 0, BAR_REGISTER, 0x00, 0x8000); // set DAC0 to midscale
 	apci_write16(apci, 0, BAR_REGISTER, 0x02, 0x8000);
