@@ -24,3 +24,14 @@ apcilib/mpcie-ii-16-irq
 apcilib/mpcie_quad_8
 apcilib/pcie-dio-48s-irq
 apcilib/pcie-idio-24-irq
+..module-common.o.cmd
+.module-common.o
+apcilib/check
+apcilib/check_dma
+apcilib/dac
+apcilib/dio_8255_output
+apcilib/irq
+apcilib/mpcie-dio-24a-irq
+apcilib/mpcie_aio16_16f
+apcilib/mpcie_aio16_16f_dma
+apcilib/pcie-iiro-16
