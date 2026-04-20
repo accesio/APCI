@@ -1439,12 +1439,16 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   }
 
   /* request regions */
-  /* request regions */
   for (count = 0; count < 6; count++)
   {
     if (ddata->regions[count].start == 0)
     {
       continue; /* invalid region */
+    }
+    /* Skip regions that overlap with the already-requested PLX region */
+    if (ddata->plx_region.start != 0 && ddata->regions[count].start == ddata->plx_region.start)
+    {
+      continue;
     }
     if (ddata->regions[count].flags & IORESOURCE_IO)
     {
@@ -1471,6 +1475,12 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
       {
         if (ddata->regions[count].start != 0)
         {
+          /* Skip the PLX region; it is released separately */
+          if (ddata->plx_region.start != 0 && ddata->regions[count].start == ddata->plx_region.start)
+          {
+            count--;
+            continue;
+          }
           if (ddata->regions[count].flags & IORESOURCE_IO)
           {
             /* if it is a valid region */
@@ -1483,38 +1493,12 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
             release_region(ddata->regions[count].start, ddata->regions[count].length);
           }
         }
+        count--;
       }
       goto out_alloc_driver;
     }
   }
 
-    // if (presource == NULL)
-    // {
-    //   /* If we failed to allocate the region. */
-    //   count--;
-    //   apci_debug("presource is null\n");
-    //   while (count >= 0)
-    //   {
-    //     if (ddata->regions[count].start != 0)
-    //     {
-    //       if (ddata->regions[count].flags & IORESOURCE_IO)
-    //       {
-    //         /* if it is a valid region */
-    //         apci_debug("about to release region\n");
-    //         release_region(ddata->regions[count].start, ddata->regions[count].length);
-    //         apci_debug("finished releasing region\n");
-    //       }
-    //       else
-    //       {
-    //         iounmap(ddata->regions[count].mapped_address);
-
-    //         release_region(ddata->regions[count].start, ddata->regions[count].length);
-    //       }
-    //     }
-    //   }
-    //   apci_debug("exiting via out_alloc_driver\n");
-    //   goto out_alloc_driver;
-    // }
 
   // cards where we support DMA. So far just the mPCIe_AI*(_proto) cards
   switch (ddata->dev_id)
