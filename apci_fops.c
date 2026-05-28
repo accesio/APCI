@@ -531,7 +531,7 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
                break;
 
           };
-          return -EFAULT;
+          return 0;
           break;
      case apci_set_dac_buff_size:
           apci_debug("Setting dac fifo size");
@@ -582,7 +582,7 @@ int mmap_apci (struct file *filp, struct vm_area_struct *vma)
                     ddata->regions[2].start >> PAGE_SHIFT,
                     vma->vm_end - vma->vm_start,
                     vma->vm_page_prot);
-          break; 
+          break;
      default:
           //complain and return error
           break;
