@@ -533,6 +533,50 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
           };
           return 0;
           break;
+
+     case apci_read_buff_ioctl:
+          status = copy_from_user(&buff_pack, (buff_iopack *)arg, sizeof(buff_iopack));
+          if (status != 0) {
+               return status;
+          }
+
+          if (ddata->dac_fifo_buffer == NULL) {
+               return -ENOMEM;
+          }
+
+          // Ideally validate mmap_offset + length * sizeof(type) <= buffer_size here.
+
+          switch (is_valid_addr(ddata, buff_pack.bar, buff_pack.bar_offset)) {
+          case IO:
+               switch (buff_pack.size) {
+               case DWORD: {
+                    __u32 *pdata = (__u32 *)(ddata->dac_fifo_buffer + buff_pack.mmap_offset);
+                    for (count = 0; count < buff_pack.length; count++) {
+                         pdata[count] = inl(ddata->regions[buff_pack.bar].start + buff_pack.bar_offset);
+                    }
+                    return 0;
+               }
+               default:
+                    return -EINVAL;
+               }
+
+          case MEM:
+               switch (buff_pack.size) {
+               case DWORD: {
+                    __u32 *pdata = (__u32 *)(ddata->dac_fifo_buffer + buff_pack.mmap_offset);
+                    void __iomem *addr = ddata->regions[buff_pack.bar].mapped_address + buff_pack.bar_offset;
+                    for (count = 0; count < buff_pack.length; count++) {
+                         pdata[count] = ioread32(addr);
+                    }
+                    return 0;
+               }
+          default:
+               return -EINVAL;
+          }
+
+     default:
+          return -EFAULT;
+     }
      case apci_set_dac_buff_size:
           apci_debug("Setting dac fifo size");
           if (ddata->dac_fifo_buffer != NULL)

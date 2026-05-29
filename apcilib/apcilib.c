@@ -178,6 +178,19 @@ int apci_read32(int fd, unsigned long device_index, int bar, int offset, __u32 *
 
 }
 
+int apci_readbuf32(int fd, unsigned long device_index, int bar, int bar_offset, unsigned int mmap_offset, int length)
+{
+    buff_iopack buff_pack;
+    buff_pack.device_index = device_index;
+    buff_pack.bar = bar;
+    buff_pack.bar_offset = bar_offset;
+    buff_pack.mmap_offset = mmap_offset;
+    buff_pack.length = length;
+    buff_pack.size = DWORD;
+
+    return ioctl(fd, apci_read_buff_ioctl, &buff_pack);
+}
+
 int apci_wait_for_irq(int fd, unsigned long device_index)
 {
 	return ioctl(fd, apci_wait_for_irq_ioctl, device_index);

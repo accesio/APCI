@@ -61,4 +61,6 @@ typedef struct {
 #define apci_data_ready             _IOR(ACCES_MAGIC_NUM, 10, data_ready_t *)
 #define apci_data_done              _IOW(ACCES_MAGIC_NUM, 11, unsigned long)
 #define apci_write_buff_ioctl       _IOW(ACCES_MAGIC_NUM, 12, buff_iopack *)
+#define apci_read_buff_ioctl       _IOW(ACCES_MAGIC_NUM, 14, buff_iopack *)
+
 #define apci_set_dac_buff_size     _IOW(ACCES_MAGIC_NUM, 13, unsigned long)
