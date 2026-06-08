@@ -51,6 +51,43 @@ ssize_t read_apci(struct file *filp, char __user *buf,
     return ( status ? -EFAULT : 1 );
 }
 
+static void apci_dma_buffer_release(struct apci_my_info *ddata)
+{
+    if (!ddata || ddata->dma_virt_addr == NULL)
+        return;
+
+    dma_free_coherent(&(ddata->pci_dev->dev),
+                      ddata->dma_num_slots * ddata->dma_slot_size,
+                      ddata->dma_virt_addr,
+                      ddata->dma_addr);
+
+    ddata->dma_num_slots = 0;
+    ddata->dma_virt_addr = NULL;
+    ddata->dma_addr = 0;
+    ddata->dma_slot_size = 0;
+    ddata->dma_last_buffer = -1;
+    ddata->dma_first_valid = -1;
+    ddata->dma_data_discarded = 0;
+}
+
+int release_apci( pInode inode, pFile filp )
+{
+    struct apci_my_info *ddata = filp->private_data;
+
+    if (ddata != NULL)
+    {
+        /*
+         * A completed userspace acquisition may leave the AxIO BAR0 DMA
+         * engine armed for the next buffer.  Quiesce it before the coherent
+         * buffer is released or reused by a later open.
+         */
+        apci_axio_quiesce(ddata);
+        apci_dma_buffer_release(ddata);
+    }
+
+    filp->private_data = NULL;
+    return 0;
+}
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39 )
 int ioctl_apci(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg)
@@ -344,36 +381,42 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
           if (status == 0) return -EACCES;
           {
                dma_buffer_settings_t settings = {0};
+               size_t total;
+
                status = copy_from_user(&settings,
                          (dma_buffer_settings_t *) arg,
                          sizeof(dma_buffer_settings_t));
 
-               if (ddata->dma_virt_addr != NULL)
-               {
-                    dma_free_coherent(&(ddata->pci_dev->dev),
-                         ddata->dma_num_slots * ddata->dma_slot_size,
-                         ddata->dma_virt_addr,
-                         ddata->dma_addr);
 
-                    ddata->dma_num_slots = 0;
-                    ddata->dma_virt_addr = NULL;
-                    ddata->dma_addr = 0;
-                    ddata->dma_slot_size = 0;
-               }
+               if (settings.num_slots <= 0 || settings.slot_size == 0)
+                    return -EINVAL;
+
+               total = (size_t)settings.num_slots * settings.slot_size;
+               if (total / settings.slot_size != (size_t)settings.num_slots)
+                    return -EINVAL;
+
+               /*
+                * Abort any stale BAR0 DMA state before releasing/replacing the
+                * coherent buffer.  A PCI FLR proved this state can survive a
+                * BAR1 board reset and cause the first transfer of the next run
+                * to complete without writing host memory.
+                */
+               apci_axio_quiesce(ddata);
+               apci_dma_buffer_release(ddata);
 
                ddata->dma_num_slots = settings.num_slots;
                ddata->dma_slot_size = settings.slot_size;
 
                ddata->dma_virt_addr = dma_alloc_coherent(&(ddata->pci_dev->dev),
-                                        ddata->dma_num_slots * ddata->dma_slot_size,
+                                        total,
                                         &(ddata->dma_addr),
                                         GFP_KERNEL);
                if (ddata->dma_virt_addr == NULL) return -ENOMEM;
+
                ddata->dma_last_buffer = -1;
                ddata->dma_first_valid = -1;
                ddata->dma_data_discarded = 0;
           }
-
           break;
 
      case apci_data_ready:

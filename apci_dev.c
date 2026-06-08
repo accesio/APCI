@@ -8,6 +8,7 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/pci.h>
+#include <linux/dma-mapping.h>
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/ioport.h>
@@ -38,6 +39,13 @@
 #define bmADIO_DMADoneEnable (1 << 2)
 #define bmADIO_ADCTRIGGERStatus (1 << 16)
 #define bmADIO_ADCTRIGGEREnable (1 << 0)
+
+#define AXIO_BAR1_RESET_OFFSET 0x00
+#define AXIO_BAR1_FIFO_LEVEL_OFFSET 0x28
+#define AXIO_DMA0_COMMAND_OFFSET 0x0c
+#define AXIO_DMA1_COMMAND_OFFSET 0x1c
+#define AXIO_DMA_CMD_START BIT(2)
+#define AXIO_DMA_CMD_ABORT_CLEAR_FIFO BIT(3)
 
 int irq_disabled = 0;
 module_param(irq_disabled, int, 0444);
@@ -702,6 +710,7 @@ static struct apci_lookup_table_entry apci_driver_table[] =
 #define APCI_TABLE_SIZE sizeof(apci_driver_table) / sizeof(struct apci_lookup_table_entry)
 #define APCI_TABLE_ENTRY_SIZE sizeof(struct apci_lookup_table_entry)
 
+
 void *bsearch(const void *key, const void *base, size_t num, size_t size,
               int (*cmp)(const void *key, const void *elt))
 {
@@ -761,6 +770,7 @@ static struct pci_driver pci_driver = {
 static struct file_operations apci_fops = {
     .read = read_apci,
     .open = open_apci,
+    .release = release_apci,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 39)
     .ioctl = ioctl_apci,
 #else
@@ -1646,6 +1656,147 @@ apci_class_dev_register(struct apci_my_info *ddata)
   return 0;
 }
 
+static bool apci_is_axio_dma_device(struct apci_my_info *ddata)
+{
+  if (ddata == NULL)
+    return false;
+
+  switch (ddata->dev_id)
+  {
+  case PCIe_ADIO16_16FDS:
+  case PCIe_ADIO16_16F:
+  case PCIe_ADIO16_16A:
+  case PCIe_ADIO16_16E:
+  case PCIe_ADI16_16F:
+  case PCIe_ADI16_16A:
+  case PCIe_ADI16_16E:
+  case PCIe_ADIO12_16A:
+  case PCIe_ADIO12_16:
+  case PCIe_ADIO12_16E:
+  case PCIe_ADI12_16A:
+  case PCIe_ADI12_16:
+  case PCIe_ADI12_16E:
+  case mPCIe_AIO16_16FDS:
+  case mPCIe_AIO16_16F:
+  case mPCIe_AIO16_16A:
+  case mPCIe_AIO16_16E:
+  case mPCIe_AI16_16F:
+  case mPCIe_AI16_16A:
+  case mPCIe_AI16_16E:
+  case mPCIe_AIO12_16A:
+  case mPCIe_AIO12_16:
+  case mPCIe_AIO12_16E:
+  case mPCIe_AI12_16A:
+  case mPCIe_AI12_16:
+  case mPCIe_AI12_16E:
+  case mPCIe_ADIO16_8FDS:
+  case mPCIe_ADIO16_8F:
+  case mPCIe_ADIO16_8A:
+  case mPCIe_ADIO16_8E:
+  case mPCIe_ADI16_8F:
+  case mPCIe_ADI16_8A:
+  case mPCIe_ADI16_8E:
+  case mPCIe_ADIO12_8A:
+  case mPCIe_ADIO12_8:
+  case mPCIe_ADIO12_8E:
+  case mPCIe_ADI12_8A:
+  case mPCIe_ADI12_8:
+  case mPCIe_ADI12_8E:
+  case mPCIe_ADIODF16_8FDS:
+  case mPCIe_ADIODF16_8F:
+  case mPCIe_ADIODF16_8A:
+  case mPCIe_ADIODF16_8E:
+  case mPCIe_ADIODF12_8A:
+  case mPCIe_ADIODF12_8:
+  case mPCIe_ADIODF12_8E:
+  case mPCIe_ADIOHC16_8FDS:
+  case mPCIe_ADIOHC16_8F:
+  case mPCIe_ADIOHC16_8A:
+  case mPCIe_ADIOHC16_8E:
+  case mPCIe_ADIOHC12_8A:
+  case mPCIe_ADIOHC12_8:
+  case mPCIe_ADIOHC12_8E:
+  case mPCIe_DAAI16_8F:
+  case mPCIe_DAAI16_8A:
+  case mPCIe_DAAI16_8E:
+  case mPCIe_DAAI12_8:
+  case mPCIe_DAAI12_8E:
+  case mPCIe_DAAI12_8A:
+  case mPCIe_DAAI16_4F:
+  case mPCIe_DAAI16_4A:
+  case mPCIe_DAAI16_4E:
+  case mPCIe_DAAI12_4A:
+  case mPCIe_DAAI12_4:
+  case mPCIe_DAAI12_4E:
+  case mPCIe_DA16_8:
+  case mPCIe_DA16_4:
+    return true;
+  default:
+    return false;
+  }
+}
+
+static void apci_axio_abort_dma_command(void __iomem *dma, u32 cmd_offset)
+{
+  /* Bit 3 is documented as abort-transfer/clear-FIFO; bit 2 is start-DMA. */
+  iowrite32(AXIO_DMA_CMD_ABORT_CLEAR_FIFO, dma + cmd_offset);
+  ioread32(dma + cmd_offset);     /* flush posted write */
+  udelay(10);
+  iowrite32(0, dma + cmd_offset); /* leave command register idle */
+  ioread32(dma + cmd_offset);     /* flush posted write */
+}
+
+void apci_axio_quiesce(struct apci_my_info *ddata)
+{
+  void __iomem *dma;
+  void __iomem *regs;
+  unsigned long flags;
+  u32 s;
+  int i;
+
+  if (!apci_is_axio_dma_device(ddata))
+    return;
+
+  dma = ddata->regions[0].mapped_address;
+  regs = ddata->regions[1].mapped_address;
+
+  if (dma == NULL || regs == NULL)
+    return;
+
+  /* Stop new device-generated IRQs before disturbing DMA/card state. */
+  iowrite32(0, regs + mPCIe_ADIO_IRQStatusAndClearOffset);
+  ioread32(regs + mPCIe_ADIO_IRQStatusAndClearOffset);
+
+  /* Explicitly reset both BAR0 DMA channels/command blocks. */
+  apci_axio_abort_dma_command(dma, AXIO_DMA0_COMMAND_OFFSET);
+  apci_axio_abort_dma_command(dma, AXIO_DMA1_COMMAND_OFFSET);
+
+  /* BAR1 reset is still useful, but do not assume it reaches BAR0. */
+  iowrite32(1, regs + AXIO_BAR1_RESET_OFFSET);
+  ioread32(regs + AXIO_BAR1_FIFO_LEVEL_OFFSET);
+
+  /* Clear any latched AxIO event bits while leaving enables disabled. */
+  for (i = 0; i < 8; i++)
+  {
+    s = ioread32(regs + mPCIe_ADIO_IRQStatusAndClearOffset);
+    if ((s & mPCIe_ADIO_IRQEventMask) == 0)
+      break;
+
+    iowrite32(s & mPCIe_ADIO_IRQEventMask,
+              regs + mPCIe_ADIO_IRQStatusAndClearOffset);
+    ioread32(regs + mPCIe_ADIO_IRQStatusAndClearOffset);
+  }
+
+  if (ddata->irq_capable && !ddata->irq_disabled && ddata->irq > 0)
+    synchronize_irq(ddata->irq);
+
+  spin_lock_irqsave(&(ddata->dma_data_lock), flags);
+  ddata->dma_last_buffer = -1;
+  ddata->dma_first_valid = -1;
+  ddata->dma_data_discarded = 0;
+  spin_unlock_irqrestore(&(ddata->dma_data_lock), flags);
+}
+
 irqreturn_t apci_interrupt(int irq, void *dev_id)
 {
   struct apci_my_info *ddata;
@@ -2054,36 +2205,45 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
     if (irq_event & (bmADIO_ADCTRIGGERStatus | bmADIO_DMADoneStatus))
     {
       dma_addr_t base = ddata->dma_addr;
-      spin_lock(&(ddata->dma_data_lock));
-      if (ddata->dma_last_buffer == -1)
+
+      if (ddata->dma_virt_addr == NULL || ddata->dma_num_slots <= 0 || ddata->dma_slot_size == 0)
       {
         notify_user = false;
-        apci_debug("ISR First IRQ");
+        apci_error("ISR: DMA event with no configured DMA buffer\n");
       }
-      else if (ddata->dma_first_valid == -1)
+      else
       {
-        ddata->dma_first_valid = 0;
+        spin_lock(&(ddata->dma_data_lock));
+        if (ddata->dma_last_buffer == -1)
+        {
+          notify_user = false;
+          apci_debug("ISR First IRQ");
+        }
+        else if (ddata->dma_first_valid == -1)
+        {
+          ddata->dma_first_valid = 0;
+        }
+
+        ddata->dma_last_buffer++;
+        ddata->dma_last_buffer %= ddata->dma_num_slots;
+
+        if (ddata->dma_last_buffer == ddata->dma_first_valid)
+        {
+          apci_error("ISR: data discarded");
+          ddata->dma_last_buffer--;
+          if (ddata->dma_last_buffer < 0)
+            ddata->dma_last_buffer = ddata->dma_num_slots - 1;
+          ddata->dma_data_discarded++;
+        }
+        spin_unlock(&(ddata->dma_data_lock));
+        base += ddata->dma_slot_size * ddata->dma_last_buffer;
+
+        iowrite32(base & 0xffffffff, ddata->regions[0].mapped_address + 0x10);
+        iowrite32(base >> 32, ddata->regions[0].mapped_address + 4 + 0x10);
+        iowrite32(ddata->dma_slot_size, ddata->regions[0].mapped_address + 8 + 0x10);
+        iowrite32(AXIO_DMA_CMD_START, ddata->regions[0].mapped_address + AXIO_DMA1_COMMAND_OFFSET);
+        ioread32(ddata->regions[0].mapped_address + AXIO_DMA1_COMMAND_OFFSET); // flush posted PCI writes
       }
-
-      ddata->dma_last_buffer++;
-      ddata->dma_last_buffer %= ddata->dma_num_slots;
-
-      if (ddata->dma_last_buffer == ddata->dma_first_valid)
-      {
-        apci_error("ISR: data discarded");
-        ddata->dma_last_buffer--;
-        if (ddata->dma_last_buffer < 0)
-          ddata->dma_last_buffer = ddata->dma_num_slots - 1;
-        ddata->dma_data_discarded++;
-      }
-      spin_unlock(&(ddata->dma_data_lock));
-      base += ddata->dma_slot_size * ddata->dma_last_buffer;
-
-      iowrite32(base & 0xffffffff, ddata->regions[0].mapped_address + 0x10);
-      iowrite32(base >> 32, ddata->regions[0].mapped_address + 4 + 0x10);
-      iowrite32(ddata->dma_slot_size, ddata->regions[0].mapped_address + 8 + 0x10);
-      iowrite32(4, ddata->regions[0].mapped_address + 12 + 0x10);
-      ioread32(ddata->regions[0].mapped_address + 12 + 0x10); // flush posted PCI writes
     }
 
     iowrite32(irq_event, ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // clear whatever IRQ occurred and retain enabled IRQ sources // TODO: Upgrade to doRegisterAction("Clear&Enable")
@@ -2124,12 +2284,14 @@ void remove(struct pci_dev *pdev)
   struct apci_my_info *_temp;
   apci_devel("entering remove\n");
 
-  spin_lock(&(ddata->irq_lock));
+  if (ddata == NULL)
+    return;
 
-  if (!irq_disabled && ddata->irq_capable)
+  apci_axio_quiesce(ddata);
+  pci_clear_master(pdev);
+
+  if (!ddata->irq_disabled && ddata->irq_capable)
     free_irq(pdev->irq, ddata);
-
-  spin_unlock(&(ddata->irq_lock));
 
   if (ddata->dma_virt_addr != NULL)
   {
@@ -2137,6 +2299,10 @@ void remove(struct pci_dev *pdev)
                       ddata->dma_num_slots * ddata->dma_slot_size,
                       ddata->dma_virt_addr,
                       ddata->dma_addr);
+    ddata->dma_virt_addr = NULL;
+    ddata->dma_addr = 0;
+    ddata->dma_num_slots = 0;
+    ddata->dma_slot_size = 0;
   }
 
   apci_class_dev_unregister(ddata);
@@ -2155,6 +2321,8 @@ void remove(struct pci_dev *pdev)
   spin_unlock(&head.driver_list_lock);
 
   apci_free_driver(pdev);
+  pci_set_drvdata(pdev, NULL);
+  pci_disable_device(pdev);
 
   apci_devel("leaving remove\n");
 }
@@ -2171,18 +2339,36 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
   int ret;
   apci_devel("entering probe\n");
 
-  if (pci_enable_device(pdev))
+  ret = pci_enable_device(pdev);
+  if (ret)
   {
     apci_debug("pci_enable_device returned fail\n");
-    return -ENODEV;
+    return ret;
   }
+
+  ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+  if (ret)
+  {
+    ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+    if (ret)
+    {
+      apci_error("no usable PCI DMA mask\n");
+      pci_disable_device(pdev);
+      return ret;
+    }
+  }
+
+  pci_set_master(pdev);
 
   ddata = (struct apci_my_info *)apci_alloc_driver(pdev, id);
   if (ddata == NULL)
   {
     apci_debug("apci_alloc_driver returned null\n");
+    pci_clear_master(pdev);
+    pci_disable_device(pdev);
     return -ENOMEM;
   }
+  pci_set_drvdata(pdev, ddata);
   /* Setup actual device driver items */
   ddata->nchannels = APCI_NCHANNELS;
   ddata->pci_dev = pdev;
@@ -2190,6 +2376,9 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
   ddata->is_pcie = (ddata->plx_region.length >= 0x100 ? 1 : 0);
   apci_debug("Is device PCIE : %d\n", ddata->is_pcie);
   ddata->irq_disabled = irq_disabled;
+
+  /* Ensure stale BAR0/BAR1 DMA/IRQ state is gone before request_irq(). */
+  apci_axio_quiesce(ddata);
 
   /* Spin lock init stuff */
 
@@ -2286,13 +2475,15 @@ exit_pci_setdrv:
   }
   spin_unlock(&head.driver_list_lock);
 
-  pci_set_drvdata(pdev, NULL);
   cdev_del(&ddata->cdev);
 exit_irq:
   if (!irq_disabled && ddata->irq_capable)
     free_irq(pdev->irq, ddata);
 exit_free:
   apci_free_driver(pdev);
+  pci_set_drvdata(pdev, NULL);
+  pci_clear_master(pdev);
+  pci_disable_device(pdev);
   return ret;
 }
 

@@ -441,3 +441,4 @@ struct apci_my_info {
 int probe(struct pci_dev *dev, const struct pci_device_id *id);
 void remove(struct pci_dev *dev);
 void delete_driver(struct pci_dev *dev);
+void apci_axio_quiesce(struct apci_my_info *ddata);
