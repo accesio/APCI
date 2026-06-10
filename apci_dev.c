@@ -1580,6 +1580,8 @@ void apci_free_driver(struct pci_dev *pdev)
     // release_mem_region(ddata->plx_region.start, ddata->plx_region.length);
   }
 
+  iowrite8(0x08, ddata->regions[0].mapped_address + 0x1C); // abort and clear DMA operation
+
   for (count = 0; count < 6; count++)
   {
     if (ddata->regions[count].start == 0)

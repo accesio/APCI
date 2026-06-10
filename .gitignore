@@ -35,3 +35,5 @@ apcilib/mpcie-dio-24a-irq
 apcilib/mpcie_aio16_16f
 apcilib/mpcie_aio16_16f_dma
 apcilib/pcie-iiro-16
+samples.csv
+apcilib/samples.csv

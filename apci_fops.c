@@ -372,6 +372,8 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
                ddata->dma_last_buffer = -1;
                ddata->dma_first_valid = -1;
                ddata->dma_data_discarded = 0;
+               iowrite8(0x08, ddata->regions[0].mapped_address + 0x1C); // abort and clear DMA operation
+
           }
 
           break;
