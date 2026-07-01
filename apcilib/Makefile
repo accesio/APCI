@@ -12,6 +12,9 @@ else
 	GCC = gcc
 endif
 
+CXX ?= g++
+CXXFLAGS ?= -std=c++17 -Wall -Wextra -O2
+
 dio_8255_output: dio_8255_output.c apcilib.h apcilib.c
 	$(GCC) -o dio_8255_output dio_8255_output.c apcilib.c -lm -lpthread
 
@@ -63,7 +66,9 @@ check_dma: check_dma.c apcilib.h apcilib.c
 dac: dac.c apcilib.h apcilib.c
 	$(GCC) -o dac dac.c apcilib.c
 
+isp-fpga: isp-fpga.cpp apcilib.c apcilib.h apci_ioctl.h
+	$(CXX) $(CXXFLAGS) -o isp-fpga isp-fpga.cpp apcilib.c -lm -lpthread
 
 clean:
-	rm -f dio_8255_output mpcie-dio-24a-irq axiodac axiodac_irq pcie-dio-48s-irq pcie-iiro-16 mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f mpcie_aio16_16f_dma check check_dma irq dac
+	rm -f isp-fpga dio_8255_output mpcie-dio-24a-irq axiodac axiodac_irq pcie-dio-48s-irq pcie-iiro-16 mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f mpcie_aio16_16f_dma check check_dma irq dac
 

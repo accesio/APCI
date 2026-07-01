@@ -2,6 +2,7 @@
 #include <algorithm>   // std::max
 #include <filesystem>  // std::filesystem::directory_iterator
 #include <string>      // std::string
+#include <vector>      // std::vector
 #include <stdint.h>    // uint8_t, uint32_t
 #include <stdio.h>     // printf
 #include <stdlib.h>    // exit
@@ -23,6 +24,7 @@
 #define bmFlashWriteBit 0x80000000
 
 int apci;
+static constexpr unsigned long APCI_DEVICE_INDEX = 1;
 uint32_t EraseSentinel = 0x494f0000;	   // | DeviceID
 uint32_t EraseSectorSentinel = 0x0ACCE500; // | iSector
 int FileBytesRead = 0;
@@ -60,8 +62,8 @@ void EraseFlash()
 {
 	for (int iSector = 0; iSector < 8; iSector++)
 	{
-		apci_write32(apci, 1, BAR_REGISTER, ofsFlashErase, EraseSentinel);
-		apci_write32(apci, 1, BAR_REGISTER, ofsFlashErase, EraseSectorSentinel | iSector);
+		apci_write32(apci, APCI_DEVICE_INDEX, BAR_REGISTER, ofsFlashErase, EraseSentinel);
+		apci_write32(apci, APCI_DEVICE_INDEX, BAR_REGISTER, ofsFlashErase, EraseSectorSentinel | iSector);
 		printf("Erasing Flash Sector %d/8 via %08X\r", iSector + 1, EraseSectorSentinel | iSector);
 		sleep(2);
 	}
@@ -69,17 +71,17 @@ void EraseFlash()
 
 void PrimitiveWriteFlashByte(uint32_t offset, uint8_t data)
 {
-	apci_write32(apci, 1, BAR_REGISTER, ofsFlashData, data);
-	apci_write32(apci, 1, BAR_REGISTER, ofsFlashAddress, offset | bmFlashWriteBit);
+	apci_write32(apci, APCI_DEVICE_INDEX, BAR_REGISTER, ofsFlashData, data);
+	apci_write32(apci, APCI_DEVICE_INDEX, BAR_REGISTER, ofsFlashAddress, offset | bmFlashWriteBit);
 	usleep(25);
 }
 
 uint8_t PrimitiveReadFlashByte(uint32_t offset)
 {
 	uint32_t data;
-	apci_write32(apci, 1, BAR_REGISTER, ofsFlashAddress, offset & ~bmFlashWriteBit);
+	apci_write32(apci, APCI_DEVICE_INDEX, BAR_REGISTER, ofsFlashAddress, offset & ~bmFlashWriteBit);
 	usleep(25);
-	apci_read32(apci, 1, BAR_REGISTER, ofsFlashData, &data);
+	apci_read32(apci, APCI_DEVICE_INDEX, BAR_REGISTER, ofsFlashData, &data);
 	return data & 0x000000FF;
 }
 
@@ -160,6 +162,63 @@ int VerifyErase()
 	return Result;
 }
 
+
+static int OpenSelectedApciDevice(std::string &devicefile)
+{
+	const std::string devicepath = "/dev/apci";
+	std::vector<std::string> devicefiles;
+
+	try
+	{
+		for (const auto &devfile : std::filesystem::directory_iterator(devicepath))
+		{
+			if (!devfile.is_character_file())
+				continue;
+			devicefiles.push_back(devfile.path().string());
+		}
+	}
+	catch (const std::filesystem::filesystem_error &e)
+	{
+		printf("Could not scan %s: %s\nIs apci.ko loaded, and do you need sudo?\n", devicepath.c_str(), e.what());
+		return -1;
+	}
+
+	std::sort(devicefiles.begin(), devicefiles.end());
+
+	if (devicefiles.empty())
+	{
+		printf("No APCI device files found in %s\nIs apci.ko loaded, and do you need sudo?\n", devicepath.c_str());
+		return -1;
+	}
+
+	int selection = 1;
+	if (devicefiles.size() > 1)
+	{
+		printf("Multiple APCI device files found:\n");
+		for (size_t i = 0; i < devicefiles.size(); i++)
+			printf("  %zu) %s\n", i + 1, devicefiles[i].c_str());
+
+		for (;;)
+		{
+			printf("Select device to program [1-%zu]: ", devicefiles.size());
+			fflush(stdout);
+			if (scanf("%d", &selection) == 1 && selection >= 1 && selection <= (int)devicefiles.size())
+				break;
+
+			printf("Invalid selection.\n");
+			int ch;
+			while ((ch = getchar()) != '\n' && ch != EOF)
+				;
+		}
+	}
+
+	devicefile = devicefiles[selection - 1];
+	int fd = open(devicefile.c_str(), O_RDONLY);
+	if (fd < 0)
+		perror(devicefile.c_str());
+	return fd;
+}
+
 int main(int argc, char **argv)
 {
 	if (argc < 2)
@@ -167,20 +226,11 @@ int main(int argc, char **argv)
 		printf("\nUsage: %s <filename.rpd>\n", argv[0]);
 		exit(1);
 	}
-	std::string devicefile = "";
-	std::string devicepath = "/dev/apci";
-	for (const auto &devfile : std::filesystem::directory_iterator(devicepath))
-	{
-		apci = open(devfile.path().c_str(), O_RDONLY);
-		if (apci >= 0)
-		{
-			devicefile = devfile.path().c_str();
-			break;
-		}
-	}
+	std::string devicefile;
+	apci = OpenSelectedApciDevice(devicefile);
 	if (apci < 0)
 	{
-		printf("Couldn't open device file on command line: do you need sudo? Check /dev/apci? [%s]\n", argv[1]);
+		printf("Could not open an APCI device.\n");
 		exit(2);
 	}
 
@@ -188,7 +238,7 @@ int main(int argc, char **argv)
 	printf("Using device @ %s", devicefile.c_str());
 
 	uint32_t Version = 0;
-	apci_read32(apci, 1, BAR_REGISTER, ofsFPGARevision, &Version);
+	apci_read32(apci, APCI_DEVICE_INDEX, BAR_REGISTER, ofsFPGARevision, &Version);
 	printf("\nACCES ISP-FPGA Engineering Utility for Linux [current FPGA Rev %08X]\n\n", Version);
 
 
@@ -197,7 +247,7 @@ int main(int argc, char **argv)
 	/* query DeviceID for use in EraseSentinel */
 	unsigned int DeviceID = 0;
 	unsigned long bar[6];
-	apci_get_device_info(apci, 1, &DeviceID, bar);
+	apci_get_device_info(apci, APCI_DEVICE_INDEX, &DeviceID, bar);
 
 	/* Verify the DeviceID is on approved list for this code */
 	//	if (DeviceID != 0xC2EC)
