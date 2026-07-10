@@ -405,6 +405,10 @@ struct apci_my_info {
      int irq;
      int irq_disabled; /* Set via module param when userspace is expected to poll for interrupts */
      int irq_capable; /* is the card even able to generate irqs? */
+     int irq_requested; /* request_irq() succeeded and must be freed */
+     int irq_msi_enabled; /* Non-zero when the active IRQ is MSI rather than legacy INTx */
+     int irq_vectors_allocated; /* Non-zero when pci_alloc_irq_vectors() owns the IRQ */
+     char irq_name[40]; /* Per-device IRQ label shown in /proc/interrupts */
      int waiting_for_irq; /* boolean for if the user has requested an IRQ */
      int irq_cancelled; /* boolean for if the user has cancelled the wait */
 
@@ -433,6 +437,7 @@ struct apci_my_info {
      int dma_num_slots;
      size_t dma_slot_size;
      int dma_data_discarded;
+     u64 dma_data_discarded_total;
      spinlock_t dma_data_lock;
 
      void *dac_fifo_buffer;

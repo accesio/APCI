@@ -20,6 +20,12 @@
 #include <asm/uaccess.h>
 #include <linux/idr.h>
 #include <linux/version.h>
+
+#ifndef PCI_IRQ_INTX
+#ifdef PCI_IRQ_LEGACY
+#define PCI_IRQ_INTX PCI_IRQ_LEGACY
+#endif
+#endif
 #include <linux/list.h>
 
 #include "apci_common.h"
@@ -42,6 +48,10 @@
 int irq_disabled = 0;
 module_param(irq_disabled, int, 0444);
 MODULE_PARM_DESC(irq_disabled, "Don't register an IRQ/ISR. IRSRC register must be polled from userspace");
+
+static int use_msi = 1;
+module_param(use_msi, int, 0444);
+MODULE_PARM_DESC(use_msi, "Prefer MSI interrupts when supported; falls back to shared legacy INTx");
 
 /* PCI table construction */
 static struct pci_device_id ids[] = {
@@ -751,7 +761,7 @@ static struct class *class_apci;
 
 /* PCI Driver setup */
 static struct pci_driver pci_driver = {
-    .name = "acpi",
+    .name = "apci",
     .id_table = ids,
     .probe = probe,
     .remove = remove,
@@ -783,11 +793,160 @@ static int dev_counter = 0;
 
 static dev_t apci_first_dev = MKDEV(APCI_MAJOR, 0);
 
+irqreturn_t apci_interrupt(int irq, void *dev_id);
+
+static void apci_release_io_region(io_region *region)
+{
+  if (region == NULL || region->start == 0 || region->length == 0)
+    return;
+
+  if (region->flags & IORESOURCE_IO)
+  {
+    release_region(region->start, region->length);
+  }
+  else
+  {
+    if (region->mapped_address != NULL)
+      iounmap(region->mapped_address);
+    release_mem_region(region->start, region->length);
+  }
+
+  region->mapped_address = NULL;
+  region->start = 0;
+  region->end = 0;
+  region->length = 0;
+  region->flags = 0;
+}
+
+static int apci_request_device_irq(struct apci_my_info *ddata)
+{
+  struct pci_dev *pdev = ddata->pci_dev;
+  unsigned long irq_flags = IRQF_SHARED;
+  int ret;
+
+  ddata->irq_requested = 0;
+  ddata->irq_msi_enabled = 0;
+  ddata->irq_vectors_allocated = 0;
+  ddata->irq = pdev->irq;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
+  if (use_msi)
+  {
+    ret = pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_MSI);
+    if (ret == 1)
+    {
+      ddata->irq = pci_irq_vector(pdev, 0);
+      ddata->irq_msi_enabled = 1;
+      ddata->irq_vectors_allocated = 1;
+      irq_flags = 0;
+    }
+    else
+    {
+      dev_info(&pdev->dev,
+               "MSI unavailable for bdf=%s device=%04x, falling back to legacy INTx: %d\n",
+               pci_name(pdev), ddata->dev_id, ret);
+    }
+  }
+
+  if (!ddata->irq_vectors_allocated)
+  {
+    ret = pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_INTX);
+    if (ret != 1)
+      return ret < 0 ? ret : -ENODEV;
+
+    ddata->irq = pci_irq_vector(pdev, 0);
+    ddata->irq_msi_enabled = 0;
+    ddata->irq_vectors_allocated = 1;
+    irq_flags = IRQF_SHARED;
+  }
+#else
+  if (use_msi)
+  {
+    ret = pci_enable_msi(pdev);
+    if (ret == 0)
+    {
+      ddata->irq = pdev->irq;
+      ddata->irq_msi_enabled = 1;
+      irq_flags = 0;
+    }
+    else
+    {
+      dev_info(&pdev->dev,
+               "MSI unavailable for bdf=%s device=%04x, falling back to legacy INTx: %d\n",
+               pci_name(pdev), ddata->dev_id, ret);
+    }
+  }
+#endif
+
+  snprintf(ddata->irq_name, sizeof(ddata->irq_name), "apci:%s", pci_name(pdev));
+
+  dev_info(&pdev->dev,
+           "requesting IRQ %u using %s for bdf=%s device=%04x name=%s\n",
+           (unsigned int)ddata->irq,
+           ddata->irq_msi_enabled ? "MSI" : "legacy INTx",
+           pci_name(pdev), ddata->dev_id, ddata->irq_name);
+
+  ret = request_irq((unsigned int)ddata->irq,
+                    apci_interrupt,
+                    irq_flags,
+                    ddata->irq_name,
+                    ddata);
+  if (ret)
+  {
+    dev_err(&pdev->dev,
+            "error requesting IRQ %u for bdf=%s device=%04x: %d\n",
+            ddata->irq, pci_name(pdev), ddata->dev_id, ret);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
+    if (ddata->irq_vectors_allocated)
+    {
+      pci_free_irq_vectors(pdev);
+      ddata->irq_vectors_allocated = 0;
+    }
+#else
+    if (ddata->irq_msi_enabled)
+    {
+      pci_disable_msi(pdev);
+      ddata->irq_msi_enabled = 0;
+    }
+#endif
+    return ret;
+  }
+
+  ddata->irq_requested = 1;
+  return 0;
+}
+
+static void apci_free_device_irq(struct apci_my_info *ddata)
+{
+  if (ddata == NULL || ddata->pci_dev == NULL)
+    return;
+
+  if (ddata->irq_requested)
+  {
+    free_irq(ddata->irq, ddata);
+    ddata->irq_requested = 0;
+  }
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0)
+  if (ddata->irq_vectors_allocated)
+  {
+    pci_free_irq_vectors(ddata->pci_dev);
+    ddata->irq_vectors_allocated = 0;
+  }
+#else
+  if (ddata->irq_msi_enabled)
+  {
+    pci_disable_msi(ddata->pci_dev);
+  }
+#endif
+  ddata->irq_msi_enabled = 0;
+}
+
 void *
 apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 
-  struct apci_my_info *ddata = kmalloc(sizeof(struct apci_my_info), GFP_KERNEL);
+  struct apci_my_info *ddata = kzalloc(sizeof(struct apci_my_info), GFP_KERNEL);
   int count, i, plx_bar;
   struct resource *presource;
   int status = -1;
@@ -800,8 +959,14 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   /* Initialize with defaults, fill in specifics later */
   ddata->irq = 0;
   ddata->irq_capable = 0;
+  ddata->irq_requested = 0;
+  ddata->irq_msi_enabled = 0;
+  ddata->irq_vectors_allocated = 0;
+  ddata->irq_name[0] = '\0';
 
   ddata->dma_virt_addr = NULL;
+  ddata->dma_data_discarded = 0;
+  ddata->dma_data_discarded_total = 0;
 
   for (count = 0; count < 6; count++)
   {
@@ -946,6 +1111,13 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
         else
         {
           ddata->plx_region.mapped_address = ioremap(ddata->plx_region.start, ddata->plx_region.length);
+          if (ddata->plx_region.mapped_address == NULL)
+          {
+            apci_error("Unable to map PLX BAR %d.\n", plx_bar);
+            release_mem_region(ddata->plx_region.start, ddata->plx_region.length);
+            goto out_alloc_driver;
+          }
+          ddata->regions[plx_bar].mapped_address = ddata->plx_region.mapped_address;
         }
         break;
       }
@@ -1388,7 +1560,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
     ddata->regions[0].flags = pci_resource_flags(pdev, 0);
     ddata->regions[0].length = ddata->regions[0].end - ddata->regions[0].start + 1;
 
-    iounmap(ddata->plx_region.mapped_address);
+    /* Native PCIe DMA devices do not have a separately mapped PLX BAR here. */
     apci_debug("regions[0].start = %08llx\n", ddata->regions[0].start);
     apci_info ("regions[0].end   = %08llx\n", ddata->regions[0].end);
     apci_devel("regions[0].length= %08x\n", ddata->regions[0].length);
@@ -1421,6 +1593,12 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
       if (presource != NULL)
       {
         ddata->regions[count].mapped_address = ioremap(ddata->regions[count].start, ddata->regions[count].length);
+        if (ddata->regions[count].mapped_address == NULL)
+        {
+          apci_error("Unable to map mem region %d.\n", count);
+          release_mem_region(ddata->regions[count].start, ddata->regions[count].length);
+          presource = NULL;
+        }
       }
     }
 
@@ -1433,23 +1611,7 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
       {
         if (ddata->regions[count].start != 0)
         {
-          /* Skip the PLX region; it is released separately */
-          if (ddata->plx_region.start != 0 && ddata->regions[count].start == ddata->plx_region.start)
-          {
-            count--;
-            continue;
-          }
-          if (ddata->regions[count].flags & IORESOURCE_IO)
-          {
-            /* if it is a valid region */
-            release_region(ddata->regions[count].start, ddata->regions[count].length);
-          }
-          else
-          {
-            iounmap(ddata->regions[count].mapped_address);
-
-            release_region(ddata->regions[count].start, ddata->regions[count].length);
-          }
+          apci_release_io_region(&ddata->regions[count]);
         }
         count--;
       }
@@ -1569,40 +1731,20 @@ void apci_free_driver(struct pci_dev *pdev)
 
   apci_devel("Entering free driver.\n");
 
-  if (ddata->plx_region.flags & IORESOURCE_IO)
-  {
-    apci_devel("releasing memory of %08llx , length=%d\n", ddata->plx_region.start, ddata->plx_region.length);
-    release_region(ddata->plx_region.start, ddata->plx_region.length);
-  }
-  else
-  {
-    // iounmap(ddata->plx_region.mapped_address);
-    // release_mem_region(ddata->plx_region.start, ddata->plx_region.length);
-  }
+  if (ddata == NULL)
+    return;
 
-  iowrite8(0x08, ddata->regions[0].mapped_address + 0x1C); // abort and clear DMA operation
+  if (ddata->regions[0].mapped_address != NULL && ddata->regions[0].length > 0x1C)
+    iowrite8(0x08, ddata->regions[0].mapped_address + 0x1C); // abort and clear DMA operation
 
   for (count = 0; count < 6; count++)
-  {
-    if (ddata->regions[count].start == 0)
-    {
-      continue; /* invalid region */
-    }
-    if (ddata->regions[count].flags & IORESOURCE_IO)
-    {
-      release_region(ddata->regions[count].start, ddata->regions[count].length);
-    }
-    else
-    {
-      iounmap(ddata->regions[count].mapped_address);
-      release_mem_region(ddata->regions[count].start, ddata->regions[count].length);
-    }
-  }
+    apci_release_io_region(&ddata->regions[count]);
 
   if (NULL != ddata->dac_fifo_buffer)
   {
     kfree(ddata->dac_fifo_buffer);
   }
+  pci_set_drvdata(pdev, NULL);
   kfree(ddata);
   apci_debug("Completed freeing driver.\n");
 }
@@ -1646,6 +1788,29 @@ apci_class_dev_register(struct apci_my_info *ddata)
   dev_counter++;
   apci_devel("leaving apci_class_dev_register\n");
   return 0;
+}
+
+static void apci_log_dma_discard(struct apci_my_info *ddata, u32 irq_event,
+                                 int last_buffer, int first_valid,
+                                 u64 discarded_total)
+{
+  if (ddata == NULL || ddata->pci_dev == NULL)
+    return;
+
+  dev_warn_ratelimited(&ddata->pci_dev->dev,
+                       "ISR: data discarded: bdf=%s vendor=%04x device=%04x irq=%d irq_type=%s irq_event=0x%08x last_buffer=%d first_valid=%d dma_slots=%d slot_size=%zu discarded_since_last_query=%d discarded_total=%llu\n",
+                       pci_name(ddata->pci_dev),
+                       ddata->pci_dev->vendor,
+                       ddata->pci_dev->device,
+                       ddata->irq,
+                       ddata->irq_msi_enabled ? "MSI" : "legacy INTx",
+                       irq_event,
+                       last_buffer,
+                       first_valid,
+                       ddata->dma_num_slots,
+                       ddata->dma_slot_size,
+                       ddata->dma_data_discarded,
+                       (unsigned long long)discarded_total);
 }
 
 irqreturn_t apci_interrupt(int irq, void *dev_id)
@@ -1951,13 +2116,26 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
 
       if (ddata->dma_last_buffer == ddata->dma_first_valid)
       {
-        apci_error("ISR: data discarded");
+        int discard_last_buffer;
+        int discard_first_valid;
+        u64 discarded_total;
+
         ddata->dma_last_buffer--;
         if (ddata->dma_last_buffer < 0)
           ddata->dma_last_buffer = ddata->dma_num_slots - 1;
         ddata->dma_data_discarded++;
+        ddata->dma_data_discarded_total++;
+        discard_last_buffer = ddata->dma_last_buffer;
+        discard_first_valid = ddata->dma_first_valid;
+        discarded_total = ddata->dma_data_discarded_total;
+        spin_unlock(&(ddata->dma_data_lock));
+        apci_log_dma_discard(ddata, irq_event, discard_last_buffer,
+                             discard_first_valid, discarded_total);
       }
-      spin_unlock(&(ddata->dma_data_lock));
+      else
+      {
+        spin_unlock(&(ddata->dma_data_lock));
+      }
       base += ddata->dma_slot_size * ddata->dma_last_buffer;
 
       iowrite32(base & 0xffffffff, ddata->regions[0].mapped_address);
@@ -2072,13 +2250,26 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
 
       if (ddata->dma_last_buffer == ddata->dma_first_valid)
       {
-        apci_error("ISR: data discarded");
+        int discard_last_buffer;
+        int discard_first_valid;
+        u64 discarded_total;
+
         ddata->dma_last_buffer--;
         if (ddata->dma_last_buffer < 0)
           ddata->dma_last_buffer = ddata->dma_num_slots - 1;
         ddata->dma_data_discarded++;
+        ddata->dma_data_discarded_total++;
+        discard_last_buffer = ddata->dma_last_buffer;
+        discard_first_valid = ddata->dma_first_valid;
+        discarded_total = ddata->dma_data_discarded_total;
+        spin_unlock(&(ddata->dma_data_lock));
+        apci_log_dma_discard(ddata, irq_event, discard_last_buffer,
+                             discard_first_valid, discarded_total);
       }
-      spin_unlock(&(ddata->dma_data_lock));
+      else
+      {
+        spin_unlock(&(ddata->dma_data_lock));
+      }
       base += ddata->dma_slot_size * ddata->dma_last_buffer;
 
       iowrite32(base & 0xffffffff, ddata->regions[0].mapped_address + 0x10);
@@ -2126,12 +2317,10 @@ void remove(struct pci_dev *pdev)
   struct apci_my_info *_temp;
   apci_devel("entering remove\n");
 
-  spin_lock(&(ddata->irq_lock));
+  if (ddata == NULL)
+    return;
 
-  if (!irq_disabled && ddata->irq_capable)
-    free_irq(pdev->irq, ddata);
-
-  spin_unlock(&(ddata->irq_lock));
+  apci_free_device_irq(ddata);
 
   if (ddata->dma_virt_addr != NULL)
   {
@@ -2139,6 +2328,8 @@ void remove(struct pci_dev *pdev)
                       ddata->dma_num_slots * ddata->dma_slot_size,
                       ddata->dma_virt_addr,
                       ddata->dma_addr);
+    ddata->dma_virt_addr = NULL;
+    ddata->dma_addr = 0;
   }
 
   apci_class_dev_unregister(ddata);
@@ -2152,11 +2343,14 @@ void remove(struct pci_dev *pdev)
     {
       apci_debug("Removing node with address %p\n", child);
       list_del(&child->driver_list);
+      break;
     }
   }
   spin_unlock(&head.driver_list_lock);
 
   apci_free_driver(pdev);
+  pci_clear_master(pdev);
+  pci_disable_device(pdev);
 
   apci_devel("leaving remove\n");
 }
@@ -2173,18 +2367,23 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
   int ret;
   apci_devel("entering probe\n");
 
-  if (pci_enable_device(pdev))
+  ret = pci_enable_device(pdev);
+  if (ret)
   {
     apci_debug("pci_enable_device returned fail\n");
-    return -ENODEV;
+    return ret;
   }
+
+  pci_set_master(pdev);
 
   ddata = (struct apci_my_info *)apci_alloc_driver(pdev, id);
   if (ddata == NULL)
   {
     apci_debug("apci_alloc_driver returned null\n");
-    return -ENOMEM;
+    ret = -ENOMEM;
+    goto exit_disable_device;
   }
+
   /* Setup actual device driver items */
   ddata->nchannels = APCI_NCHANNELS;
   ddata->pci_dev = pdev;
@@ -2192,31 +2391,27 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
   ddata->is_pcie = (ddata->plx_region.length >= 0x100 ? 1 : 0);
   apci_debug("Is device PCIE : %d\n", ddata->is_pcie);
   ddata->irq_disabled = irq_disabled;
+  init_waitqueue_head(&(ddata->wait_queue));
 
-  /* Spin lock init stuff */
+  /* apci_free_driver() uses pci_get_drvdata(), including probe failure paths. */
+  pci_set_drvdata(pdev, ddata);
 
- /* Request Irq */
+  /* Request Irq */
   if (ddata->irq_capable)
   {
     if (!irq_disabled)
     {
-      apci_debug("Requesting Interrupt, %u\n", (unsigned int)ddata->irq);
-      ret = request_irq((unsigned int)ddata->irq,
-                        apci_interrupt,
-                        IRQF_SHARED,
-                        "apci",
-                        ddata);
+      ret = apci_request_device_irq(ddata);
       if (ret)
-      {
-        apci_error("error requesting IRQ %u\n", ddata->irq);
-        ret = -ENOMEM;
         goto exit_free;
-      }
     }
     else
     {
-       pr_info("apci: IRQ is disabled via module param\n");
+      dev_info(&pdev->dev,
+               "IRQ is disabled via module param for bdf=%s device=%04x\n",
+               pci_name(pdev), ddata->dev_id);
     }
+
     // TODO: Fix this when HW is available to test MEM version
     if (ddata->is_pcie)
     {
@@ -2226,27 +2421,13 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
         {
           outb(0x9, ddata->plx_region.start + 0x69);
         }
-        else
+        else if (ddata->plx_region.mapped_address)
         {
           apci_debug("Enabling IRQ MEM/IO plx region\n");
           iowrite8(0x9, ddata->plx_region.mapped_address + 0x69);
         }
       }
     }
-
-    /* switch( id->device ) {  */
-    /* case PCIe_IIRO_8: */
-    /*   apci_debug("Found PCIe_IIRO_8"); */
-    /*   outb( 0x9, ddata->plx_region.start + 0x69 );  */
-    /* default: */
-    /*   apci_debug("Found no device"); */
-    /* } */
-    /* if (ret) { */
-    /*      apci_error("Could not allocate irq."); */
-    /*      goto exit_free; */
-    /* } else { */
-    init_waitqueue_head(&(ddata->wait_queue));
-    /* } */
   }
 
   /* add to sysfs */
@@ -2266,35 +2447,37 @@ int probe(struct pci_dev *pdev, const struct pci_device_id *id)
   list_add(&ddata->driver_list, &head.driver_list);
   spin_unlock(&head.driver_list_lock);
 
-  pci_set_drvdata(pdev, ddata);
   ret = apci_class_dev_register(ddata);
 
   if (ret)
-    goto exit_pci_setdrv;
+    goto exit_list;
 
   apci_debug("Added driver %d\n", dev_counter - 1);
-  apci_debug("Value of irq is %d\n", pdev->irq);
+  apci_debug("Value of irq is %d\n", ddata->irq);
   return 0;
 
-exit_pci_setdrv:
+exit_list:
   /* Routine to remove the driver from the list */
   spin_lock(&head.driver_list_lock);
   list_for_each_entry_safe(child, _temp, &head.driver_list, driver_list)
   {
     if (child == ddata)
     {
-      apci_debug("Would delete address %p\n", child);
+      apci_debug("Deleting address %p\n", child);
+      list_del(&child->driver_list);
+      break;
     }
   }
   spin_unlock(&head.driver_list_lock);
 
-  pci_set_drvdata(pdev, NULL);
   cdev_del(&ddata->cdev);
 exit_irq:
-  if (!irq_disabled && ddata->irq_capable)
-    free_irq(pdev->irq, ddata);
+  apci_free_device_irq(ddata);
 exit_free:
   apci_free_driver(pdev);
+exit_disable_device:
+  pci_clear_master(pdev);
+  pci_disable_device(pdev);
   return ret;
 }
 
