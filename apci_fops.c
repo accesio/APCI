@@ -36,7 +36,13 @@ int open_apci( pInode inode, pFile filp )
      Blocking  / nonblocking */
 
   filp->private_data = ddata;
-  ddata->waiting_for_irq = 0;
+  /*
+   * Do not reset per-device IRQ wait state here.  A second open of the same
+   * card must not clear an event that arrived before userspace entered
+   * apci_wait_for_irq_ioctl, and it must not cancel another file's active wait.
+   * The per-device wait/pending state is initialized at probe time and updated
+   * only by the ISR, wait_for_irq, and cancel_wait paths.
+   */
   return 0;
 }
 
@@ -276,30 +282,69 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
          apci_info("enter wait_for_IRQ.\n");
 
          device_index = arg;
+         (void)device_index;
 
-         apci_debug("Acquiring spin lock\n");
-
+         /*
+          * Lost-wakeup fix:
+          *
+          * The old driver only woke userspace when an interrupt arrived while
+          * waiting_for_irq was already set.  If the DMA-done interrupt occurred
+          * after userspace observed no ready DMA slots, but before userspace
+          * entered this ioctl, that event was lost and the caller slept until a
+          * later interrupt.  For short captures, there may be no later useful
+          * interrupt, which can look like a short acquisition or a one-DMA-slot
+          * timing slip.
+          *
+          * The ISR now latches irq_event_pending for every notify-worthy IRQ,
+          * regardless of whether a waiter is already sleeping.  This ioctl first
+          * consumes a latched event and returns immediately.  Otherwise, it marks
+          * exactly one active waiter and sleeps until the ISR latches an event or
+          * userspace cancels the wait.
+          */
          spin_lock_irqsave(&(ddata->irq_lock), flags);
 
-         if (ddata->waiting_for_irq == 1) {
-              /* if we are already waiting for an IRQ on
-               * this device.
-               */
-              spin_unlock_irqrestore (&(ddata->irq_lock), flags);
-              return -EALREADY; /* TODO: find a better return code */
-         } else {
-              ddata->waiting_for_irq = 1;
+         if (ddata->irq_event_pending) {
+              ddata->irq_event_pending = 0;
               ddata->irq_cancelled = 0;
+              spin_unlock_irqrestore(&(ddata->irq_lock), flags);
+              break;
          }
 
-         spin_unlock_irqrestore (&(ddata->irq_lock),
-                                 flags);
+         if (ddata->waiting_for_irq == 1) {
+              spin_unlock_irqrestore(&(ddata->irq_lock), flags);
+              return -EALREADY;
+         }
 
-         apci_debug("Released spin lock\n");
+         ddata->waiting_for_irq = 1;
+         ddata->irq_cancelled = 0;
+         spin_unlock_irqrestore(&(ddata->irq_lock), flags);
 
-         wait_event_interruptible(ddata->wait_queue, ddata->waiting_for_irq == 0);
+         status = wait_event_interruptible(ddata->wait_queue,
+                    READ_ONCE(ddata->irq_event_pending) ||
+                    READ_ONCE(ddata->irq_cancelled));
 
-         if (ddata->irq_cancelled == 1) return -ECANCELED;
+         spin_lock_irqsave(&(ddata->irq_lock), flags);
+         ddata->waiting_for_irq = 0;
+
+         if (ddata->irq_event_pending) {
+              /* Prefer reporting the real IRQ if an IRQ and cancel/signal raced. */
+              ddata->irq_event_pending = 0;
+              ddata->irq_cancelled = 0;
+              spin_unlock_irqrestore(&(ddata->irq_lock), flags);
+              break;
+         }
+
+         if (ddata->irq_cancelled) {
+              ddata->irq_cancelled = 0;
+              spin_unlock_irqrestore(&(ddata->irq_lock), flags);
+              return -ECANCELED;
+         }
+
+         spin_unlock_irqrestore(&(ddata->irq_lock), flags);
+
+         if (status != 0) {
+              return status;
+         }
 
          break;
 
@@ -311,6 +356,7 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
          }
          apci_info("Cancel wait_for_irq.\n");
          device_index = arg;
+         (void)device_index;
 
          spin_lock_irqsave(&(ddata->irq_lock), flags);
 
@@ -320,7 +366,6 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
          }
 
          ddata->irq_cancelled = 1;
-         ddata->waiting_for_irq = 0;
          spin_unlock_irqrestore(&(ddata->irq_lock), flags);
          wake_up_interruptible(&(ddata->wait_queue));
          break;

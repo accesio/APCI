@@ -39,8 +39,10 @@
 
 #define mPCIe_ADIO_IRQStatusAndClearOffset (0x40)
 #define mPCIe_ADIO_IRQEventMask (0xffff0000)
+#define bmADIO_LDACStatus (1 << 23)
 #define bmADIO_FAFIRQStatus (1 << 20)
 #define bmADIO_DMADoneStatus (1 << 18)
+#define bmADIO_LDACEnable (1 << 7)
 #define bmADIO_DMADoneEnable (1 << 2)
 #define bmADIO_ADCTRIGGERStatus (1 << 16)
 #define bmADIO_ADCTRIGGEREnable (1 << 0)
@@ -963,6 +965,10 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
   ddata->irq_msi_enabled = 0;
   ddata->irq_vectors_allocated = 0;
   ddata->irq_name[0] = '\0';
+  ddata->waiting_for_irq = 0;
+  ddata->irq_cancelled = 0;
+  ddata->irq_event_pending = 0;
+  ddata->irq_notify_count = 0;
 
   ddata->dma_virt_addr = NULL;
   ddata->dma_data_discarded = 0;
@@ -2279,7 +2285,30 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
       ioread32(ddata->regions[0].mapped_address + 12 + 0x10); // flush posted PCI writes
     }
 
-    iowrite32(irq_event, ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset); // clear whatever IRQ occurred and retain enabled IRQ sources // TODO: Upgrade to doRegisterAction("Clear&Enable")
+    {
+      u32 clear_event = irq_event;
+
+      /*
+       * On PCIe-ADIO16-16FDS firmware that implements the undocumented
+       * DIO12 FDS-start secondary function, status bit 23 is also the FDS
+       * trigger latch.  It is not an APCI-owned interrupt event unless the
+       * corresponding LDAC IRQ enable bit is set.  Clearing every latched
+       * status bit here can erase the FDS start request before the waveform
+       * clock domain consumes it.
+       *
+       * Preserve the historical read/write-back behavior for every other
+       * device and status source.  For C2EF only, leave bit 23 asserted when
+       * its IRQ source is disabled; if enLDAC is set, clear it normally as an
+       * actual driver-visible IRQ event.
+       */
+      if (ddata->dev_id == PCIe_ADIO16_16FDS &&
+          !(irq_event & bmADIO_LDACEnable))
+        clear_event &= ~bmADIO_LDACStatus;
+
+      iowrite32(clear_event,
+                ddata->regions[1].mapped_address +
+                mPCIe_ADIO_IRQStatusAndClearOffset);
+    }
     apci_debug("ISR: irq_event = 0x%x, depth = 0x%x, IRQStatus = 0x%x\n", irq_event, ioread32(ddata->regions[1].mapped_address + 0x28), ioread32(ddata->regions[1].mapped_address + 0x40));
     irq_event = ioread32(ddata->regions[1].mapped_address + mPCIe_ADIO_IRQStatusAndClearOffset);
     break;
@@ -2293,18 +2322,19 @@ irqreturn_t apci_interrupt(int irq, void *dev_id)
    */
   if (notify_user)
   {
+    /*
+     * Latch the user-visible IRQ event even when no thread is currently
+     * blocked in apci_wait_for_irq_ioctl.  This avoids a lost-wakeup race
+     * between userspace polling apci_data_ready and entering wait_for_irq.
+     * Coalesce multiple unconsumed IRQs into one pending token; userspace
+     * drains all ready DMA slots before waiting again, so one token is enough
+     * to prevent sleeping past already-arrived data.
+     */
     spin_lock(&(ddata->irq_lock));
-
-    if (ddata->waiting_for_irq)
-    {
-      ddata->waiting_for_irq = 0;
-      spin_unlock(&(ddata->irq_lock));
-      wake_up_interruptible(&(ddata->wait_queue));
-    }
-    else
-    {
-      spin_unlock(&(ddata->irq_lock));
-    }
+    ddata->irq_event_pending = 1;
+    ddata->irq_notify_count++;
+    spin_unlock(&(ddata->irq_lock));
+    wake_up_interruptible(&(ddata->wait_queue));
   }
   apci_devel("ISR: IRQ Handled\n");
   return IRQ_HANDLED;

@@ -409,8 +409,10 @@ struct apci_my_info {
      int irq_msi_enabled; /* Non-zero when the active IRQ is MSI rather than legacy INTx */
      int irq_vectors_allocated; /* Non-zero when pci_alloc_irq_vectors() owns the IRQ */
      char irq_name[40]; /* Per-device IRQ label shown in /proc/interrupts */
-     int waiting_for_irq; /* boolean for if the user has requested an IRQ */
-     int irq_cancelled; /* boolean for if the user has cancelled the wait */
+     int waiting_for_irq; /* protected by irq_lock: one wait_for_irq ioctl is active */
+     int irq_cancelled; /* protected by irq_lock: active wait has been cancelled */
+     int irq_event_pending; /* protected by irq_lock: notify-worthy IRQ occurred before/during wait */
+     u64 irq_notify_count; /* protected by irq_lock: total notify-worthy IRQs seen by ISR */
 
      /* List of drivers */
      struct list_head driver_list;

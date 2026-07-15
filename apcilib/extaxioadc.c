@@ -1,18 +1,20 @@
-
+#include <dirent.h>
 #include <stdint.h>
 #include <math.h>
 #include <signal.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <pthread.h>
+#include <linux/types.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #include "apcilib.h"
-#define DEVICEPATH "/dev/apci/pcie_adio16_16fds_1"
-#define DEV2PATH "/dev/apci/pcie_adio16_8e_0"
+
+#define MAX_DEVICES 100
+
 uint8_t CHANNEL_COUNT = 16; // change to 8 for M.2-/mPCIe-ADIO16-8F Family cards
 
 int bDiagnostic = 0;
@@ -20,15 +22,30 @@ int bDiagnostic = 0;
 #define BAR_REGISTER 1
 
 /* Hardware register offsets */
-#define RESETOFFSET				0x00
-#define ADCBASECLOCKOFFSET		0x0C
-#define ADCRATEDIVISOROFFSET	0x10
-#define ADCRANGEOFFSET			0x18
-#define FAFIRQTHRESHOLDOFFSET	0x20
-#define ADCFIFODepthOffset		0x28
-#define ADCDataRegisterOffset	0x30
-#define ADCControlOffset		0x38
-#define IRQENABLEOFFSET			0x40
+#define ofsReset				0x00
+#define ofsDAC					0x04
+#define ofsDACWaveformStatus	0x04
+#define ofsDACRateDivisor		0x08
+#define ofsADCBaseClock			0x0C
+#define ofsDACBaseRate			0x0C
+#define ofsADCRateDivisor		0x10
+#define ofsADCRange				0x18
+#define ofsFAFIRQThreshold		0x20
+#define ofsADCFIFODepth			0x28
+#define ofsADCFIFO				0x30
+#define ofsADCControl			0x38
+#define ofsIRQEnable			0x40
+#define ofsDIOControl			0x48
+#define ofsDACFIFO				0x50
+#define ofsDACnSetting			0x54
+#define ofsDACFifoSize			0x58
+#define ofsFPGAVersion			0x68
+
+#define bmDacFifoHalf (1 << 28)        // bit 28 @ +4
+#define bmDacWaveformPlaying (1 << 29) // bit 29 @ +4
+#define bmDACFifoHalfIrqEn (1 << 9)    // bit 9 @ +40
+#define bmDioAdcStart (1 << 18)        // edges on DIO 14 will cause an ADC Start
+#define bmDioAdcStartEdge (1 << 19)
 
 /* ADC control register bit masks */
 #define ADC_RESERVED_MASK		0xFFF88405 // CFG, RSV, REFEN, CPHA are reserved bits
@@ -69,13 +86,121 @@ const double RangeScale[8] =
 };
 
 /* FORWARD REFERENCES */
+int OpenDevFile(void);
 void BRD_Reset(int apci);
 int ParseADCRawData(uint32_t rawData, uint32_t *channel, double *volts, uint8_t *gainCode, uint16_t *digitalData, int *differential, int *bTemp, int *bAux, int *running );
 
 /* GLOBALS */
-pthread_t worker_thread;
 static int terminate;
 int apci;
+enum
+{
+	bStartADC = 1,
+	bDifferential = 1,
+	bSingleEnded = 0,
+	bSequenceMode = 1,
+	bChannelMode = 0,
+	bFast = 1,
+	bSlow = 0
+};
+
+int OpenDevFile(void)
+{
+	char *devicefiles[MAX_DEVICES] = {0};
+	int device_count = 0;
+	const char *devicepath = "/dev/apci/";
+	DIR *dir;
+	struct dirent *entry;
+	int selected_device = 0;
+	int device_handle = -1;
+
+	printf("Attempting to locate device files in %s\n", devicepath);
+
+	dir = opendir(devicepath);
+	if (dir == NULL)
+	{
+		printf("Unable to open %s\nPerhaps apci.ko is not loaded, or you need sudo.\n", devicepath);
+		perror("opendir");
+		return -1;
+	}
+
+	while ((entry = readdir(dir)) != NULL && device_count < MAX_DEVICES)
+	{
+		char devfile[512];
+		struct stat st;
+
+		snprintf(devfile, sizeof(devfile), "%s%s", devicepath, entry->d_name);
+		if (stat(devfile, &st) == 0 && S_ISCHR(st.st_mode))
+		{
+			printf("Found device file %s\n", entry->d_name);
+			devicefiles[device_count] = strdup(devfile);
+			if (devicefiles[device_count] == NULL)
+			{
+				perror("strdup");
+				closedir(dir);
+				goto cleanup;
+			}
+			device_count++;
+		}
+	}
+
+	closedir(dir);
+
+	if (device_count == 0)
+	{
+		printf("No valid device files found in %s\n", devicepath);
+		goto cleanup;
+	}
+
+	if (device_count > 1)
+	{
+		char input[64];
+
+		printf("Multiple device files found:\n");
+		for (int i = 0; i < device_count; i++)
+			printf("%d: %s\n", i + 1, devicefiles[i]);
+
+		while (1)
+		{
+			char *end;
+			long selection;
+
+			printf("Select a device file to open (1-%d): ", device_count);
+			fflush(stdout);
+			if (fgets(input, sizeof(input), stdin) == NULL)
+			{
+				printf("No device selected.\n");
+				goto cleanup;
+			}
+
+			selection = strtol(input, &end, 10);
+			if (end != input && (*end == '\n' || *end == '\0') && selection >= 1 && selection <= device_count)
+			{
+				selected_device = selection - 1;
+				break;
+			}
+			printf("Invalid selection. Please try again.\n");
+		}
+	}
+
+	device_handle = open(devicefiles[selected_device], O_RDONLY);
+	if (device_handle >= 0)
+	{
+		printf("Successfully opened device at %s\n", devicefiles[selected_device]);
+		if (strstr(devicefiles[selected_device], "adio16_8") != NULL)
+			CHANNEL_COUNT = 8;
+	}
+	else
+	{
+		perror("open");
+	}
+
+cleanup:
+	for (int i = 0; i < device_count; i++)
+		free(devicefiles[i]);
+
+	return device_handle;
+}
 
 #pragma region /* UTILITY FUNCTIONS */
 				void abort_handler(int s)
@@ -83,7 +208,6 @@ int apci;
 					printf("\n\nCaught signal %d\n",s);
 
 					terminate = 1;
-					pthread_join(worker_thread, NULL);
 
 					/* put the card back in the power-up state */
 					BRD_Reset(apci);
@@ -157,7 +281,7 @@ int apci;
 				}
 
 				/* print ADC data as Volts etc., and if bDiagnostic, in parsed-raw and raw-raw forms */
-				int pretty_print_ADC_raw_data(uint32_t AdcRawData, int bCompact)
+				void pretty_print_ADC_raw_data(uint32_t AdcRawData, int bCompact)
 				{
 					unsigned int iChannel;
 					double ADCDataV;
@@ -173,7 +297,6 @@ int apci;
 						printf(" [%08X", AdcRawData);
 						if (bDiagnostic > 1)
 						{
-							uint16_t AdcStatusWord = AdcRawData >> 16;
 							printf(" %s %s CH%02d G%d DIO%2x %s", bTemp?"TEMP":"", bAux?"AUX":"", iChannel, gainCode, digitalData, bDifferential?"Diff":"S.E.");
 						}
 						printf("] ");
@@ -198,7 +321,7 @@ int apci;
 
 void BRD_Reset(int apci)
 {
-	apci_write32(apci, 1, BAR_REGISTER, RESETOFFSET, 0x1);
+	apci_write32(apci, 1, BAR_REGISTER, ofsReset, 0x1);
 }
 
 int ParseADCRawData(uint32_t rawData, uint32_t *channel, double *volts, uint8_t *gainCode, uint16_t *digitalData, int *differential, int *bTemp, int *bAux, int *bRunning )
@@ -240,63 +363,9 @@ int ParseADCRawData(uint32_t rawData, uint32_t *channel, double *volts, uint8_t 
 	return bInvalid;
 }
 
-/* Background thread to acquire and print data */
-void * worker_main(void *arg)
-{
-	int status;
-	int ADCFIFODepth;
-	uint32_t ADCDataRaw;
-
-	printf("  Worker Thread: Polling for ADC Data\n");
-
-	do
-	{
-		// Check ADC FIFO Depth
-		/* In all Timed and External ADC Start modes the FIFO holds data in pairs-of-conversions
-		 * so this code reads out TWO ADC conversions per ONE ADC FIFO Depth
-		 */
-		apci_read32(apci, 1, BAR_REGISTER, ADCFIFODepthOffset, &ADCFIFODepth);
-		if (ADCFIFODepth == 0)
-			continue;
-
-		do{
-			apci_read32(apci, 1, BAR_REGISTER, ADCDataRegisterOffset, &ADCDataRaw); // read data, 1st conversion result
-			pretty_print_ADC_raw_data(ADCDataRaw, 1);
-
-			apci_read32(apci, 1, BAR_REGISTER, ADCDataRegisterOffset, &ADCDataRaw); // read data, 2nd conversion result
-			pretty_print_ADC_raw_data(ADCDataRaw, 1);
-		}while(--ADCFIFODepth > 0);
-
-	} while (!terminate);
-	printf("  Worker Thread: ADC Data Polling END\n");
-}
-
-
-/* configure ADC conversion rate */
-void set_acquisition_rate (int fd, double *Hz)
-{
-	uint32_t base_clock;
-	uint32_t divisor;
-
-	apci_read32(fd, 1, BAR_REGISTER, ADCBASECLOCKOFFSET, &base_clock);
-	printf("  set_acquisition_rate: base_clock (%d) / ", base_clock);
-
-	divisor = round(base_clock / *Hz);
-	*Hz = base_clock / divisor; /* actual Hz selected, based on the limitation caused by integer divisors */
-	printf("divisor (%d) = ", divisor);
-
-	apci_write32(fd, 1, BAR_REGISTER, ADCRATEDIVISOROFFSET, divisor);
-	printf("DAC Waveform Playback Rate: (%lf Hz)\n", *Hz);
-}
-
-
-
 //------------------------------------------------------------------------------------
-int main (int argc, char **argv)
+int main(void)
 {
-	printf("Control Value: %08X\n", ADC_BuildControlValue(1,6,1,1,1,0));
-	printf("Control Value: %08X\n", ADC_BuildControlValue(1,7,0,1,1,0));
-
 	struct sigaction sigIntHandler;
 
 	sigIntHandler.sa_handler = abort_handler;
@@ -305,164 +374,42 @@ int main (int argc, char **argv)
 	sigaction(SIGINT, &sigIntHandler, NULL);
 	sigaction(SIGABRT, &sigIntHandler, NULL);
 
+	apci = OpenDevFile();
+	if (apci < 0)
+		return 1;
+
 	uint32_t Version = 0;
-	apci_read32(apci, 1, BAR_REGISTER, 0x68, &Version);
+	apci_read32(apci, 1, BAR_REGISTER, ofsFPGAVersion, &Version);
 	printf("\nmPCIe-AIO16-16F/mPCIe-ADIO16-8F Family ADC Sample 0+ [FPGA Rev %08X]\n", Version);
-
-				// this code section is weak.  TODO: improve plug-and-play and device file detection / selection; enumerate /dev/apci/ and if >1 device have menu?
-				apci = -1;
-
-				if (argc > 1)
-				{
-					apci = open(argv[1], O_RDONLY);	// open device file from command line
-					if (apci < 0)
-						printf("Couldn't open device file on command line: do you need sudo? /dev/apci? [%s]\n", argv[1]);
-				}
-
-				if (apci < 0) // if the command line didn't work, or if they didn't pass a parameter
-				{
-					apci = open(DEVICEPATH, O_RDONLY);
-					if (apci < 0)
-					{
-						printf("Device file %s could not be opened. Please ensure the APCI driver module is loaded or try sudo?.\nTrying Alternate [ %s ]...\n", DEVICEPATH, DEV2PATH);
-						apci = open(DEV2PATH, O_RDONLY);
-						if (apci < 0)
-						{
-							printf("Device file %s could not be opened. Please ensure the APCI driver module is loaded or try sudo?.\n", DEV2PATH);
-							exit(0);
-						} else
-						{
-							CHANNEL_COUNT = 8;
-						}
-					}
-				}
-
-
-	int testcount=0, passcount=0, errcount=0, readbackerrcount=0, chan;
-	uint32_t readControlValue;
-
-
-
-#define BAR_REGISTER 1
-#define ofsReset 0x0
-#define ofsDAC 0x04
-#define ofsDACRateDivisor 0x08
-#define ofsDACBaseRate 0x0C
-#define ofsDACWaveformStatus 0x4
-#define bmDacFifoHalf (1 << 28)        // bit 28 @ +4
-#define bmDacWaveformPlaying (1 << 29) // bit 29 @ +4
-#define ofsIRQEN 0x40
-#define bmDACFifoHalfIrqEn (1 << 9) // bit 9 @ +40
-#define ofsDACFIFO 0x50
-#define ofsDACnSetting 0x54
-#define ofsDACFifoSize 0x58
-#define ofsFPGAVersion 0x68
-
-
-
-	if(1)
-	while(testcount < 1)
+	if (1)
 	{
-		int ch;
-		uint32_t ADCFIFODepth;
-		uint32_t ADCDataRaw;
+		printf("Demonstrating external ADC start (Advanced Sequencer) POLLING ACQUISITION\n");
 
 		BRD_Reset(apci);
-    printf("Putting DACs in +/- 10V range\n");
-    apci_write32(apci, 1, BAR_REGISTER, ofsDAC, 0xE00003); // "Write Span to All" = 0xE; 3 = +/- 10V
-
-    usleep(100); // better would be to read ofsDAC and check if bit 31 is set until it is clear; this bit indicates SPI busy
-
-    printf("Setting all DACs to 0V\n");
-    apci_write32(apci, 1, BAR_REGISTER, ofsDAC, 0xA0FF00); // "Write Code to All, Update, and power up" = 0xA
-
-		apci_write32(apci, 1, BAR_REGISTER, ADCRATEDIVISOROFFSET, 0); // setting ADC Rate Divisor to zero selects software start ADC mode
-		for (ch=0; ch<8; ++ch)
-		{
-			uint32_t controlValue = ADC_BuildControlValue(1,ch,0,0,0,0);
-
-			apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset, controlValue );	// start one conversion on selected channel
-			usleep(10); // must not write to +38 faster than once every 10 microseconds in Software Start mode
-				apci_read32(apci,1, BAR_REGISTER, ADCControlOffset, &readControlValue);
-				if ((controlValue&0x0000FFFF) != (readControlValue&0x0000FFFF))
-				{
-					readbackerrcount++;
-					printf("%08X/%08X ", readControlValue, controlValue);
-				}
-		}
-
+		apci_write32(apci, 1, BAR_REGISTER, ofsDIOControl, bmDioAdcStart ); // falling edges on DIO 14 will cause ADC start
+		int gaincode = 0;
+		int lastchan = 7;
+		uint32_t AdcControlValue = (1<<17)| (1<<16) | ADC_BuildControlValue(bStartADC,lastchan,bSingleEnded,gaincode,bChannelMode,bFast);
+		printf("ADC Control Value: %08X\n", AdcControlValue);
 		if (CHANNEL_COUNT == 16)
-			for (ch=0; ch<8; ++ch)
-			{
-				uint32_t controlValue = ADC_BuildControlValue(1,ch,0,0,0,0);
-				apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset + 4, controlValue );	// start one conversion on selected channel of second ADC
-				usleep(10); // must not write to +3C faster than once every 10 microseconds in Software Start mode
-				apci_read32(apci,1, BAR_REGISTER, ADCControlOffset + 4, &readControlValue);
-				if ((controlValue&0x0000FFFF) != (readControlValue&0x0000FFFF))
-				{
-					readbackerrcount++;
-					printf("%08X/%08X ", readControlValue, controlValue);
-				}
-			}
+			apci_write32(apci, 1, BAR_REGISTER, ofsADCControl + 4, AdcControlValue );
+		apci_write32(apci, 1, BAR_REGISTER, ofsADCControl, AdcControlValue );
 
-
-		apci_read32(apci, 1, BAR_REGISTER, ADCFIFODepthOffset, &ADCFIFODepth);
-		printf("  ADC FIFO has %d entries\n", ADCFIFODepth); // debug/diagnostic; should match the number of ADC Control writes
-		if (ADCFIFODepth != CHANNEL_COUNT)
-			errcount++;
-		else
-			passcount++;
-		testcount++;
-		int bTemp=0, bAux=0;
-
-		for (ch=0; ch < ADCFIFODepth; ++ch)	// read and display data from FIFO
-		{
-			apci_read32(apci, 1, BAR_REGISTER, ADCDataRegisterOffset, &ADCDataRaw);
-			pretty_print_ADC_raw_data(ADCDataRaw, 0);
-			//ParseADCRawData(ADCDataRaw, &chan,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
-			//printf("%02d ",chan);
-		}
-		printf("\n");
-		//printf("Done with one scan of software-started conversions.\n\n\n");
-
-		printf("\n%d failures, %d passes. Failure%% = %f.  Control readback failures: %d",errcount,passcount,(double)errcount/(double)testcount*100.0, readbackerrcount);
-	}
-
-
-
-
-	if (0)
-	{
-		printf("Demonstrating TIMER-DRIVEN (Advanced Sequencer) BACKGROUND-THREAD POLLING ACQUISITION\n");
-		printf("Press CTRL-C to halt\nPRESS ENTER TO CONTINUE\n");
-		getchar();
-
-		BRD_Reset(apci);
-		double Hz = 100.0;
-		set_acquisition_rate(apci, &Hz);
-		printf("ADC Rate: (%lf Hz)\n", Hz);
-
-		// start collecting incoming data in background thread
-		pthread_create(&worker_thread, NULL, &worker_main, NULL);
-
-		// start sequence of conversions
-		uint32_t AdcControlValue = ADC_BuildControlValue(1,7,0,0,1,0);
-
-		if (CHANNEL_COUNT == 16)
-			apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset + 4, AdcControlValue );
-		apci_write32(apci, 1, BAR_REGISTER, ADCControlOffset, AdcControlValue );
+		printf("Produce falling edges into DIO 14 now\n CTRL-C to exit.\n");
 
 		while (!terminate)
 		{
-			// do other work while data is collected and displayed by the worker thread.
-			// use CTRL-C to exit
+			__u32 avail = 0;
+			apci_read32(apci, 1, BAR_REGISTER, ofsADCFIFODepth, &avail);
+			if (!avail) continue;
+			do {
+				__u32 rawdata;
+				apci_read32(apci, 1, BAR_REGISTER, ofsADCFIFO, &rawdata);
+				pretty_print_ADC_raw_data(rawdata, 0);
+			} while(--avail);
 
 		};
 	}
 
 	printf("\nSample Done.\n"); // never prints due to CTRL-C abort
 }
-
-
-
-
