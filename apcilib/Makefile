@@ -1,4 +1,4 @@
-all: dio_8255_output mpcie-dio-24a-irq axiodac axiodac_irq extaxioadc pcie_dio_48s mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f_dma mpcie_aio16_16f pcie_iiro_16_irq irq check check_dma dac
+all: dio_8255_output mpcie-dio-24a-irq axiodac axiodac_irq extaxioadc apcidebug pcie_dio_48s mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f_dma mpcie_aio16_16f pcie_iiro_16_irq irq check check_dma dac
 
 ifneq ("$(wildcard /etc/redhat-release)","")
     REDHAT_VERSION = $(shell cat /etc/redhat-release | grep  -o "[0-9]*" | head -1)
@@ -26,6 +26,9 @@ axiodac: axiodac.c apcilib.h apcilib.c
 
 extaxioadc: extaxioadc.c apcilib.h apcilib.c
 	$(GCC) -o extaxioadc extaxioadc.c apcilib.c -lm -lpthread -O3
+
+apcidebug: apcidebug.c apcilib.h apcilib.c apci_ioctl.h
+	$(GCC) -Wall -Wextra -O2 -o apcidebug apcidebug.c apcilib.c -ldl
 
 pcie_dio_48s: pcie-dio-48s-irq.c apcilib.c apcilib.h
 	$(GCC) -o pcie-dio-48s-irq pcie-dio-48s-irq.c apcilib.c
@@ -73,4 +76,4 @@ isp-fpga: isp-fpga.cpp apcilib.c apcilib.h apci_ioctl.h
 	$(CXX) $(CXXFLAGS) -o isp-fpga isp-fpga.cpp apcilib.c -lm -lpthread
 
 clean:
-	rm -f isp-fpga dio_8255_output mpcie-dio-24a-irq axiodac axiodac_irq extaxioadc pcie-dio-48s-irq pcie-iiro-16 mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f mpcie_aio16_16f_dma check check_dma irq dac
+	rm -f isp-fpga dio_8255_output mpcie-dio-24a-irq axiodac axiodac_irq extaxioadc apcidebug pcie-dio-48s-irq pcie-iiro-16 mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f mpcie_aio16_16f_dma check check_dma irq dac
