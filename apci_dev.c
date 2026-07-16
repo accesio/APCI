@@ -51,7 +51,7 @@ int irq_disabled = 0;
 module_param(irq_disabled, int, 0444);
 MODULE_PARM_DESC(irq_disabled, "Don't register an IRQ/ISR. IRSRC register must be polled from userspace");
 
-static int use_msi = 1;
+static int use_msi = 0;
 module_param(use_msi, int, 0444);
 MODULE_PARM_DESC(use_msi, "Prefer MSI interrupts when supported; falls back to shared legacy INTx");
 
