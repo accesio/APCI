@@ -1,79 +1,26 @@
-all: dio_8255_output mpcie-dio-24a-irq axiodac axiodac_irq extaxioadc apcidebug pcie_dio_48s mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f_dma mpcie_aio16_16f pcie_iiro_16_irq irq check check_dma dac
+obj-m += apci.o
+CC		?= "gcc"
+KVERSION        ?= $(shell uname -r)
+KDIR		?= /lib/modules/$(KVERSION)/build
 
 ifneq ("$(wildcard /etc/redhat-release)","")
-    REDHAT_VERSION = $(shell cat /etc/redhat-release | grep  -o "[0-9]*" | head -1)
+CFLAGS_apci_dev.o := -DRULES_DONT_APPLY_TO_RH=1
 else
-    REDHAT_VERSION = 0
+CFLAGS_apci_dev.o := -DRULES_DONT_APPLY_TO_RH=0
 endif
 
-ifeq ($(REDHAT_VERSION), 7)
-	GCC = gcc -std=c11 -D_XOPEN_SOURCE=700 -D _BSD_SOURCE
-else
-	GCC = gcc
-endif
+apci-objs :=      \
+    apci_fops.o   \
+	apci_dev.o
 
-CXX ?= g++
-CXXFLAGS ?= -std=c++17 -Wall -Wextra -O2
-
-dio_8255_output: dio_8255_output.c apcilib.h apcilib.c
-	$(GCC) -o dio_8255_output dio_8255_output.c apcilib.c -lm -lpthread
-
-axiodac_irq: axiodac_irq.c apcilib.h apcilib.c
-	$(GCC) -o axiodac_irq axiodac_irq.c apcilib.c -lm -lpthread
-
-axiodac: axiodac.c apcilib.h apcilib.c
-	$(GCC) -o axiodac axiodac.c apcilib.c -lm -lpthread -O3
-
-extaxioadc: extaxioadc.c apcilib.h apcilib.c
-	$(GCC) -o extaxioadc extaxioadc.c apcilib.c -lm -lpthread -O3
-
-apcidebug: apcidebug.c apcilib.h apcilib.c apci_ioctl.h
-	$(GCC) -Wall -Wextra -O2 -o apcidebug apcidebug.c apcilib.c
-
-pcie_dio_48s: pcie-dio-48s-irq.c apcilib.c apcilib.h
-	$(GCC) -o pcie-dio-48s-irq pcie-dio-48s-irq.c apcilib.c
-
-mpcie_quad_4: mpcie_quad_8.c apcilib.c apcilib.h
-	$(GCC) -o mpcie_quad_8 mpcie_quad_8.c apcilib.c
-
-mpcie_quad_8: mpcie_quad_8.c apcilib.h apcilib.c
-	$(GCC) -o mpcie_quad_8 mpcie_quad_8.c apcilib.c
-
-pcie_iiro_16_irq: pcie-iiro-16.c apcilib.h apcilib.c
-	$(GCC) -o pcie-iiro-16 pcie-iiro-16.c apcilib.c -lm -lpthread -O3
-
-irq: irq.c apcilib.h apcilib.c
-	$(GCC) -o irq irq.c apcilib.c -lm -lpthread -O3
-
-mpcie-ii-16-irq: mpcie-ii-16-irq.c apcilib.h apcilib.c
-	$(GCC) -o mpcie-ii-16-irq mpcie-ii-16-irq.c apcilib.c
-
-pcie-idio-24-irq: pcie-idio-24-irq.c apcilib.h apcilib.c
-	$(GCC) -o pcie-idio-24-irq pcie-idio-24-irq.c apcilib.c
-
-mpcie-dio-24s-irq: mpcie-dio-24s-irq.c apcilib.h apcilib.c
-	$(GCC) -o mpcie-dio-24s-irq mpcie-dio-24s-irq.c apcilib.c
-
-mpcie-dio-24a-irq: mpcie-dio-24a-irq.c apcilib.h apcilib.c
-	$(GCC) -o mpcie-dio-24a-irq mpcie-dio-24a-irq.c apcilib.c -lpthread -O3 -lm
-
-mpcie_aio16_16f_dma: mpcie_aio16_16f_dma.c apcilib.h apcilib.c
-	$(GCC) -o mpcie_aio16_16f_dma mpcie_aio16_16f_dma.c apcilib.c -lm -lpthread -O3
-
-mpcie_aio16_16f: mpcie_aio16_16f.c apcilib.h apcilib.c
-	$(GCC) -o mpcie_aio16_16f mpcie_aio16_16f.c apcilib.c -lm -lpthread -O3
-
-check: check.c apcilib.h apcilib.c
-	$(GCC) -o check check.c apcilib.c -lm -lpthread -O3
-
-check_dma: check_dma.c apcilib.h apcilib.c
-	$(GCC) -g -o check_dma check_dma.c apcilib.c -lm -lpthread -O3
-
-dac: dac.c apcilib.h apcilib.c
-	$(GCC) -o dac dac.c apcilib.c
-
-isp-fpga: isp-fpga.cpp apcilib.c apcilib.h apci_ioctl.h
-	$(CXX) $(CXXFLAGS) -o isp-fpga isp-fpga.cpp apcilib.c -lm -lpthread
+all:
+	$(MAKE) CC=$(CC) -C $(KDIR) M=$(CURDIR) modules
 
 clean:
-	rm -f isp-fpga dio_8255_output mpcie-dio-24a-irq axiodac axiodac_irq extaxioadc apcidebug pcie-dio-48s-irq pcie-iiro-16 mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f mpcie_aio16_16f_dma check check_dma irq dac
+	$(MAKE) CC=$(CC) -C $(KDIR) M=$(CURDIR) clean
+
+install:
+	$(MAKE) CC=$(CC) -C $(KDIR) M=$(CURDIR) modules_install
+	depmod -A
+	modprobe -r apci
+	modprobe apci
