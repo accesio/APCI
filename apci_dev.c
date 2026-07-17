@@ -49,11 +49,16 @@
 
 int irq_disabled = 0;
 module_param(irq_disabled, int, 0444);
-MODULE_PARM_DESC(irq_disabled, "Don't register an IRQ/ISR. IRSRC register must be polled from userspace");
+MODULE_PARM_DESC(irq_disabled, "Don't register an IRQ/ISR. IRQ Status register must be polled from userspace");
 
 static int use_msi = 0;
 module_param(use_msi, int, 0444);
 MODULE_PARM_DESC(use_msi, "Prefer MSI interrupts when supported; falls back to shared legacy INTx");
+
+// The name of this variable is exposed to userspace via /etc/modprobe.d
+static int dev_mode = 0;
+module_param(dev_mode, int, 0444);
+MODULE_PARM_DESC(dev_mode, "Default device-node permission mode, for example 0666");
 
 /* PCI table construction */
 static struct pci_device_id ids[] = {
@@ -2511,9 +2516,7 @@ exit_disable_device:
   return ret;
 }
 
-// The name of this variable is exposed to userspace via /etc/modprobe.d
-static int dev_mode = 0;
-module_param(dev_mode, int, 0);
+
 
 /* Configure the default /dev/{devicename} permissions */
 #if LINUX_VERSION_CODE > KERNEL_VERSION(6, 2, 0) || RULES_DONT_APPLY_TO_RH

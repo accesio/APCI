@@ -44,8 +44,59 @@ Now we can load the driver module and use it.
 ~~~
 sudo insmod apci.ko
 ~~~
+
+The module accepts the following optional parameters:
+
+| Parameter | Default | Description |
+|---|---:|---|
+| `irq_disabled` | `0` | Set to `1` to prevent the driver from registering an IRQ handler. The IRQ Status register must then be polled - and cleared - from userspace. |
+| `use_msi` | `0` | Set to `1` to prefer experimental MSI interrupt support. The driver falls back to shared legacy INTx interrupts when MSI is unavailable. |
+| `dev_mode` | `0` | Sets the default device-node permission mode. For example, `0666` permits access without `sudo`. A value of `0` uses the driver's normal default permissions. |
+
+You can pass parameters after the module filename. For example:
+
+```sh
+sudo insmod apci.ko use_msi=1 dev_mode=0666
+```
+
+To load the driver without registering an IRQ handler:
+
+```sh
+sudo insmod apci.ko irq_disabled=1
+```
+
+After the module is loaded, the driver creates a device node in `/dev/apci/`
+for each supported ACCES PCI device in the system. For example,
+`/dev/apci/mpcie-dio-24s_0` provides programmatic access to the M.2-DIO-24S
+functions and registers, as demonstrated by the sample source files in the
+`apcilib/` subdirectory.
+
+### Configure parameters for boot-time loading
+
+Parameters for a module loaded by `modprobe` can be placed in a file under
+`/etc/modprobe.d/`. For example, create `/etc/modprobe.d/accesio-apci.conf` with:
+
+```text
+options apci use_msi=1 dev_mode=0666
+```
+
+Set only the parameters required for the system. For example, to change only
+the device-node permissions:
+
+```text
+options apci dev_mode=0666
+```
+
 There should now be a device node in directory /dev/apci/ for each ACCES PCI device in the system. For example /dev/apci/mpcie-dio-24s_0 can be used to access the M.2-DIO-24S functions and registers programmatically as shown in the sample source files in the apcilib/ subdirectory.
 
+The install the driver module is to run the install target of the makefile as root. Note that only the install should be done as root. The build should be done as a regular user.
+~~~
+	sudo make install
+~~~
+
+The kernel should now load the apci.ko driver module at boot time if there is a supported ACCES PCI device present in the system.
+
+## samples
 Use the commands below to compile the provided samples from the APCI/apcilib/ directory.
 ~~~
 cd apcilib/
@@ -80,26 +131,6 @@ Below is a snipet of the output from the compiled mpcie-dio-24s-irq.c sample cod
 	 Waiting for irq @ Tue Dec 17 08:38:22 2019
 	IRQ occurred
 
-3.	The install the driver module is to run the install target of the makefile as root. Note that only the install should be done as root. The build should be done as a regular user.
-~~~
-	sudo make install
-~~~
-
-The kernel should now load the apci.ko driver module at boot time if there is a supported ACCES PCI device present in the system.
-
-## Setting device permissions on module load
-By default the device file requires root permissions to access. To change the default permissions for the device pass `dev_mode` to the module as a parameter. The mode can be passed in octal similar to `chmod` command
-* To set using insmod
-```sh
-insmod apci.ko dev_mode=0666
-```
-
-* To set for boot
-  * Create a file /etc/modprobe.d/accesio-pci.conf
- ```
-  options apci dev_mode=0666
- ```
-
 # Basic Documentation for APCILIB functions
 `apci` provides register-level access to ACCES‘ Data Acquisition and Control cards on PCI and PCI Express (and all related busses), and an interface for IRQ handling, from userland applications, via IOCTL calls into the `apci.ko` module.
 
@@ -108,13 +139,13 @@ insmod apci.ko dev_mode=0666
 
 They all have signatures similar to:
 `apci_{func}{Bits}(int fd, int ignore, int BAR, int offset, value);`
-`BAR`, for 99% or more of cards and use-cases, will always be “2”.  
-Use “0” for `ignore`; 
-`offset` is documented in each product’s hardware manual, usually chapter 5, Programming.  
+`BAR`, for 99% or more of cards and use-cases, will always be “2”.
+Use “0” for `ignore`;
+`offset` is documented in each product’s hardware manual, usually chapter 5, Programming.
 `Value` is a __u8, __u16, or __u32, for the apci_write functions, respectively.  This is the value that apci will write to the hardware registers.
 `Value` is a pointer to one of those, for the reads: the value read from the card’s register at `offset` +offset will be stored in `&Value`.
 `fd` is the Linux “device file”, generally `/dev/apci/{model}_0`.  You will need “sudo” to open the fd, or chmod the device file.
 
-`apci_wait_for_irq(fd, ignore)` will block the calling thread until the card generates an IRQ or `apci_cancel_wait(fd)` is called.  They return <0 and set ~errno~ if an error occurs.
+`apci_wait_for_irq(fd, ignore)` will block the calling thread until the card generates an IRQ or `apci_cancel_wait(fd)` is called.  They return < 0, and set ~errno~, if an error occurs.
 
 
