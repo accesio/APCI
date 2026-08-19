@@ -1,0 +1,22 @@
+
+Version 2025‑06‑26
+WITH‑ACCES License
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, provided that the Software is deployed on, or interacts with, a system that includes at least one hardware product manufactured by ACCES I/O Products, Inc. (“ACCES Hardware”).  Use of the Software in an environment in which no ACCES Hardware is present is outside the scope of this license.  Nothing in this license restricts the simultaneous use of the Software with hardware products manufactured by other companies, so long as at least one ACCES Hardware device is present.
+    No attribution, royalty, or per‑copy fee is required.
+    The above copyright notice and this license text shall be included in all substantial portions of the Software.
+    DISCLAIMER OF WARRANTY.  The Software is provided “AS IS” without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose and non‑infringement.  In no event shall ACCES I/O Products, Inc. or contributors be liable for any claim, damages or other liability, whether in an action of contract, tort or otherwise, arising from, out of or in connection with the Software or the use or other dealings in the Software.
+    PATENT GRANT.  ACCES hereby grants a perpetual, worldwide, non‑exclusive, no‑fee license under its patent claims that are necessarily infringed by the Software to make, use, sell, offer for sale, import, and otherwise run, modify, and distribute the Software, but only in combination with ACCES Hardware.
+    TERMINATION.  If you violate the hardware‑use condition or attempt to restrict downstream recipients beyond this license, your rights under this Option B automatically terminate.
+
+This license can be summarized simply: “Please only use our intellectual property and software/source with the ACCES hardware products you’re using or reselling.“
+License Conversions
+Other Licenses Available
+
+By all means, if this license does not suit your needs please feel free to contact your Application Engineer to discuss your requirements.
+Like-A-Book
+
+Some software is written “for sale” by ACCES. This software is itself the end product, and is licensed “like a book”. Basically you can do anything you want with the software that you could do with a printed book. You can give it to a friend (or sell it), you can even modify it, but regardless of what you do, you still only have one book at the end. You can tell if your specific software is licensed “LIKE-A-BOOK” very simply: if you were charged for it, it is licensed “LIKE-A-BOOK” unless a different license statement was negotiated.
+Other Considerations
+
+ACCES has never charged a per-copy fee, a license fee, a royalty, or any other kind of money for any of its “Software Master CD” software. We do sell a small number of “commercial applications”, such as “Watcher”, and some third-party packages such as LabVIEW or VxWorks. These commercial applications are by default licensed under the “LIKE-A-BOOK” license if it is written by ACCES, or by the third party license where applicable, or they are licensed under the written license negotiated at the time of purchase.

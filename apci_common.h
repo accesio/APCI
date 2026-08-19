@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2026 ACCES I/O Products, Inc.
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
 #pragma once
 
 #define A_PCI_DEBUG 0 /*feel free to change this value*/

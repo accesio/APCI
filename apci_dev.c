@@ -1,8 +1,8 @@
 /*
- * ACCES I/O APCI Linux driver
- *
  * Copyright 1998-2024 John Hentges <jhentges@accesio.com>  All rights granted.
+ * SPDX-FileCopyrightText: 2026 ACCES I/O Products, Inc.
  *
+ * SPDX-License-Identifier: GPL-2.0-only
  */
 #include <linux/module.h>
 #include <linux/types.h>

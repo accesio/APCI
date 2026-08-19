@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2026 ACCES I/O Products, Inc.
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-License-Identifier: LicenseRef-WITH-ACCES
+
 all: dio_8255_output mpcie-dio-24a-irq axiodac axiodac_irq extaxioadc apcidebug pcie_dio_48s mpcie_quad_8 mpcie-ii-16-irq pcie-idio-24-irq mpcie-dio-24s-irq mpcie_aio16_16f_dma mpcie_aio16_16f pcie_iiro_16_irq irq check check_dma dac
 
 ifneq ("$(wildcard /etc/redhat-release)","")

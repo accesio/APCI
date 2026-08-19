@@ -1,0 +1,7 @@
+version = 1
+
+[[annotations]]
+path = ["README.md", ".gitignore", ".vscode/*"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 ACCES I/O Products, Inc."
+SPDX-License-Identifier = "CC0-1.0"

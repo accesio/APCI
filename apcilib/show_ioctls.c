@@ -1,3 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2026 ACCES I/O Products, Inc.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * SPDX-License-Identifier: LicenseRef-WITH-ACCES
+ */
+
 #include <stdio.h>
 #include <asm/ioctl.h>
 #include <apci_ioctl.h>
