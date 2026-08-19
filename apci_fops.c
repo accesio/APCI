@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2026 ACCES I/O Products, Inc.
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ */
+
 #include "apci_fops.h"
 #include "apci_dev.h"
 

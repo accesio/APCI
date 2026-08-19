@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 ACCES I/O Products, Inc.
+#
+# SPDX-License-Identifier: GPL-2.0-only
+
 obj-m += apci.o
 CC		?= "gcc"
 KVERSION        ?= $(shell uname -r)

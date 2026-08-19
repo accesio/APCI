@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 ACCES I/O Products, Inc.
+//
+// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: LicenseRef-WITH-ACCES
 
 #include <algorithm>   // std::max
 #include <filesystem>  // std::filesystem::directory_iterator
