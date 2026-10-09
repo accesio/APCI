@@ -21,6 +21,3 @@ clean:
 
 install:
 	$(MAKE) CC=$(CC) -C $(KDIR) M=$(CURDIR) modules_install
-	depmod -A
-	modprobe -r apci
-	modprobe apci
