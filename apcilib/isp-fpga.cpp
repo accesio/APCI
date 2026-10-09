@@ -271,5 +271,5 @@ int main(int argc, char **argv)
 	} while (!VerifyFlash());
 
 	printf("Flash Update Successful.  Wrote %s to Device %04x.\n\n", argv[1], DeviceID);
-	printf("----`sudo reboot` the eNET-AIO to load the new FPGA from Flash!!----\n");
+	printf("----`COLD boot` the computer to load the new FPGA from Flash!!  (Shutdown and power back up)----\n");
 }
