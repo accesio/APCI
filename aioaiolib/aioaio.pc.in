@@ -1,0 +1,9 @@
+prefix=@PREFIX@
+libdir=@LIBDIR@
+includedir=@INCLUDEDIR@
+
+Name: aioaio
+Description: Board-oriented analog and digital I/O API for Linux APCI
+Version: @VERSION@
+Libs: -L${libdir} -laioaio
+Cflags: -I${includedir}
