@@ -60,6 +60,13 @@ static int dev_mode = 0;
 module_param(dev_mode, int, 0444);
 MODULE_PARM_DESC(dev_mode, "Default device-node permission mode, for example 0666");
 
+void *bsearch(const void *key, const void *base, size_t num, size_t size,
+              int (*cmp)(const void *key, const void *elt));
+int APCI_LOOKUP_ENTRY(int fx);
+void *apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id);
+void apci_free_driver(struct pci_dev *pdev);
+int __init apci_init(void);
+
 /* PCI table construction */
 static struct pci_device_id ids[] = {
     {
@@ -796,9 +803,7 @@ struct apci_my_info head;
 
 static int dev_counter = 0;
 
-#define APCI_MAJOR 247
-
-static dev_t apci_first_dev = MKDEV(APCI_MAJOR, 0);
+static dev_t apci_first_dev = 0;
 
 irqreturn_t apci_interrupt(int irq, void *dev_id);
 
@@ -954,9 +959,8 @@ apci_alloc_driver(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 
   struct apci_my_info *ddata = kzalloc(sizeof(struct apci_my_info), GFP_KERNEL);
-  int count, i, plx_bar;
+  int count, plx_bar;
   struct resource *presource;
-  int status = -1;
 
   if (!ddata)
     return NULL;
@@ -2547,7 +2551,6 @@ apci_init(void)
   void *ptr_err;
   int result;
   int ret;
-  dev_t dev = MKDEV(APCI_MAJOR, 0);
   apci_debug("performing init duties\n");
   spin_lock_init(&head.driver_list_lock);
   INIT_LIST_HEAD(&head.driver_list);
@@ -2574,7 +2577,7 @@ apci_init(void)
   apci_cdev.owner = THIS_MODULE;
   apci_cdev.ops = &apci_fops;
 
-  result = cdev_add(&apci_cdev, dev, 1);
+  result = cdev_add(&apci_cdev, apci_first_dev, 1);
 
 #ifdef TEST_CDEV_ADD_FAIL
   result = -1;
@@ -2600,7 +2603,7 @@ err:
 
   apci_error("Unregistering chrdev_region.\n");
 
-  unregister_chrdev_region(MKDEV(APCI_MAJOR, 0), 1);
+  unregister_chrdev_region(MKDEV(apci_first_dev, 0), 1);
 
   class_destroy(class_apci);
   return PTR_ERR(ptr_err);
@@ -2611,7 +2614,7 @@ static void __exit apci_exit(void)
   apci_debug("performing exit duties\n");
   pci_unregister_driver(&pci_driver);
   cdev_del(&apci_cdev);
-  unregister_chrdev_region(MKDEV(APCI_MAJOR, 0), 1);
+  unregister_chrdev_region(apci_first_dev, 1);
   class_destroy(class_apci);
 }
 
