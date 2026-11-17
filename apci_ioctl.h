@@ -1,3 +1,11 @@
+/*
+ * SPDX-FileCopyrightText: 2026 ACCES I/O Products, Inc.
+ *
+ * SPDX-License-Identifier: GPL-2.0-only
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * SPDX-License-Identifier: LicenseRef-WITH-ACCES
+ */
+
 #pragma once
 
 #define ACCES_MAGIC_NUM 0xE0

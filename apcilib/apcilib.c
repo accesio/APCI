@@ -1,18 +1,10 @@
 /*
-This software is a driver for ACCES I/O Products, Inc. PCI and other plug-and-play cards.
-Copyright (C) 2007-2024 ACCES I/O Products, Inc.
-
-This program is free software; you can redistribute it and/or
-modify it at will.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
-
-In addition ACCES provides other licenses with its software at customer request.
-For more information please contact the ACCES software department at
-(800)-326-1649 or visit www.accesio.com
-*/
+ * Copyright (C) 2007-2024 ACCES I/O Products, Inc.
+ * SPDX-FileCopyrightText: 2026 ACCES I/O Products, Inc.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * SPDX-License-Identifier: LicenseRef-WITH-ACCES
+ */
 
 #include <sys/ioctl.h>
 #include <stddef.h>

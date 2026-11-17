@@ -1,3 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2026 ACCES I/O Products, Inc.
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * SPDX-License-Identifier: LicenseRef-WITH-ACCES
+ */
+
 #include <stdint.h>
 #include <math.h>
 #include <signal.h>

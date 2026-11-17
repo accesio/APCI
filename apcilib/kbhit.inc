@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2019 Stack Exchange, Inc.
+ *
+ * SPDX-License-Identifier: CC-BY-SA-4.0
+ */
+
 //https://stackoverflow.com/questions/29335758/using-kbhit-and-getch-on-linux
 //retrieved 2019-11-23
 #include <stdbool.h>
