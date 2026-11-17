@@ -1,6 +1,82 @@
 #include "apci_fops.h"
 #include "apci_dev.h"
 
+/* DAC buffer helpers. The allocation remains per-device: callers must unmap
+ * before resizing and coordinate ownership with other clients. */
+static int apci_resize_dac_buffer(struct apci_my_info *ddata, size_t bytes)
+{
+     void *buffer = NULL;
+     void *old_buffer;
+     size_t allocation_bytes;
+
+     if (bytes) {
+          if (bytes > SIZE_MAX - (PAGE_SIZE - 1))
+               return -EOVERFLOW;
+          allocation_bytes = PAGE_ALIGN(bytes);
+          if (allocation_bytes > KMALLOC_MAX_SIZE)
+               return -ENOMEM;
+          /* Whole zeroed pages avoid exposing neighbouring slab allocations
+           * or uninitialised padding through the DAC mmap interface. */
+          buffer = kzalloc(allocation_bytes, GFP_KERNEL);
+          if (!buffer)
+               return -ENOMEM;
+     }
+
+     /* Keep the old allocation intact if the replacement could not be made. */
+     old_buffer = ddata->dac_fifo_buffer;
+     ddata->dac_fifo_buffer = buffer;
+     ddata->dac_fifo_buffer_bytes = bytes;
+     kfree(old_buffer);
+     return 0;
+}
+
+static int apci_validate_dac_transfer(const struct apci_my_info *ddata,
+                                    const buff_iopack *pack, bool writing)
+{
+     size_t width;
+     const io_region *region;
+
+     switch (pack->size) {
+     case BYTE: width = sizeof(__u8); break;
+     case WORD: width = sizeof(__u16); break;
+     case DWORD: width = sizeof(__u32); break;
+     default: return -EINVAL;
+     }
+     /* Buffered reads currently implement only 32-bit register accesses. */
+     if (!writing && pack->size != DWORD)
+          return -EINVAL;
+     if (!ddata->dac_fifo_buffer || !ddata->dac_fifo_buffer_bytes)
+          return -ENOMEM;
+     if (pack->length > INT_MAX || pack->mmap_offset % width ||
+         pack->mmap_offset > ddata->dac_fifo_buffer_bytes ||
+         pack->length > (ddata->dac_fifo_buffer_bytes - pack->mmap_offset) / width)
+          return -EINVAL;
+
+     /* Check the index before is_valid_addr() or any regions[] access. All
+      * existing buffered operations access a fixed 32-bit hardware register,
+      * including writes sourced from byte/word arrays. */
+     if (pack->bar < 0 || (unsigned int)pack->bar >= ARRAY_SIZE(ddata->regions))
+          return -EINVAL;
+     region = &ddata->regions[pack->bar];
+     if (!region->start || pack->bar_offset % sizeof(__u32) ||
+         pack->bar_offset > region->length ||
+         region->length - pack->bar_offset < sizeof(__u32) ||
+         (!(region->flags & IORESOURCE_IO) && !region->mapped_address))
+          return -EFAULT;
+     return 0;
+}
+
+static int apci_validate_dac_mapping(const struct apci_my_info *ddata,
+                                   size_t bytes)
+{
+     if (!ddata->dac_fifo_buffer || !ddata->dac_fifo_buffer_bytes)
+          return -ENOMEM;
+     if (!bytes || bytes > PAGE_ALIGN(ddata->dac_fifo_buffer_bytes))
+          return -EINVAL;
+     return 0;
+}
+/* End DAC buffer helpers. */
+
 
 address_type is_valid_addr(struct apci_my_info *driver_data, int bar, u64 addr)
 {
@@ -494,11 +570,11 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
           break;
 
      case apci_write_buff_ioctl:
-          status = copy_from_user(&buff_pack, (buff_iopack *) arg, sizeof(buff_iopack));
-          if (status != 0) {
-               apci_error("access_ok failed\n");
+          if (copy_from_user(&buff_pack, (buff_iopack *)arg, sizeof(buff_pack)))
+               return -EFAULT;
+          status = apci_validate_dac_transfer(ddata, &buff_pack, true);
+          if (status)
                return status;
-          }
 
           apci_devel("write_buff_ioctl\n");
 
@@ -583,16 +659,11 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
           break;
 
      case apci_read_buff_ioctl:
-          status = copy_from_user(&buff_pack, (buff_iopack *)arg, sizeof(buff_iopack));
-          if (status != 0) {
+          if (copy_from_user(&buff_pack, (buff_iopack *)arg, sizeof(buff_pack)))
+               return -EFAULT;
+          status = apci_validate_dac_transfer(ddata, &buff_pack, false);
+          if (status)
                return status;
-          }
-
-          if (ddata->dac_fifo_buffer == NULL) {
-               return -ENOMEM;
-          }
-
-          // Ideally validate mmap_offset + length * sizeof(type) <= buffer_size here.
 
           switch (is_valid_addr(ddata, buff_pack.bar, buff_pack.bar_offset)) {
           case IO:
@@ -627,17 +698,7 @@ long  ioctl_apci(struct file *filp, unsigned int cmd, unsigned long arg)
      }
      case apci_set_dac_buff_size:
           apci_debug("Setting dac fifo size");
-          if (ddata->dac_fifo_buffer != NULL)
-          {
-               kfree(ddata->dac_fifo_buffer);
-               ddata->dac_fifo_buffer = NULL;
-          }
-
-          if (0 != arg)
-          {
-               ddata->dac_fifo_buffer = kmalloc(arg, GFP_KERNEL);
-          }
-          break;
+          return apci_resize_dac_buffer(ddata, arg);
     };
     return 0;
 }
@@ -661,6 +722,9 @@ int mmap_apci (struct file *filp, struct vm_area_struct *vma)
                     vma->vm_end - vma->vm_start);
                break;
      case 1: //buffer for buff_write ioctl (or string if you rename)
+          status = apci_validate_dac_mapping(ddata, vma->vm_end - vma->vm_start);
+          if (status)
+               return status;
           pfn_start = virt_to_phys(ddata->dac_fifo_buffer) >> PAGE_SHIFT;
           status = remap_pfn_range(vma,
                     vma->vm_start,

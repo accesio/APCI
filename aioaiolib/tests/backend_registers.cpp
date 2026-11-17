@@ -134,6 +134,9 @@ int apci_get_device_info(int fd, unsigned long index, unsigned int *id, unsigned
     *id = h.id;
     return 0;
 }
+int apci_read8(int, unsigned long, int, int, __u8 *) { assert(false); return -1; }
+int apci_read16(int, unsigned long, int, int, __u16 *) { assert(false); return -1; }
+int apci_write16(int, unsigned long, int, int, __u16) { assert(false); return -1; }
 int apci_read32(int fd, unsigned long index, int bar, int offset, __u32 *data) {
     assert(fd == 123 && index == 0);
     ++h.reads[{bar, offset}];
@@ -206,6 +209,10 @@ int apci_wait_for_irq(int fd, unsigned long index) {
     assert(fd == 123 && index == 0);
     if (h.wait_error) { errno = h.wait_error; return -1; }
     return 0;
+}
+int apci_dac_buffer_size(int, unsigned long) { assert(false); errno = ENOTSUP; return -1; }
+int apci_writebuf32(int, unsigned long, int, int, unsigned int, int) {
+    assert(false); errno = ENOTSUP; return -1;
 }
 int apci_cancel_irq(int fd, unsigned long index) {
     assert(fd == 123 && index == 0);

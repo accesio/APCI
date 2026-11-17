@@ -8,6 +8,11 @@
 namespace fake {
 // Controls and inspection for a deterministic, entirely in-memory device.
 void reset();
+struct RegisterOp { uint32_t width, offset, value; bool write; };
+std::vector<RegisterOp> register_operations();
+void fail_reset(int error);
+uint32_t reset_count();
+aioaio::Config last_immediate_config();
 void emit_slots(uint32_t count, uint32_t first_sample = 0);
 void emit_words(const std::vector<uint32_t> &words);
 void fail_ready(int error);

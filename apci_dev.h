@@ -443,6 +443,7 @@ struct apci_my_info {
      spinlock_t dma_data_lock;
 
      void *dac_fifo_buffer;
+     size_t dac_fifo_buffer_bytes; /* Requested usable bytes; allocation is page-rounded. */
 };
 
 int probe(struct pci_dev *dev, const struct pci_device_id *id);

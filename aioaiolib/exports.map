@@ -18,6 +18,10 @@ AIOAIO_1.0 {
         DAC_SetRangeAll;
         DAC_OutputV;
         DAC_OutputCounts;
+        DAC_GetWaveformCapabilities;
+        DAC_StartWaveform;
+        DAC_GetWaveformStatus;
+        DAC_StopWaveform;
         ADC_SetRange1;
         ADC_SetRangeAll;
         ADC_SetRate;

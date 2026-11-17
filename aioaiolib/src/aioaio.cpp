@@ -1,5 +1,6 @@
 #include "AIOAIO.h"
 #include "backend.hpp"
+#include "dac_waveform.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -22,6 +23,24 @@ using Clock = std::chrono::steady_clock;
 using namespace aioaio;
 constexpr uint32_t kDMASlots = 4;
 constexpr uint32_t kQueueSlots = 16;
+struct Board;
+// Callback code must never wait on a control mutex: another thread may hold
+// that mutex while joining this acquisition worker.
+thread_local Board *callback_context = nullptr;
+
+struct CallbackContext {
+    explicit CallbackContext(Board *board) { callback_context = board; }
+    ~CallbackContext() { callback_context = nullptr; }
+};
+
+double sample_volts(uint32_t word) {
+    static constexpr double scales[8] = {24.576/32768, 10.24/32768, 5.12/32768,
+        2.56/32768, 1.28/32768, .64/32768, 0, 20.48/32768};
+    const unsigned gain = (word >> 16) & 7;
+    const int32_t value = static_cast<int32_t>(word & 0xffffu) -
+        ((word & 0x8000u) ? 65536 : 0);
+    return gain == 6 ? std::numeric_limits<double>::quiet_NaN() : value * scales[gain];
+}
 
 uint64_t ns_since(Clock::time_point t) {
     return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now()-t).count());
@@ -36,6 +55,7 @@ template<class F> TWinErrCode checked(F &&f) noexcept {
 
 struct Board {
     std::unique_ptr<Backend> hw;
+    DacWaveform dac;
     Config config;
     double actual_rate = 10000;
     std::mutex control, data;
@@ -44,19 +64,29 @@ struct Board {
     std::atomic<bool> stopping{false};
     bool closed = false, worker_done = true;
     uint32_t rows = 1024;
+    uint32_t chunk_type = ctAuto, chunk_scalar = 0;
+    TCallbackType callback_type = ctNone;
+    TPointer callback = nullptr;
+    TBoardIndex index = biNone;
     std::vector<uint32_t> queue;
     size_t head = 0, count = 0;
     TADCAcquisitionStatus status{};
     Clock::time_point started{};
 
-    explicit Board(std::unique_ptr<Backend> h) : hw(std::move(h)) {
+    explicit Board(std::unique_ptr<Backend> h) : hw(std::move(h)), dac(*hw) {
         config.channels_per_adc = hw->model().channels_per_adc;
         config.range_codes.fill(7); // bipolar 10 V
         rows = std::min(rows, hw->model().max_fifo_rows);
         status.StructSize = sizeof(status);
         status.State = AIO_STATE_IDLE;
     }
-    ~Board() { stop(); }
+    ~Board() { stop_all(); }
+
+    int stop_all() noexcept {
+        int error = stop();
+        int dac_error = dac.stop();
+        return error ? error : dac_error;
+    }
 
     // control mutex must be held by callers; the destructor is exclusive.
     int stop() noexcept {
@@ -78,7 +108,7 @@ struct Board {
 
     bool running() {
         std::lock_guard<std::mutex> lock(data);
-        return !worker_done;
+        return !worker_done || dac.running();
     }
     int empty_result() const {
         switch (status.State) {
@@ -94,6 +124,16 @@ struct Board {
         bool complete = false;
         const size_t words = static_cast<size_t>(slot_rows) * hw->model().raw_words_per_row;
         try {
+            std::vector<uint32_t> callback_raw;
+            std::vector<uint16_t> callback_counts, callback_status, callback_timestamps;
+            std::vector<double> callback_volts;
+            if (callback_type != ctNone) callback_raw.reserve(words);
+            if (callback_type == ctCounts || callback_type == ctV) {
+                callback_counts.resize(words);
+                callback_status.resize(words);
+                callback_timestamps.assign(words, 0);
+                if (callback_type == ctV) callback_volts.resize(words);
+            }
             while (!stopping.load() && !complete) {
                 uint32_t first = 0, slots = 0, discarded = 0;
                 error = hw->ready(first, slots, discarded);
@@ -113,10 +153,14 @@ struct Board {
                     if (error) break;
                     continue;
                 }
+                // Application callbacks may be slow. Refresh ready/discarded
+                // state after each delivery instead of reusing a stale batch.
+                if (callback_type != ctNone) slots = std::min(slots, 1u);
                 uint32_t consumed = 0;
                 for (; consumed < slots && !complete && !stopping.load(); ++consumed) {
                     const uint32_t *raw = hw->slot((first + consumed) % kDMASlots);
                     if (!raw) { error = EFAULT; break; }
+                    callback_raw.clear();
                     {
                         std::lock_guard<std::mutex> lock(data);
                         ++status.DMACompletions;
@@ -125,18 +169,51 @@ struct Board {
                             // Native FPGA marks invalid FIFO words with bit 31.
                             // Keep each valid conversion/status word in wire order.
                             if (raw[i] & 0x80000000u) continue;
-                            if (count == queue.size()) { error = ENOBUFS; break; }
-                            queue[(head + count) % queue.size()] = raw[i];
-                            ++count;
+                            if (callback_type == ctNone) {
+                                if (count == queue.size()) { error = ENOBUFS; break; }
+                                queue[(head + count) % queue.size()] = raw[i];
+                                ++count;
+                            } else callback_raw.push_back(raw[i]);
                             ++status.CapturedSamples;
                             if (!status.FirstDataNanoseconds) status.FirstDataNanoseconds = ns_since(started);
                             if (target && status.CapturedSamples == target) { complete = true; break; }
                         }
                     }
+                    // The callback owns a copy, so release this DMA slot before
+                    // calling application code, which may take arbitrary time.
+                    if (callback_type != ctNone) {
+                        const int ack_error = hw->acknowledge(1);
+                        if (!error) error = ack_error;
+                    }
                     changed.notify_all();
                     if (error) { ++consumed; break; }
+                    if (!callback_raw.empty() && !stopping.load()) {
+                        const auto n = static_cast<uint32_t>(callback_raw.size());
+                        if (callback_type != ctRaw) {
+                            for (uint32_t i = 0; i < n; ++i) {
+                                const auto word = callback_raw[i];
+                                callback_counts[i] = static_cast<uint16_t>(word);
+                                callback_status[i] = static_cast<uint16_t>(word >> 16);
+                                callback_timestamps[i] = 0;
+                                if (callback_type == ctV) callback_volts[i] = sample_volts(word);
+                            }
+                        }
+                        {
+                            CallbackContext context(this);
+                            if (callback_type == ctRaw)
+                                reinterpret_cast<TADCCallbackRaw>(callback)(index, n, callback_raw.data());
+                            else if (callback_type == ctCounts)
+                                reinterpret_cast<TADCCallbackCounts>(callback)(index, n, callback_counts.data(),
+                                    callback_status.data(), callback_timestamps.data());
+                            else
+                                reinterpret_cast<TADCCallbackV>(callback)(index, n, callback_volts.data(),
+                                    callback_status.data(), callback_timestamps.data());
+                        }
+                        std::lock_guard<std::mutex> lock(data);
+                        status.DeliveredSamples += n;
+                    }
                 }
-                if (consumed) {
+                if (callback_type == ctNone && consumed) {
                     const int ack_error = hw->acknowledge(consumed);
                     if (!error) error = ack_error;
                 }
@@ -151,7 +228,7 @@ struct Board {
         {
             std::lock_guard<std::mutex> lock(data);
             status.ErrorCode = error;
-            status.State = error ? AIO_STATE_FAILED : (complete ? AIO_STATE_COMPLETE : AIO_STATE_CANCELLED);
+            status.State = error ? AIO_STATE_FAILED : (complete && !stopping.load() ? AIO_STATE_COMPLETE : AIO_STATE_CANCELLED);
             status.ElapsedNanoseconds = ns_since(started);
             worker_done = true;
         }
@@ -163,7 +240,7 @@ struct Registry {
     std::mutex mutex;
     std::vector<std::shared_ptr<Board>> boards;
     ~Registry() {
-        for (auto &b : boards) if (b) { std::lock_guard<std::mutex> lock(b->control); b->stop(); }
+        for (auto &b : boards) if (b) { std::lock_guard<std::mutex> lock(b->control); b->stop_all(); }
     }
 } registry;
 
@@ -174,6 +251,7 @@ std::shared_ptr<Board> get(TBoardIndex index) {
 }
 
 template<class F> int configure(TBoardIndex index, F &&change) {
+    if (callback_context) return EDEADLK;
     auto b = get(index);
     if (!b) return ENODEV;
     std::lock_guard<std::mutex> lock(b->control);
@@ -203,6 +281,7 @@ int range_code(uint32_t range, uint32_t &out) {
 }
 
 int begin(TBoardIndex index, uint64_t samples) {
+    if (callback_context) return EDEADLK;
     auto b = get(index);
     if (!b) return ENODEV;
     std::lock_guard<std::mutex> lock(b->control);
@@ -215,13 +294,23 @@ int begin(TBoardIndex index, uint64_t samples) {
     if (b->worker.joinable()) b->worker.join();
     const uint32_t row_words = b->hw->model().raw_words_per_row;
     if (!row_words || !b->rows) return EPROTO;
-    uint32_t rows = b->rows;
-    if (samples) rows = static_cast<uint32_t>(std::min<uint64_t>(rows, (samples+row_words-1)/row_words));
-    b->queue.assign(std::max<size_t>(8192, static_cast<size_t>(rows)*row_words*kQueueSlots), 0);
     double actual = 0;
     int error = b->hw->configure(b->config, actual);
     if (error) return error;
     b->actual_rate = actual;
+    uint32_t rows = b->rows;
+    if (b->chunk_type == ctRate) {
+        // The requested rate counts deliveries per second. Round up to whole
+        // FIFO rows; recompute at acquisition start after the ADC rate changes.
+        const double requested = std::ceil(actual * b->hw->model().adc_count /
+            (static_cast<double>(b->chunk_scalar) * row_words));
+        if (!std::isfinite(requested) || requested > b->hw->model().max_fifo_rows) return ERANGE;
+        rows = static_cast<uint32_t>(std::max(1.0, requested));
+    }
+    if (samples) rows = static_cast<uint32_t>(std::min<uint64_t>(rows, (samples + row_words - 1) / row_words));
+    if (b->callback_type == ctNone)
+        b->queue.assign(std::max<size_t>(8192, static_cast<size_t>(rows) * row_words * kQueueSlots), 0);
+    else b->queue.clear();
     error = b->hw->prepare_dma(kDMASlots, rows);
     if (error) return error;
     {
@@ -271,33 +360,101 @@ int read_data(TBoardIndex index, uint32_t capacity, uint32_t *got,
     auto b=get(index);
     if (!b) return ENODEV;
     std::lock_guard<std::mutex> lock(b->data);
+    if (b->callback_type != ctNone) return EBUSY;
     if (!capacity) return 0;
     if (!b->count) return b->empty_result();
     const size_t n=std::min<size_t>(capacity,b->count);
-    // ADAS3022 range spans include the documented 2.4% overrange margin.
-    static constexpr double scales[8]={24.576/32768,10.24/32768,5.12/32768,2.56/32768,1.28/32768,.64/32768,0,20.48/32768};
     for (size_t i=0;i<n;++i) {
         const uint32_t word=b->queue[(b->head+i)%b->queue.size()];
         if (raw) raw[i]=word;
         if (counts) counts[i]=static_cast<uint16_t>(word);
         if (status) status[i]=static_cast<uint16_t>(word>>16);
         if (timestamps) timestamps[i]=0; // no hardware timestamp in this format
-        if (volts) {
-            const unsigned gain=(word>>16)&7;
-            const int32_t signed_count=static_cast<int32_t>(word&0xffffu)-((word&0x8000u)?65536:0);
-            volts[i]=gain==6 ? std::numeric_limits<double>::quiet_NaN() : signed_count*scales[gain];
-        }
+        if (volts) volts[i] = sample_volts(word);
     }
     b->head=(b->head+n)%b->queue.size(); b->count-=n;
     b->status.DeliveredSamples+=n;
     *got=static_cast<uint32_t>(n);
     return 0;
 }
+
+template<class F> int idle_board(TBoardIndex index, F &&action) {
+    if (callback_context) return EDEADLK;
+    auto b = get(index); if (!b) return ENODEV;
+    std::lock_guard<std::mutex> lock(b->control);
+    if (b->closed) return ENODEV;
+    if (b->running()) return EBUSY;
+    return action(*b);
+}
+
+int immediate(TBoardIndex index, TChannelIndex channel, TRangeCode range,
+              uint32_t *raw, double *volts) {
+    return idle_board(index, [&](Board &board) -> int {
+        const auto &model = board.hw->model();
+        const uint32_t per_adc = model.channels_per_adc / (board.config.differential ? 2 : 1);
+        const uint32_t channels = model.adc_count * model.channels_per_adc;
+        if (!per_adc || channels > 16) return EPROTO;
+        if (channel != ciAll && (channel >= channels || channel % model.channels_per_adc >= per_adc))
+            return EINVAL;
+        const uint32_t output_count = channel == ciAll ? channels : 1;
+        if (raw) std::fill(raw, raw + output_count, 0x80000000u);
+        if (volts) std::fill(volts, volts + output_count, std::numeric_limits<double>::quiet_NaN());
+        Config config = board.config;
+        if (range != rcNoChange) {
+            uint32_t code = 0;
+            const int error = range_code(range, code);
+            if (error) return error;
+            config.range_codes.fill(code);
+        }
+        std::array<uint32_t, 16> words{};
+        uint32_t got = 0;
+        const int error = board.hw->immediate_scan(config, words.data(), got);
+        if (error) return error;
+        if (got != per_adc * model.adc_count) return EPROTO;
+        for (uint32_t i = 0; i < got; ++i) {
+            const uint32_t logical = (i / per_adc) * model.channels_per_adc + i % per_adc;
+            if (channel != ciAll && logical != channel) continue;
+            const uint32_t target = channel == ciAll ? logical : 0;
+            if (raw) raw[target] = words[i];
+            if (volts) volts[target] = sample_volts(words[i]);
+        }
+        return 0;
+    });
+}
+
+template<class T> T pio_scalar(TBoardIndex index, uint32_t offset) {
+    uint32_t value = 0;
+    const auto error = checked([&] {
+        return idle_board(index, [&](Board &b) { return b.hw->read_register(sizeof(T), offset, value); });
+    });
+    errno = static_cast<int>(error);
+    return error ? 0 : static_cast<T>(value);
+}
+
+TWinErrCode pio_write(TBoardIndex index, uint32_t width, uint32_t offset, uint32_t value) {
+    return checked([&] {
+        return idle_board(index, [&](Board &b) { return b.hw->write_register(width, offset, value); });
+    });
+}
+
+TWinErrCode pio_block(TBoardIndex index, uint32_t width, uint32_t offset,
+                     uint32_t count, void *values, bool output) {
+    return checked([&]() -> int {
+        if (count && !values) return EINVAL;
+        if (count > std::numeric_limits<size_t>::max() / width) return EOVERFLOW;
+        return idle_board(index, [&](Board &b) {
+            return output ? b.hw->write_register_block(width, offset, count, values) :
+                b.hw->read_register_block(width, offset, count, values);
+        });
+    });
+}
+
 }
 
 extern "C" {
 TWinErrCode BRD_Open(const char *path, TBoardIndex *out) {
     return checked([&]() -> int {
+        if (callback_context) return EDEADLK;
         if (!path || !*path || !out) return EINVAL;
         *out=biNone;
         std::lock_guard<std::mutex> lock(registry.mutex);
@@ -308,6 +465,7 @@ TWinErrCode BRD_Open(const char *path, TBoardIndex *out) {
         if (!backend) return EIO;
         auto b=std::make_shared<Board>(std::move(backend));
         const auto index=registry.boards.size();
+        b->index = index;
         registry.boards.push_back(std::move(b));
         *out=index;
         return 0;
@@ -315,6 +473,7 @@ TWinErrCode BRD_Open(const char *path, TBoardIndex *out) {
 }
 TWinErrCode AIO_Initialize(void) {
     return checked([]() -> int {
+        if (callback_context) return EDEADLK;
         DIR *dir=opendir("/dev/apci");
         if (!dir) return errno;
         std::vector<std::string> paths;
@@ -328,19 +487,21 @@ TWinErrCode AIO_Initialize(void) {
 }
 TWinErrCode BRD_Close(TBoardIndex index) {
     return checked([&]() -> int {
+        if (callback_context) return EDEADLK;
         auto b=get(index); if (!b) return ENODEV;
         int error;
-        { std::lock_guard<std::mutex> lock(b->control); b->closed=true; error=b->stop(); }
+        { std::lock_guard<std::mutex> lock(b->control); b->closed=true; error=b->stop_all(); }
         { std::lock_guard<std::mutex> lock(registry.mutex); if (index<registry.boards.size() && registry.boards[index]==b) registry.boards[index].reset(); }
         return error;
     });
 }
 TWinErrCode AIO_Shutdown(void) {
     return checked([]() -> int {
+        if (callback_context) return EDEADLK;
         std::vector<std::shared_ptr<Board>> old;
         { std::lock_guard<std::mutex> lock(registry.mutex); old.swap(registry.boards); }
         int error=0;
-        for (auto &b:old) if(b) { std::lock_guard<std::mutex> lock(b->control); b->closed=true; int e=b->stop(); if(!error) error=e; }
+        for (auto &b:old) if(b) { std::lock_guard<std::mutex> lock(b->control); b->closed=true; int e=b->stop_all(); if(!error) error=e; }
         return error;
     });
 }
@@ -353,10 +514,12 @@ TBoardIndex BRD_GetHighestBoardIndex(void) {
 TWinErrCode BRD_GetCapabilities(TBoardIndex index,TBoardCapabilities *caps) {
     return checked([&]() -> int {
         // Preserve the original capability structure for existing libaioaio.so.1
-        // callers; never write the appended rate field beyond their buffer.
+        // callers; never write appended fields beyond their buffer.
         constexpr size_t original_size = offsetof(TBoardCapabilities, MaxADCRateHz);
         if(!caps || caps->StructSize<original_size) return EINVAL;
-        const size_t output_size = caps->StructSize >= sizeof(*caps) ? sizeof(*caps) : original_size;
+        constexpr size_t rate_size = offsetof(TBoardCapabilities, DACCount);
+        const size_t output_size = caps->StructSize >= sizeof(*caps) ? sizeof(*caps) :
+            caps->StructSize >= rate_size ? rate_size : original_size;
         auto b=get(index); if(!b) return ENODEV;
         const auto &m=b->hw->model(); TBoardCapabilities result{};
         result.StructSize=static_cast<uint32_t>(output_size);
@@ -364,6 +527,7 @@ TWinErrCode BRD_GetCapabilities(TBoardIndex index,TBoardCapabilities *caps) {
         result.MaxChannels=m.adc_count*m.channels_per_adc; result.ResolutionBits=m.resolution_bits;
         result.FIFORowBytes=m.raw_words_per_row*4; result.DMAAvailable=1;
         result.MaxADCRateHz=m.max_adc_rate_hz;
+        result.DACCount=m.dac_count; result.DACResolutionBits=m.dac_count ? 16 : 0;
         std::snprintf(result.DevicePath,sizeof(result.DevicePath),"%s",b->hw->path().c_str());
         std::snprintf(result.Name,sizeof(result.Name),"%s",m.name);
         std::memcpy(caps,&result,output_size); return 0;
@@ -386,7 +550,7 @@ TWinErrCode ADC_SetRate(TBoardIndex b,TDouble hz) {
     }); });
 }
 TWinErrCode ADC_GetRate(TBoardIndex index,TPDouble hz) {
-    return checked([&]() -> int { if(!hz)return EINVAL; auto b=get(index); if(!b)return ENODEV; std::lock_guard<std::mutex> lock(b->control); if(b->closed)return ENODEV; if(!b->running()){double actual; int e=b->hw->configure(b->config,actual); if(e)return e; b->actual_rate=actual;} *hz=b->actual_rate; return 0; });
+    return checked([&]() -> int { if(callback_context)return EDEADLK; if(!hz)return EINVAL; auto b=get(index); if(!b)return ENODEV; std::lock_guard<std::mutex> lock(b->control); if(b->closed)return ENODEV; if(!b->running()){double actual; int e=b->hw->configure(b->config,actual); if(e)return e; b->actual_rate=actual;} *hz=b->actual_rate; return 0; });
 }
 TWinErrCode ADC_SetChannelCount(TBoardIndex b,TChannelIndex n) { return checked([&]{ return configure(b,[&](Config &c,const Model &m) { uint32_t max=m.channels_per_adc/(c.differential?2:1); uint32_t total=n==ciAll?max*m.adc_count:n; if(!total||total>max*m.adc_count||total%m.adc_count)return EINVAL; c.channels_per_adc=total/m.adc_count; return 0; }); }); }
 TWinErrCode ADC_SetDifferential(TBoardIndex b,TLongBool diff) { return checked([&]{ return configure(b,[&](Config &c,const Model &m) { c.differential=diff!=0; c.channels_per_adc=m.channels_per_adc/(c.differential?2:1); return 0; }); }); }
@@ -396,48 +560,250 @@ TWinErrCode ADC_SetRange1(TBoardIndex b,TChannelIndex channel,TRangeCode range) 
 TWinErrCode ADC_SetRangeAll(TBoardIndex b,TUInt32 n,TPRangeCode ranges) {
     return checked([&]{ return configure(b,[&](Config &c,const Model &m) { if(!ranges||!n||n>m.adc_count*m.channels_per_adc)return EINVAL; for(uint32_t i=0;i<m.adc_count*m.channels_per_adc;++i){uint32_t r=ranges[std::min(i,n-1)],code;if(r==rcNoChange)continue;int e=range_code(r,code);if(e)return e;c.range_codes[i]=code;} return 0; }); });
 }
-TWinErrCode ADC_ConfigureAcquire(TBoardIndex index,TChunkingType type,TUInt32 chunk) {
-    return checked([&]() -> int {auto b=get(index);if(!b)return ENODEV;std::lock_guard<std::mutex> lock(b->control);if(b->closed)return ENODEV;if(b->running())return EBUSY;uint64_t rows;if(type==ctAuto){if(chunk)return EINVAL;rows=1024;}else if(type==ctSize){if(!chunk)return EINVAL;rows=(static_cast<uint64_t>(chunk)+b->hw->model().raw_words_per_row-1)/b->hw->model().raw_words_per_row;}else return ENOTSUP;if(rows>b->hw->model().max_fifo_rows)return EINVAL;b->rows=static_cast<uint32_t>(rows);return 0;});
+TWinErrCode ADC_ConfigureAcquire(TBoardIndex index, TChunkingType type, TUInt32 chunk) {
+    return checked([&]() -> int {
+        if (callback_context) return EDEADLK;
+        auto b = get(index); if (!b) return ENODEV;
+        std::lock_guard<std::mutex> lock(b->control);
+        if (b->closed) return ENODEV;
+        if (b->running()) return EBUSY;
+        uint64_t rows = 0;
+        const auto &model = b->hw->model();
+        if (type == ctAuto) {
+            if (chunk) return EINVAL;
+            rows = std::min(1024u, model.max_fifo_rows);
+        } else if (type == ctSize) {
+            if (!chunk) return EINVAL;
+            rows = (static_cast<uint64_t>(chunk) + model.raw_words_per_row - 1) / model.raw_words_per_row;
+        } else if (type == ctRate) {
+            if (!chunk) return EINVAL;
+            const double requested = std::ceil(b->actual_rate * model.adc_count /
+                (static_cast<double>(chunk) * model.raw_words_per_row));
+            if (!std::isfinite(requested) || requested > model.max_fifo_rows) return ERANGE;
+            rows = static_cast<uint64_t>(std::max(1.0, requested));
+        } else return EINVAL;
+        if (!rows || rows > model.max_fifo_rows) return EINVAL;
+        b->rows = static_cast<uint32_t>(rows);
+        b->chunk_type = type;
+        b->chunk_scalar = chunk;
+        return 0;
+    });
 }
 TWinErrCode ADC_AcquireBlock(TBoardIndex b,TUNative n) {return checked([&]{return n?begin(b,n):EINVAL;});}
 TWinErrCode ADC_AcquireStream(TBoardIndex b) {return checked([&]{return begin(b,0);});}
-TWinErrCode ADC_AcquireEnd(TBoardIndex index) {return checked([&]() -> int {auto b=get(index);if(!b)return ENODEV;std::lock_guard<std::mutex> lock(b->control);return b->stop();});}
+TWinErrCode ADC_AcquireEnd(TBoardIndex index) {
+    return checked([&]() -> int {
+        auto b = get(index); if (!b) return ENODEV;
+        if (callback_context) {
+            if (callback_context != b.get()) return EDEADLK;
+            b->stopping.store(true); // The worker stops after this callback returns.
+            return 0;
+        }
+        std::lock_guard<std::mutex> lock(b->control);
+        if (b->closed) return ENODEV;
+        return b->stop();
+    });
+}
 TWinErrCode ADC_GetAcquisitionStatus(TBoardIndex index,TADCAcquisitionStatus *out) {
     return checked([&]() -> int {if(!out||out->StructSize<sizeof(*out))return EINVAL;auto b=get(index);if(!b)return ENODEV;std::lock_guard<std::mutex> lock(b->data);*out=b->status;out->QueuedSamples=b->count;if(!b->worker_done)out->ElapsedNanoseconds=ns_since(b->started);return 0;});
 }
-TWinErrCode ADC_WaitData(TBoardIndex index,TUInt32 ms) {
-    return checked([&]() -> int {auto b=get(index);if(!b)return ENODEV;std::unique_lock<std::mutex> lock(b->data);if(!b->changed.wait_for(lock,std::chrono::milliseconds(ms),[&]{return b->count||b->worker_done;}))return ETIMEDOUT;return b->count?0:b->empty_result();});
+TWinErrCode ADC_WaitData(TBoardIndex index, TUInt32 ms) {
+    return checked([&]() -> int {
+        auto b = get(index); if (!b) return ENODEV;
+        std::unique_lock<std::mutex> lock(b->data);
+        if (b->callback_type != ctNone) return EBUSY;
+        if (callback_context) return EDEADLK;
+        if (!b->changed.wait_for(lock, std::chrono::milliseconds(ms),
+                [&]{ return b->count || b->worker_done; })) return ETIMEDOUT;
+        return b->count ? 0 : b->empty_result();
+    });
 }
-TWinErrCode ADC_PollData(TBoardIndex index) {return checked([&]() -> int {auto b=get(index);if(!b)return ENODEV;std::lock_guard<std::mutex> lock(b->data);return b->count?0:b->empty_result();});}
-TWinErrCode ADC_ClearData(TBoardIndex index) {return checked([&]() -> int {auto b=get(index);if(!b)return ENODEV;std::lock_guard<std::mutex> lock(b->control);std::lock_guard<std::mutex> qlock(b->data);if(!b->worker_done)return EBUSY;b->head=b->count=0;return 0;});}
+TWinErrCode ADC_PollData(TBoardIndex index) {
+    return checked([&]() -> int {
+        auto b = get(index); if (!b) return ENODEV;
+        std::lock_guard<std::mutex> lock(b->data);
+        if (b->callback_type != ctNone) return EBUSY;
+        return b->count ? 0 : b->empty_result();
+    });
+}
+TWinErrCode ADC_ClearData(TBoardIndex index) {return checked([&]() -> int {if(callback_context)return EDEADLK;auto b=get(index);if(!b)return ENODEV;std::lock_guard<std::mutex> lock(b->control);if(b->closed)return ENODEV;std::lock_guard<std::mutex> qlock(b->data);if(!b->worker_done)return EBUSY;b->head=b->count=0;return 0;});}
 TWinErrCode ADC_GetDataRaw(TBoardIndex b,TUInt32 n,TPUInt32 got,TPUInt32 raw) {return checked([&]{return read_data(b,n,got,raw,nullptr,nullptr,nullptr,nullptr);});}
 TWinErrCode ADC_GetDataCounts(TBoardIndex b,TUInt32 n,TPUInt32 got,TPUInt16 counts,TPUInt16 status,TPUInt16 ts) {return checked([&]{return read_data(b,n,got,nullptr,counts,nullptr,status,ts);});}
 TWinErrCode ADC_GetDataV(TBoardIndex b,TUInt32 n,TPUInt32 got,TPDouble volts,TPUInt16 status,TPUInt16 ts) {return checked([&]{return read_data(b,n,got,nullptr,nullptr,volts,status,ts);});}
 
-// Deliberately explicit unsupported operations in this acquisition milestone.
-TWinErrCode BRD_Reset(TBoardIndex) {return ENOTSUP;}
+TWinErrCode BRD_Reset(TBoardIndex index) {
+    return checked([&]() -> int {
+        if (callback_context) return EDEADLK;
+        auto b = get(index); if (!b) return ENODEV;
+        std::lock_guard<std::mutex> lock(b->control);
+        if (b->closed) return ENODEV;
+        // A hardware reset is a recovery operation: an earlier acquisition
+        // failure does not prevent it. Both workers have joined before reset.
+        (void)b->stop_all();
+        const int error = static_cast<int>(checked([&]{ return b->hw->reset_board(); }));
+        if (!error) {
+            b->dac.reset_status();
+            b->config = Config{};
+            b->config.channels_per_adc = b->hw->model().channels_per_adc;
+            b->config.range_codes.fill(7);
+            b->actual_rate = 10000;
+            b->rows = std::min(1024u, b->hw->model().max_fifo_rows);
+            b->chunk_type = ctAuto;
+            b->chunk_scalar = 0;
+        }
+        {
+            std::lock_guard<std::mutex> qlock(b->data);
+            b->head = b->count = 0;
+            b->queue.clear();
+            b->status = {};
+            b->status.StructSize = sizeof(b->status);
+            b->status.State = error ? AIO_STATE_FAILED : AIO_STATE_IDLE;
+            b->status.ErrorCode = error;
+        }
+        b->changed.notify_all();
+        return error;
+    });
+}
 TWinErrCode BRD_GetSerialNumber(TBoardIndex,TPSerialNumber p) {if(p)*p=0;return ENOTSUP;}
-TWinErrCode DAC_SetRange1(TBoardIndex,TChannelIndex,TRangeCode){return ENOTSUP;}
-TWinErrCode DAC_SetRangeAll(TBoardIndex,TUInt32,TPRangeCode){return ENOTSUP;}
-TWinErrCode DAC_OutputV(TBoardIndex,TChannelIndex,TDouble){return ENOTSUP;}
-TWinErrCode DAC_OutputCounts(TBoardIndex,TChannelIndex,TUInt64){return ENOTSUP;}
-TWinErrCode ADC_GetImmediateScanV(TBoardIndex,TPDouble,TRangeCode){return ENOTSUP;}
-TWinErrCode ADC_GetImmediateScanRaw(TBoardIndex,TPUInt32,TRangeCode){return ENOTSUP;}
-TWinErrCode ADC_GetImmediateV(TBoardIndex,TPDouble,TChannelIndex,TRangeCode){return ENOTSUP;}
-TWinErrCode ADC_GetImmediateRaw(TBoardIndex,TPUInt32,TChannelIndex,TRangeCode){return ENOTSUP;}
-TWinErrCode ADC_SetCallback(TBoardIndex,TCallbackType,TPointer){return ENOTSUP;}
-TUInt8 PIO_In8(TBoardIndex,TUInt32){errno=ENOTSUP;return 0;}
-TUInt16 PIO_In16(TBoardIndex,TUInt32){errno=ENOTSUP;return 0;}
-TUInt32 PIO_In32(TBoardIndex,TUInt32){errno=ENOTSUP;return 0;}
-TWinErrCode PIO_Out8(TBoardIndex,TUInt32,TUInt8){return ENOTSUP;}
-TWinErrCode PIO_Out16(TBoardIndex,TUInt32,TUInt16){return ENOTSUP;}
-TWinErrCode PIO_Out32(TBoardIndex,TUInt32,TUInt32){return ENOTSUP;}
-TWinErrCode PIO_INS8(TBoardIndex,TUInt32,TUInt32,TPUInt8){return ENOTSUP;}
-TWinErrCode PIO_INS16(TBoardIndex,TUInt32,TUInt32,TPUInt16){return ENOTSUP;}
-TWinErrCode PIO_INS32(TBoardIndex,TUInt32,TUInt32,TPUInt32){return ENOTSUP;}
-TWinErrCode PIO_OUTS8(TBoardIndex,TUInt32,TUInt32,TPUInt8){return ENOTSUP;}
-TWinErrCode PIO_OUTS16(TBoardIndex,TUInt32,TUInt32,TPUInt16){return ENOTSUP;}
-TWinErrCode PIO_OUTS32(TBoardIndex,TUInt32,TUInt32,TPUInt32){return ENOTSUP;}
+TWinErrCode DAC_GetWaveformCapabilities(TBoardIndex index, TDACWaveformCapabilities *caps) {
+    return checked([&]() -> int {
+        if (!caps || caps->StructSize < sizeof(*caps)) return EINVAL;
+        if (callback_context) return EDEADLK;
+        auto b = get(index); if (!b) return ENODEV;
+        std::lock_guard<std::mutex> lock(b->control);
+        if (b->closed) return ENODEV;
+        if (b->running()) return EBUSY;
+        DacCapabilities native{};
+        int error = b->hw->dac_capabilities(native);
+        if (error) return error;
+        *caps = {sizeof(*caps), native.channels, native.fifo_samples,
+                 native.firmware_revision, native.max_sample_rate};
+        return 0;
+    });
+}
+TWinErrCode DAC_StartWaveform(TBoardIndex index, TUInt32 channels, TUInt32 count,
+                            const TUInt16 *samples, TDouble rate, TUInt32 mode) {
+    return checked([&]() -> int {
+        if (callback_context) return EDEADLK;
+        auto b = get(index); if (!b) return ENODEV;
+        std::lock_guard<std::mutex> lock(b->control);
+        if (b->closed) return ENODEV;
+        if (b->running()) return EBUSY;
+        return b->dac.start(channels, count, samples, rate, mode);
+    });
+}
+TWinErrCode DAC_GetWaveformStatus(TBoardIndex index, TDACWaveformStatus *status) {
+    return checked([&]() -> int {
+        if (!status || status->StructSize < sizeof(*status)) return EINVAL;
+        if (callback_context) return EDEADLK;
+        auto b = get(index); if (!b) return ENODEV;
+        std::lock_guard<std::mutex> lock(b->control);
+        if (b->closed) return ENODEV;
+        *status = b->dac.status();
+        return 0;
+    });
+}
+TWinErrCode DAC_StopWaveform(TBoardIndex index) {
+    return checked([&]() -> int {
+        if (callback_context) return EDEADLK;
+        auto b = get(index); if (!b) return ENODEV;
+        std::lock_guard<std::mutex> lock(b->control);
+        if (b->closed) return ENODEV;
+        return b->dac.stop();
+    });
+}
+TWinErrCode DAC_SetRange1(TBoardIndex index, TChannelIndex channel, TRangeCode range) {
+    return checked([&]() -> int {
+        if (callback_context) return EDEADLK;
+        auto b = get(index); if (!b) return ENODEV;
+        std::lock_guard<std::mutex> lock(b->control);
+        if (b->closed) return ENODEV;
+        if (b->running()) return EBUSY;
+        return b->hw->dac_set_range(channel, range);
+    });
+}
+TWinErrCode DAC_SetRangeAll(TBoardIndex index, TUInt32 count, TPRangeCode ranges) {
+    return checked([&]() -> int {
+        if (callback_context) return EDEADLK;
+        auto b = get(index); if (!b) return ENODEV;
+        std::lock_guard<std::mutex> lock(b->control);
+        if (b->closed) return ENODEV;
+        if (b->running()) return EBUSY;
+        return b->hw->dac_set_ranges(count, ranges);
+    });
+}
+TWinErrCode DAC_OutputV(TBoardIndex index, TChannelIndex channel, TDouble value) {
+    return checked([&]() -> int {
+        if (callback_context) return EDEADLK;
+        auto b = get(index); if (!b) return ENODEV;
+        std::lock_guard<std::mutex> lock(b->control);
+        if (b->closed) return ENODEV;
+        if (b->running()) return EBUSY;
+        return b->hw->dac_output_value(channel, value);
+    });
+}
+TWinErrCode DAC_OutputCounts(TBoardIndex index, TChannelIndex channel, TUInt64 counts) {
+    return checked([&]() -> int {
+        if (callback_context) return EDEADLK;
+        auto b = get(index); if (!b) return ENODEV;
+        std::lock_guard<std::mutex> lock(b->control);
+        if (b->closed) return ENODEV;
+        if (b->running()) return EBUSY;
+        return b->hw->dac_output_counts(channel, counts);
+    });
+}
+TWinErrCode ADC_GetImmediateScanV(TBoardIndex index, TPDouble values, TRangeCode range) {
+    return checked([&]() -> int {
+        if (!values) return EINVAL;
+        return immediate(index, ciAll, range, nullptr, values);
+    });
+}
+TWinErrCode ADC_GetImmediateScanRaw(TBoardIndex index, TPUInt32 words, TRangeCode range) {
+    return checked([&]() -> int {
+        if (!words) return EINVAL;
+        return immediate(index, ciAll, range, words, nullptr);
+    });
+}
+TWinErrCode ADC_GetImmediateV(TBoardIndex index, TPDouble value, TChannelIndex channel, TRangeCode range) {
+    return checked([&]() -> int {
+        if (!value || channel == ciAll) return EINVAL;
+        return immediate(index, channel, range, nullptr, value);
+    });
+}
+TWinErrCode ADC_GetImmediateRaw(TBoardIndex index, TPUInt32 word, TChannelIndex channel, TRangeCode range) {
+    return checked([&]() -> int {
+        if (!word || channel == ciAll) return EINVAL;
+        return immediate(index, channel, range, word, nullptr);
+    });
+}
+TWinErrCode ADC_SetCallback(TBoardIndex index, TCallbackType type, TPointer callback) {
+    return checked([&]() -> int {
+        if (callback_context) return EDEADLK;
+        if (type != ctNone && type != ctRaw && type != ctCounts && type != ctV) return EINVAL;
+        if ((type == ctNone) != (callback == nullptr)) return EINVAL;
+        auto b = get(index); if (!b) return ENODEV;
+        std::lock_guard<std::mutex> lock(b->control);
+        if (b->closed) return ENODEV;
+        if (b->running()) return EBUSY;
+        std::lock_guard<std::mutex> qlock(b->data);
+        if (b->count) return EBUSY;
+        b->callback_type = type;
+        b->callback = callback;
+        return 0;
+    });
+}
+TUInt8 PIO_In8(TBoardIndex index, TUInt32 offset) { return pio_scalar<uint8_t>(index, offset); }
+TUInt16 PIO_In16(TBoardIndex index, TUInt32 offset) { return pio_scalar<uint16_t>(index, offset); }
+TUInt32 PIO_In32(TBoardIndex index, TUInt32 offset) { return pio_scalar<uint32_t>(index, offset); }
+TWinErrCode PIO_Out8(TBoardIndex index, TUInt32 offset, TUInt8 value) { return pio_write(index, 1, offset, value); }
+TWinErrCode PIO_Out16(TBoardIndex index, TUInt32 offset, TUInt16 value) { return pio_write(index, 2, offset, value); }
+TWinErrCode PIO_Out32(TBoardIndex index, TUInt32 offset, TUInt32 value) { return pio_write(index, 4, offset, value); }
+TWinErrCode PIO_INS8(TBoardIndex index, TUInt32 offset, TUInt32 count, TPUInt8 values) { return pio_block(index, 1, offset, count, values, false); }
+TWinErrCode PIO_INS16(TBoardIndex index, TUInt32 offset, TUInt32 count, TPUInt16 values) { return pio_block(index, 2, offset, count, values, false); }
+TWinErrCode PIO_INS32(TBoardIndex index, TUInt32 offset, TUInt32 count, TPUInt32 values) { return pio_block(index, 4, offset, count, values, false); }
+TWinErrCode PIO_OUTS8(TBoardIndex index, TUInt32 offset, TUInt32 count, TPUInt8 values) { return pio_block(index, 1, offset, count, values, true); }
+TWinErrCode PIO_OUTS16(TBoardIndex index, TUInt32 offset, TUInt32 count, TPUInt16 values) { return pio_block(index, 2, offset, count, values, true); }
+TWinErrCode PIO_OUTS32(TBoardIndex index, TUInt32 offset, TUInt32 count, TPUInt32 values) { return pio_block(index, 4, offset, count, values, true); }
 TWinErrCode PIO_WaitForIRQ(TBoardIndex,TIRQIndex){return ENOTSUP;}
 TWinErrCode PIO_PollForIRQ(TBoardIndex,TIRQIndex){return ENOTSUP;}
 TWinErrCode PIO_AbortIRQWait(TBoardIndex,TIRQIndex){return ENOTSUP;}

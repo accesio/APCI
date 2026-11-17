@@ -1,4 +1,6 @@
 .vscode
+tests/*
+apcilib/isp-fpga
 **/.csv
 .apci.ko.cmd
 .apci.mod.cmd
@@ -39,3 +41,5 @@ apcilib/mpcie_aio16_16f_dma
 apcilib/pcie-iiro-16
 samples.csv
 apcilib/samples.csv
+apcilib/daaidac
+apcilib/daaidac_current

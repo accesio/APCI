@@ -6,6 +6,8 @@
 #include <condition_variable>
 #include <deque>
 #include <mutex>
+#include <cstring>
+#include <map>
 #include <stdexcept>
 #include <vector>
 
@@ -15,7 +17,11 @@ const aioaio::Model slow_model{0x805e, "mPCIe-ADI12-8E", 1, 8, 12, 2, 2047, 1000
 struct State {
     std::mutex mutex;
     std::condition_variable cv;
-    aioaio::Config config;
+    aioaio::Config config, immediate_config;
+    std::map<uint32_t, uint32_t> registers;
+    std::vector<fake::RegisterOp> register_ops;
+    uint32_t resets = 0;
+    int reset_error = 0;
     std::vector<std::vector<uint32_t>> slots;
     std::deque<uint32_t> ready;
     uint32_t next_slot = 0;
@@ -45,6 +51,59 @@ public:
         std::lock_guard<std::mutex> lock(state.mutex);
         state.config = config;
         actual = config.rate_hz;
+        return 0;
+    }
+    int reset_board() override {
+        std::lock_guard<std::mutex> lock(state.mutex);
+        ++state.resets;
+        state.registers.clear();
+        state.ready.clear();
+        if (!state.reset_error) state.ready_error = 0;
+        return state.reset_error;
+    }
+    int read_register(uint32_t width, uint32_t offset, uint32_t &value) override {
+        std::lock_guard<std::mutex> lock(state.mutex);
+        if ((width != 1 && width != 2 && width != 4) || offset % width || offset > 0xff) return EINVAL;
+        value = state.registers[offset] & (width == 4 ? UINT32_MAX : (1u << (width * 8)) - 1);
+        state.register_ops.push_back({width, offset, value, false});
+        return 0;
+    }
+    int write_register(uint32_t width, uint32_t offset, uint32_t value) override {
+        std::lock_guard<std::mutex> lock(state.mutex);
+        if ((width != 1 && width != 2 && width != 4) || offset % width || offset > 0xff) return EINVAL;
+        state.registers[offset] = value;
+        state.register_ops.push_back({width, offset, value, true});
+        return 0;
+    }
+    int read_register_block(uint32_t width, uint32_t offset, uint32_t count, void *data) override {
+        for (uint32_t i = 0; i < count; ++i) {
+            uint32_t value = 0;
+            const int error = read_register(width, offset, value);
+            if (error) return error;
+            std::memcpy(static_cast<unsigned char *>(data) + i * width, &value, width);
+        }
+        return 0;
+    }
+    int write_register_block(uint32_t width, uint32_t offset, uint32_t count, const void *data) override {
+        for (uint32_t i = 0; i < count; ++i) {
+            uint32_t value = 0;
+            std::memcpy(&value, static_cast<const unsigned char *>(data) + i * width, width);
+            const int error = write_register(width, offset, value);
+            if (error) return error;
+        }
+        return 0;
+    }
+    int immediate_scan(const aioaio::Config &config, uint32_t *words, uint32_t &count) override {
+        std::lock_guard<std::mutex> lock(state.mutex);
+        state.immediate_config = config;
+        const uint32_t per_adc = config.differential ? 4 : 8;
+        count = per_adc * model_.adc_count;
+        for (uint32_t adc = 0; adc < model_.adc_count; ++adc)
+            for (uint32_t ch = 0; ch < per_adc; ++ch) {
+                const uint32_t physical = adc * 8 + ch * (config.differential ? 2 : 1);
+                words[adc * per_adc + ch] = (physical << 20) |
+                    (config.range_codes[physical] << 16) | (physical ? 0x4000u : 0x8000u);
+            }
         return 0;
     }
     int prepare_dma(uint32_t count, uint32_t rows) override {
@@ -135,8 +194,28 @@ void reset() {
     state.acknowledged = state.starts = state.stops = state.discarded = 0;
     state.cancels = state.ignored_cancels = 0;
     state.ready_error = 0;
+    state.reset_error = 0;
+    state.resets = 0;
+    state.registers.clear();
+    state.register_ops.clear();
     state.cancelled = false;
     state.throw_start = state.throw_stop = false;
+}
+std::vector<RegisterOp> register_operations() {
+    std::lock_guard<std::mutex> lock(state.mutex);
+    return state.register_ops;
+}
+void fail_reset(int error) {
+    std::lock_guard<std::mutex> lock(state.mutex);
+    state.reset_error = error;
+}
+uint32_t reset_count() {
+    std::lock_guard<std::mutex> lock(state.mutex);
+    return state.resets;
+}
+aioaio::Config last_immediate_config() {
+    std::lock_guard<std::mutex> lock(state.mutex);
+    return state.immediate_config;
 }
 uint32_t sample_word(uint32_t sample) {
     const uint32_t channel = (sample / 2) % 8 + (sample % 2) * 8;

@@ -58,6 +58,10 @@ typedef TUInt32 TRangeCode, *TPRangeCode;
 #define rcBipolar1_25 ((TRangeCode)(0xBC31E142))
 #define rcBipolar_625 ((TRangeCode)(0x3835E142))
 #define rcBipolar_3125 ((TRangeCode)(0x3331E142))
+/* AD5755 current ranges; DAC_OutputV takes milliamps for these ranges. */
+#define rcCurrent420 ((TRangeCode)(0x30323449))
+#define rcCurrent020 ((TRangeCode)(0x30323049))
+#define rcCurrent024 ((TRangeCode)(0x34323049))
 #define rcRangeCode0 ((TRangeCode)(0x0))
 #define rcRangeCode1 ((TRangeCode)(0x1))
 #define rcRangeCode2 ((TRangeCode)(0x2))
@@ -98,6 +102,10 @@ typedef struct {
     /* Per physical ADC, shared by its selected channels. Appended field:
      * check returned StructSize before using it with an older library. */
     TDouble MaxADCRateHz;
+    /* Immediate DAC capability, separate from timed waveform capability.
+     * Zero on ADC-only cards. Check StructSize before reading appended fields. */
+    TUInt32 DACCount;
+    TUInt32 DACResolutionBits;
 } TBoardCapabilities;
 
 #define AIO_STATE_IDLE 0u
@@ -122,6 +130,31 @@ typedef struct {
     TUInt64 FirstDataNanoseconds;
     TDouble ActualRateHz;
 } TADCAcquisitionStatus;
+
+/* Timed, repeating DAC output. Rates count points (one result per selected
+ * channel); the aggregate sample rate is PointRateHz * ChannelCount. */
+#define AIO_DAC_REFILL_POLL 0u
+#define AIO_DAC_REFILL_IRQ 1u
+typedef struct {
+    TUInt32 StructSize;
+    TUInt32 ChannelCount;
+    TUInt32 FIFOSamples;
+    TUInt32 FirmwareRevision;
+    TDouble MaxSampleRateHz;
+} TDACWaveformCapabilities;
+typedef struct {
+    TUInt32 StructSize;
+    TUInt32 State;
+    TUInt32 ErrorCode;
+    TUInt32 ChannelCount;
+    TUInt32 RefillMode;
+    TUInt32 FIFOSamples;
+    TUInt64 UploadedSamples;
+    TUInt64 Refills;
+    TUInt64 IRQWakeups;
+    TUInt64 ElapsedNanoseconds;
+    TDouble ActualPointRateHz;
+} TDACWaveformStatus;
 
 #ifdef __cplusplus
 extern "C" {
@@ -159,14 +192,57 @@ TWinErrCode ADC_WaitData(TBoardIndex iBoard, TUInt32 TimeoutMs);
 TBoardIndex BRD_GetHighestBoardIndex(void);
 TWinErrCode BRD_GetNameA(TBoardIndex iBoard, TUInt32 BufLen, TPAnsiChar pNameBuf AIOAIO_DEFAULT(NULL), TPUInt32 pNameLen AIOAIO_DEFAULT(NULL));
 TWinErrCode BRD_GetNameW(TBoardIndex iBoard, TUInt32 BufLen, TPWideChar pNameBuf AIOAIO_DEFAULT(NULL), TPUInt32 pNameLen AIOAIO_DEFAULT(NULL));
+/* Deprecated: no serial-number implementation is planned. Returns ENOTSUP
+ * and writes zero when pSN is nonnull; retained only for ABI compatibility. */
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((deprecated("Serial-number retrieval is unsupported; returns ENOTSUP")))
+#endif
 TWinErrCode BRD_GetSerialNumber(TBoardIndex iBoard, TPSerialNumber pSN);
 TWinErrCode BRD_GetDeviceID(TBoardIndex iBoard, TPUInt32 pDeviceID);
+/* Stop ADC/DAC workers and reset the board, clearing queued data and latched
+ * acquisition errors after a successful reset. Restores software ADC defaults
+ * and automatic chunk sizing; keeps callback registration. Hardware reset can
+ * change DAC and DIO outputs. Set DAC ranges again before DAC_OutputV. */
 TWinErrCode BRD_Reset(TBoardIndex iBoard);
 
+/* Immediate DAC output: ciAll addresses every output. SetRangeAll repeats
+ * its last supplied range to remaining outputs; zero count is a no-op and
+ * excess ranges are ignored. rcNoChange preserves that channel's range.
+ * Configure a range before DAC_OutputV; unknown ranges return ENODATA.
+ * Values are volts, or milliamps for AD5755 current ranges. Counts are 0..65535;
+ * OutputV rounds to nearest (ties to even) using 65536 counts per span. The
+ * physical lower endpoint is included; positive full scale and values rounding
+ * beyond 65535 return ERANGE. NaN/infinity and invalid ranges return EINVAL.
+ * Broadcast values/ranges are validated before the first output write. A
+ * hardware failure can leave a partially applied request; a failed range write
+ * makes the affected range unknown until successfully reconfigured.
+ * Active ADC acquisition or DAC waveform playback returns EBUSY. ADC-only
+ * boards return ENOTSUP. Immediate outputs persist across Close/Shutdown.
+ */
 TWinErrCode DAC_SetRange1(TBoardIndex iBoard, TChannelIndex Ch AIOAIO_DEFAULT(ciAll), TRangeCode Range AIOAIO_DEFAULT(rcBipolar10));
 TWinErrCode DAC_SetRangeAll(TBoardIndex iBoard, TUInt32 RangeCt, TPRangeCode pRange);
 TWinErrCode DAC_OutputV(TBoardIndex iBoard, TChannelIndex Ch, TDouble V);
 TWinErrCode DAC_OutputCounts(TBoardIndex iBoard, TChannelIndex Ch, TUInt64 Counts);
+
+/* FDS waveform support is queried separately from ADC capabilities. No DAC
+ * output is changed by the capability query. Unsupported boards return ENOTSUP.
+ * Start copies SampleCt interleaved 16-bit counts for channels 0..ChannelCount-1
+ * and repeats that waveform until Stop/Close/Shutdown. SampleCt must contain
+ * complete points. Output range is bipolar 10 V: 0=negative full scale,
+ * 32768=0 V, 65535=positive full scale minus one LSB. Start/Stop set all DAC
+ * outputs to zero volts. Starting an ADC capture while DAC playback is active,
+ * or vice versa, returns EBUSY (one APCI IRQ consumer per board).
+ * Status counters describe host FIFO uploads, not measured physical playback.
+ * In IRQ mode, status queries request an asynchronous FIFO health check so
+ * missed interrupts cannot indefinitely hide an underrun from a monitor.
+ * An underrun stops playback and reports EPIPE. Stop joins the refill worker;
+ * it also reports an earlier playback failure. No callbacks are invoked.
+ */
+TWinErrCode DAC_GetWaveformCapabilities(TBoardIndex iBoard, TDACWaveformCapabilities *pCaps);
+TWinErrCode DAC_StartWaveform(TBoardIndex iBoard, TUInt32 ChannelCount, TUInt32 SampleCt,
+                            const TUInt16 *pSamples, TDouble PointRateHz, TUInt32 RefillMode);
+TWinErrCode DAC_GetWaveformStatus(TBoardIndex iBoard, TDACWaveformStatus *pStatus);
+TWinErrCode DAC_StopWaveform(TBoardIndex iBoard);
 
 TWinErrCode ADC_SetRange1(TBoardIndex iBoard, TChannelIndex Ch AIOAIO_DEFAULT(ciAll), TRangeCode RangeCode AIOAIO_DEFAULT(rcBipolar10));
 TWinErrCode ADC_SetRangeAll(TBoardIndex iBoard, TUInt32 RangeCt, TPRangeCode pRangeCodes);
@@ -181,13 +257,27 @@ TWinErrCode ADC_SetRate(TBoardIndex iBoard, TDouble Hz);
 TWinErrCode ADC_GetRate(TBoardIndex iBoard, TPDouble pHz);
 TWinErrCode ADC_SetChannelCount(TBoardIndex iBoard, TChannelIndex ChCt AIOAIO_DEFAULT(ciAll));
 TWinErrCode ADC_SetDifferential(TBoardIndex iBoard, TLongBool bDifferential AIOAIO_DEFAULT(true));
+/* Immediate reads require idle ADC/DAC workers and do not consume queued DMA
+ * data. Scan buffers need MaxChannels elements, indexed by board channel:
+ * 0..7 on ADC0 and 8..15 on ADC1. In differential mode the active pair indices
+ * are 0..3 and 8..11; inactive slots contain 0x80000000 (raw) or NaN (volts).
+ * ADC_SetRange1/All retain physical-input range indexing: differential pair
+ * indices 0..3 use range entries 0,2,4,6 (and 8,10,12,14 for ADC1).
+ * Scans visit all inputs in the selected single-ended/differential mode,
+ * regardless of ADC_SetChannelCount. Single reads return the selected slot.
+ * Range overrides apply only to this call; rcNoChange uses configured ranges.
+ * Streaming DMA continues to use native simultaneous-pair order.
+ */
 TWinErrCode ADC_GetImmediateScanV(TBoardIndex iBoard, TPDouble pVData, TRangeCode Range AIOAIO_DEFAULT(rcNoChange));
 TWinErrCode ADC_GetImmediateScanRaw(TBoardIndex iBoard, TPUInt32 pRawData, TRangeCode Range AIOAIO_DEFAULT(rcNoChange));
 TWinErrCode ADC_GetImmediateV(TBoardIndex iBoard, TPDouble V, TChannelIndex Ch, TRangeCode Range AIOAIO_DEFAULT(rcNoChange));
 TWinErrCode ADC_GetImmediateRaw(TBoardIndex iBoard, TPUInt32 Data, TChannelIndex Ch, TRangeCode Range AIOAIO_DEFAULT(rcNoChange));
 
 /* ctAuto uses 1024 FIFO rows; ctSize sets the raw 32-bit word count per DMA
- * slot, rounded up to a complete FIFO row. ctRate is unsupported.
+ * slot, rounded up to a complete FIFO row. ctRate requests Chunk batches per
+ * second: ceil(actual_rate * ADCCount / (Chunk * raw_words_per_row)), with
+ * at least one row. A result exceeding FIFO capacity returns ERANGE. The
+ * rate-based size is recalculated at start after any ADC_SetRate changes.
  * Finite captures can shorten a slot to avoid a long wait for a tiny request.
  * SampleCt/DataCt count valid ADC results across the board, not scans or rows.
  * A finite capture returns exactly SampleCt results; final DMA padding is ignored.
@@ -196,7 +286,21 @@ TWinErrCode ADC_ConfigureAcquire(TBoardIndex iBoard, TChunkingType ChunkingType,
 TWinErrCode ADC_AcquireBlock(TBoardIndex iBoard, TUNative SampleCt);
 TWinErrCode ADC_AcquireStream(TBoardIndex iBoard);
 TWinErrCode ADC_AcquireEnd(TBoardIndex iBoard);
-/* Callback delivery is reserved for a later milestone (ENOTSUP). */
+/* Register while idle, with no queued data: ctRaw/ctCounts/ctV require a
+ * matching nonnull callback; ctNone with NULL unregisters it. Callback mode
+ * replaces queued delivery: GetData/WaitData/PollData return EBUSY while a
+ * callback is registered. Callbacks run on the acquisition worker with no
+ * library locks held. Arrays are borrowed until the callback returns; copy
+ * anything needed later. Counts/status/volts follow native DMA order and
+ * timestamps are zero. Slow callbacks can cause a reported DMA overflow.
+ * ADC_GetAcquisitionStatus and board name, device-ID and capability queries
+ * are allowed from a callback. Calling
+ * ADC_AcquireEnd on its own board requests a deferred stop and returns zero
+ * (terminal state CANCELLED, including when called from the final batch);
+ * other control/lifecycle calls return EDEADLK before taking locks. External
+ * stop/close/shutdown waits for any in-flight callback to finish. A C++
+ * exception escaping the callback ends acquisition with EIO.
+ */
 TWinErrCode ADC_SetCallback(TBoardIndex iBoard, TCallbackType CallbackType, TPointer pCallback AIOAIO_DEFAULT(NULL));
 TWinErrCode ADC_GetDataV(TBoardIndex iBoard, TUInt32 DataCt, TPUInt32 pGotDataCt, TPDouble pData AIOAIO_DEFAULT(NULL), TPUInt16 pStatus AIOAIO_DEFAULT(NULL), TPUInt16 pTimestamp AIOAIO_DEFAULT(NULL));
 TWinErrCode ADC_GetDataCounts(TBoardIndex iBoard, TUInt32 DataCt, TPUInt32 pGotDataCt, TPUInt16 pData AIOAIO_DEFAULT(NULL), TPUInt16 pStatus AIOAIO_DEFAULT(NULL), TPUInt16 pTimestamp AIOAIO_DEFAULT(NULL));
@@ -204,6 +308,20 @@ TWinErrCode ADC_GetDataRaw(TBoardIndex iBoard, TUInt32 DataCt, TPUInt32 pGotData
 TWinErrCode ADC_PollData(TBoardIndex iBoard);
 TWinErrCode ADC_ClearData(TBoardIndex iBoard);
 
+/* Raw register access uses byte offsets in logical BAR[1] (BAR_REGISTER),
+ * within its 4 KiB native register aperture. Use the width required by the
+ * hardware register map; native control registers generally require 32 bits.
+ * The library must be idle. Offsets must be aligned to the transfer width.
+ * Scalar reads return zero on failure and set errno; errno is zero on success.
+ * Writes and block operations return a positive errno on failure.
+ * INS/OUTS repeat at the SAME register offset (FIFO/port semantics), not at
+ * successive addresses. DataCt counts elements, not bytes. A failed block can
+ * have transferred a prefix; no count is returned, so do not blindly retry.
+ * Raw writes invalidate cached DAC ranges; configure a range again before
+ * DAC_OutputV. High-level ADC configuration is reapplied on the next capture.
+ * Enabling ADC-trigger/DMA-done IRQs at +0x40 requires a DMA ring previously
+ * prepared by this library; otherwise the raw write returns EBUSY.
+ */
 TUInt8 PIO_In8(TBoardIndex iBoard, TUInt32 Offset);
 TUInt16 PIO_In16(TBoardIndex iBoard, TUInt32 Offset);
 TUInt32 PIO_In32(TBoardIndex iBoard, TUInt32 Offset);
@@ -216,6 +334,7 @@ TWinErrCode PIO_INS32(TBoardIndex iBoard, TUInt32 Offset, TUInt32 DataCt, TPUInt
 TWinErrCode PIO_OUTS8(TBoardIndex iBoard, TUInt32 Offset, TUInt32 DataCt, TPUInt8 pData);
 TWinErrCode PIO_OUTS16(TBoardIndex iBoard, TUInt32 Offset, TUInt32 DataCt, TPUInt16 pData);
 TWinErrCode PIO_OUTS32(TBoardIndex iBoard, TUInt32 Offset, TUInt32 DataCt, TPUInt32 pData);
+/* Direct IRQ handling is not implemented; these three calls return ENOTSUP. */
 TWinErrCode PIO_WaitForIRQ(TBoardIndex iBoard, TIRQIndex IRQIndex AIOAIO_DEFAULT(iiOnly));
 TWinErrCode PIO_PollForIRQ(TBoardIndex iBoard, TIRQIndex IRQIndex AIOAIO_DEFAULT(iiOnly));
 TWinErrCode PIO_AbortIRQWait(TBoardIndex iBoard, TIRQIndex IRQIndex AIOAIO_DEFAULT(iiOnly));
@@ -300,5 +419,113 @@ inline TWinErrCode ADC_GetData(TBoardIndex iBoard, TUInt32 DataCt, TPUInt32 pGot
 	return ADC_GetDataRaw(iBoard, DataCt, pGotDataCt, pDataRaw);
 }
 #endif /* __cplusplus */
+
+/* C++ spelling shared with the Windows sequencer-free wrappers. */
+#ifdef __cplusplus
+namespace aioaio {
+using ::TUInt8;
+using ::TPUInt8;
+using ::TUInt16;
+using ::TPUInt16;
+using ::TUInt32;
+using ::TPUInt32;
+using ::TUInt64;
+using ::TPUInt64;
+using ::TUNative;
+using ::TPUNative;
+using ::TSingle;
+using ::TPSingle;
+using ::TDouble;
+using ::TPDouble;
+using ::TAnsiChar;
+using ::TPAnsiChar;
+using ::TWideChar;
+using ::TPWideChar;
+using ::TPointer;
+using ::TWinErrCode;
+using ::TPWinErrCode;
+using ::TSerialNumber;
+using ::TPSerialNumber;
+using ::TLongBool;
+using ::TBoardIndex;
+using ::TChannelIndex;
+using ::TRangeCode;
+using ::TPRangeCode;
+using ::TIRQIndex;
+using ::TChunkingType;
+using ::TCallbackType;
+using ::TADCCallbackRaw;
+using ::TADCCallbackCounts;
+using ::TADCCallbackV;
+using ::TBoardCapabilities;
+using ::TADCAcquisitionStatus;
+using ::TDACWaveformCapabilities;
+using ::TDACWaveformStatus;
+using ::AIO_Initialize;
+using ::AIO_Shutdown;
+using ::AIO_ErrorString;
+using ::BRD_Open;
+using ::BRD_Close;
+using ::BRD_GetCapabilities;
+using ::ADC_GetAcquisitionStatus;
+using ::ADC_WaitData;
+using ::BRD_GetHighestBoardIndex;
+using ::BRD_GetNameA;
+using ::BRD_GetNameW;
+using ::BRD_GetSerialNumber;
+using ::BRD_GetDeviceID;
+using ::BRD_Reset;
+using ::DAC_SetRange1;
+using ::DAC_SetRangeAll;
+using ::DAC_OutputV;
+using ::DAC_OutputCounts;
+using ::DAC_GetWaveformCapabilities;
+using ::DAC_StartWaveform;
+using ::DAC_GetWaveformStatus;
+using ::DAC_StopWaveform;
+using ::ADC_SetRange1;
+using ::ADC_SetRangeAll;
+using ::ADC_SetRate;
+using ::ADC_GetRate;
+using ::ADC_SetChannelCount;
+using ::ADC_SetDifferential;
+using ::ADC_GetImmediateScanV;
+using ::ADC_GetImmediateScanRaw;
+using ::ADC_GetImmediateV;
+using ::ADC_GetImmediateRaw;
+using ::ADC_ConfigureAcquire;
+using ::ADC_AcquireBlock;
+using ::ADC_AcquireStream;
+using ::ADC_AcquireEnd;
+using ::ADC_SetCallback;
+using ::ADC_GetDataV;
+using ::ADC_GetDataCounts;
+using ::ADC_GetDataRaw;
+using ::ADC_PollData;
+using ::ADC_ClearData;
+using ::PIO_In8;
+using ::PIO_In16;
+using ::PIO_In32;
+using ::PIO_Out8;
+using ::PIO_Out16;
+using ::PIO_Out32;
+using ::PIO_INS8;
+using ::PIO_INS16;
+using ::PIO_INS32;
+using ::PIO_OUTS8;
+using ::PIO_OUTS16;
+using ::PIO_OUTS32;
+using ::PIO_WaitForIRQ;
+using ::PIO_PollForIRQ;
+using ::PIO_AbortIRQWait;
+using ::BRD_GetName;
+using ::DAC_SetRange;
+using ::DAC_Output;
+using ::ADC_SetRange;
+using ::ADC_GetImmediateScan;
+using ::ADC_GetImmediate;
+using ::ADC_GetData;
+} // namespace aioaio
+#endif
 
 #endif /* AIOAIO_LINUX_H_INCLUDED */

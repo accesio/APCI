@@ -1,12 +1,16 @@
 #pragma once
+#include "dac_backend.hpp"
 
 #include <array>
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
 
 namespace aioaio {
+
+enum class DacChip { none, ltc2664, ad5755 };
 
 struct Model {
     uint32_t device_id;
@@ -17,6 +21,8 @@ struct Model {
     uint32_t raw_words_per_row;
     uint32_t max_fifo_rows;
     uint32_t max_adc_rate_hz; // Conversions/s per physical ADC, shared by its channels.
+    DacChip dac_chip = DacChip::none;
+    uint32_t dac_count = 0;
 };
 
 struct Config {
@@ -43,6 +49,32 @@ public:
     virtual const uint32_t *slot(uint32_t index) const noexcept = 0;
     virtual int wait_irq() = 0;
     virtual int cancel_irq() = 0;
+    // Exclusive, synchronous operations. Width is bytes (1, 2 or 4); block
+    // transfers repeatedly access one register, as INS/OUTS do on Windows.
+    virtual int reset_board() { return ENOTSUP; }
+    virtual int read_register(uint32_t, uint32_t, uint32_t &) { return ENOTSUP; }
+    virtual int write_register(uint32_t, uint32_t, uint32_t) { return ENOTSUP; }
+    virtual int read_register_block(uint32_t, uint32_t, uint32_t, void *) { return ENOTSUP; }
+    virtual int write_register_block(uint32_t, uint32_t, uint32_t, const void *) { return ENOTSUP; }
+    // Results are packed ADC-major, 8 single-ended or 4 differential pairs per
+    // ADC. Differential results represent physical inputs 0,2,4,6. The caller
+    // provides room for 16 words. Temporary settings do not change Config.
+    virtual int immediate_scan(const Config &, uint32_t *, uint32_t &) { return ENOTSUP; }
+    // Immediate DAC operations require exclusive backend ownership. The range
+    // cache lives with the register transport so waveform resets cannot leave
+    // stale conversion state. Values are volts, or mA in AD5755 current ranges.
+    virtual int dac_set_range(uint32_t, uint32_t) { return ENOTSUP; }
+    virtual int dac_set_ranges(uint32_t, const uint32_t *) { return ENOTSUP; }
+    virtual int dac_output_counts(uint32_t, uint64_t) { return ENOTSUP; }
+    virtual int dac_output_value(uint32_t, double) { return ENOTSUP; }
+    // Timed DAC playback shares this board's IRQ wait with ADC acquisition.
+    // Default implementations keep ADC-only backends unsupported.
+    virtual int dac_capabilities(DacCapabilities &) { return ENOTSUP; }
+    virtual int dac_prepare(uint32_t, double, bool, double &) { return ENOTSUP; }
+    virtual int dac_upload(const uint32_t *, uint32_t) { return ENOTSUP; }
+    virtual int dac_start() { return ENOTSUP; }
+    virtual int dac_state(uint32_t &, bool &) { return ENOTSUP; }
+    virtual int dac_stop() { return 0; }
 };
 
 const Model *find_model(uint32_t device_id) noexcept;
